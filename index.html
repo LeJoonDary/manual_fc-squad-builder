@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FC 스쿼드 빌더</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="app-header-inner">
+        <a class="brand" href="#squad-builder" aria-label="FC Squad Builder 홈">
+          <span class="brand-mark" aria-hidden="true">FC</span>
+          <span>FC Squad Builder</span>
+        </a>
+        <nav class="main-nav" aria-label="주요 메뉴" role="tablist">
+          <button class="nav-tab" type="button" role="tab" aria-selected="false" aria-controls="players-page" data-tab="players">Players</button>
+          <button class="nav-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="squad-builder-page" data-tab="squad-builder">Squad Builder</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section id="squad-builder-page" class="tab-page" role="tabpanel" aria-label="Squad Builder">
+        <header class="page-heading">
+        <div>
+          <p class="eyebrow">SQUAD BUILDER</p>
+          <h1>4-3-3 스쿼드</h1>
+        </div>
+        </header>
+
+        <p id="status" class="status" aria-live="polite">포지션 슬롯을 선택해 선수를 배치하세요.</p>
+
+        <section class="pitch" aria-label="4-3-3 포메이션">
+          <div class="formation-label">4-3-3</div>
+          <button class="slot forward left" data-position="LW" type="button"><span>LW</span></button>
+          <button class="slot forward center" data-position="ST" type="button"><span>ST</span></button>
+          <button class="slot forward right" data-position="RW" type="button"><span>RW</span></button>
+          <button class="slot midfield left" data-position="LCM" type="button"><span>LCM</span></button>
+          <button class="slot midfield center" data-position="CM" type="button"><span>CM</span></button>
+          <button class="slot midfield right" data-position="RCM" type="button"><span>RCM</span></button>
+          <button class="slot defense left" data-position="LB" type="button"><span>LB</span></button>
+          <button class="slot defense left-center" data-position="LCB" type="button"><span>LCB</span></button>
+          <button class="slot defense right-center" data-position="RCB" type="button"><span>RCB</span></button>
+          <button class="slot defense right" data-position="RB" type="button"><span>RB</span></button>
+          <button class="slot goalkeeper" data-position="GK" type="button"><span>GK</span></button>
+        </section>
+      </section>
+
+      <section id="players-page" class="tab-page players-page" role="tabpanel" aria-label="Players" hidden>
+        <header class="page-heading">
+          <p class="eyebrow">PLAYER DATABASE</p>
+          <h1>Players</h1>
+        </header>
+        <div class="players-layout">
+          <section class="players-results" aria-labelledby="players-results-title">
+            <div class="players-results-header">
+              <div>
+                <h2 id="players-results-title">Player Results</h2>
+                <p id="players-result-count" aria-live="polite">필터를 적용해 선수를 검색하세요.</p>
+              </div>
+              <label class="player-search">
+                <span class="sr-only">선수 이름 검색</span>
+                <span aria-hidden="true">⌕</span>
+                <input id="player-name-search" type="search" placeholder="Search players" autocomplete="off" />
+              </label>
+            </div>
+            <div id="players-grid" class="players-grid" aria-live="polite"></div>
+          </section>
+
+          <aside id="players-filters" class="players-filters" aria-label="선수 필터">
+            <div class="filters-header">
+              <div>
+                <p class="eyebrow">FILTERS</p>
+                <h2>Find Players</h2>
+              </div>
+              <div class="filters-actions">
+                <button id="clear-all-filters" class="clear-all-filters" type="button">Clear All</button>
+                <button id="filters-toggle" class="filters-toggle" type="button" aria-expanded="true" aria-controls="filters-content">접기</button>
+              </div>
+            </div>
+            <div id="filters-content" class="filters-content">
+              <section class="filter-accordion" data-filter-section="ovr">
+                <button class="filter-accordion-trigger" type="button" aria-expanded="true" aria-controls="ovr-filter-options" data-filter-accordion="ovr">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span>
+                  <span>Overall Rating</span>
+                </button>
+                <div id="ovr-filter-options" class="filter-accordion-content">
+                <div class="range-inputs">
+                  <label>Min OVR<input id="min-ovr" type="number" inputmode="numeric" min="0" max="99" placeholder="Min" /></label>
+                  <label>Max OVR<input id="max-ovr" type="number" inputmode="numeric" min="0" max="99" placeholder="Max" /></label>
+                </div>
+                </div>
+              </section>
+              <section class="filter-accordion" data-filter-section="positions">
+                <button class="filter-accordion-trigger" type="button" aria-expanded="true" aria-controls="positions-filter-options" data-filter-accordion="positions">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span>
+                  <span>Positions</span>
+                </button>
+                <div id="positions-filter-options" class="filter-accordion-content">
+                <p class="filter-label">Attackers</p>
+                <div class="position-filter-list">
+                  <button type="button" data-position-filter="LW">LW</button>
+                  <button type="button" data-position-filter="ST">ST</button>
+                  <button type="button" data-position-filter="RW">RW</button>
+                </div>
+                <p class="filter-label">Midfielders</p>
+                <div class="position-filter-list">
+                  <button type="button" data-position-filter="LM">LM</button>
+                  <button type="button" data-position-filter="CAM">CAM</button>
+                  <button type="button" data-position-filter="RM">RM</button>
+                  <button type="button" data-position-filter="CM">CM</button>
+                  <button type="button" data-position-filter="CDM">CDM</button>
+                </div>
+                <p class="filter-label">Defenders</p>
+                <div class="position-filter-list">
+                  <button type="button" data-position-filter="CB">CB</button>
+                  <button type="button" data-position-filter="RB">RB</button>
+                  <button type="button" data-position-filter="LB">LB</button>
+                  <button type="button" data-position-filter="GK">GK</button>
+                </div>
+                <div class="position-filter-toggles">
+                  <label class="filter-switch">
+                    <input id="only-primary-positions" type="checkbox" />
+                    <span class="filter-switch-control" aria-hidden="true"></span>
+                    <span>Only Primary Positions</span>
+                  </label>
+                  <label class="filter-switch">
+                    <input id="has-all-selected-positions" type="checkbox" />
+                    <span class="filter-switch-control" aria-hidden="true"></span>
+                    <span>Has All Selected Positions</span>
+                  </label>
+                </div>
+                </div>
+              </section>
+              <section class="filter-accordion" data-filter-section="sm-wf">
+                <button class="filter-accordion-trigger" type="button" aria-expanded="true" aria-controls="sm-wf-filter-options" data-filter-accordion="sm-wf">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span>
+                  <span>SM / WF</span>
+                </button>
+                <div id="sm-wf-filter-options" class="filter-accordion-content">
+                  <p class="filter-label">Skill Moves</p>
+                  <div class="rating-filter-list" aria-label="개인기 최소 별점">
+                    <button type="button" data-rating-filter="sm" data-rating-value="1">1</button>
+                    <button type="button" data-rating-filter="sm" data-rating-value="2">2</button>
+                    <button type="button" data-rating-filter="sm" data-rating-value="3">3</button>
+                    <button type="button" data-rating-filter="sm" data-rating-value="4">4</button>
+                    <button type="button" data-rating-filter="sm" data-rating-value="5">5</button>
+                  </div>
+                  <p class="filter-label">Weak Foot</p>
+                  <div class="rating-filter-list">
+                    <button type="button" data-rating-filter="wf" data-rating-value="1">1</button>
+                    <button type="button" data-rating-filter="wf" data-rating-value="2">2</button>
+                    <button type="button" data-rating-filter="wf" data-rating-value="3">3</button>
+                    <button type="button" data-rating-filter="wf" data-rating-value="4">4</button>
+                    <button type="button" data-rating-filter="wf" data-rating-value="5">5</button>
+                  </div>
+                  <p class="rating-filter-help">선택한 별점 이상</p>
+                </div>
+              </section>
+              <section class="filter-accordion" data-filter-section="playstyles">
+                <button class="filter-accordion-trigger" type="button" aria-expanded="true" aria-controls="playstyles-filter-options" data-filter-accordion="playstyles">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span>
+                  <span>PlayStyles</span>
+                </button>
+                <div id="playstyles-filter-options" class="filter-accordion-content">
+                  <div id="playstyle-filter-grid" class="playstyle-filter-grid" aria-label="플레이스타일 필터"></div>
+                  <label class="filter-switch playstyle-require-all">
+                    <input id="require-all-playstyles" type="checkbox" />
+                    <span class="filter-switch-control" aria-hidden="true"></span>
+                    <span>Require All Selected PlayStyles</span>
+                  </label>
+                  <div class="playstyle-count-inputs">
+                    <label>Min PlayStyles<input id="min-playstyles" type="number" inputmode="numeric" min="0" placeholder="Min" /></label>
+                    <label>Max PlayStyles<input id="max-playstyles" type="number" inputmode="numeric" min="0" placeholder="Max" /></label>
+                    <label>Min PlayStyles+<input id="min-playstyles-plus" type="number" inputmode="numeric" min="0" placeholder="Min" /></label>
+                    <label>Max PlayStyles+<input id="max-playstyles-plus" type="number" inputmode="numeric" min="0" placeholder="Max" /></label>
+                  </div>
+                </div>
+              </section>
+              <section class="filter-accordion is-closed" data-filter-section="roles">
+                <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="roles-filter-options" data-filter-accordion="roles">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span>
+                  <span>Roles</span>
+                </button>
+                <div id="roles-filter-options" class="filter-accordion-content">
+                  <div id="role-filter-list" class="role-filter-list" aria-label="역할 필터"></div>
+                  <label class="filter-switch role-require-all">
+                    <input id="has-all-selected-roles" type="checkbox" />
+                    <span class="filter-switch-control" aria-hidden="true"></span>
+                    <span>Has All Selected Roles</span>
+                  </label>
+                </div>
+              </section>
+              <section class="filter-accordion is-closed" data-filter-section="miscellaneous">
+                <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="miscellaneous-filter-options" data-filter-accordion="miscellaneous">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span>
+                  <span>Miscellaneous</span>
+                </button>
+                <div id="miscellaneous-filter-options" class="filter-accordion-content">
+                  <p class="filter-label">Accelerate Type</p>
+                  <div class="misc-button-list" aria-label="가속 타입 필터">
+                    <button type="button" data-misc-filter="accele" data-misc-value="Explosive">Explosive</button>
+                    <button type="button" data-misc-filter="accele" data-misc-value="Lengthy">Lengthy</button>
+                    <button type="button" data-misc-filter="accele" data-misc-value="Controlled">Controlled</button>
+                  </div>
+                  <p class="filter-label">Strong Foot</p>
+                  <div class="misc-button-list">
+                    <button type="button" data-misc-filter="foot" data-misc-value="Left">Left</button>
+                    <button type="button" data-misc-filter="foot" data-misc-value="Right">Right</button>
+                  </div>
+                  <p class="filter-label">Gender</p>
+                  <div class="misc-button-list">
+                    <button type="button" data-misc-filter="gender" data-misc-value="Male">Male</button>
+                    <button type="button" data-misc-filter="gender" data-misc-value="Female">Female</button>
+                  </div>
+                  <p class="filter-label">Body Type</p>
+                  <div class="misc-body-type-grid">
+                    <button type="button" data-misc-filter="body" data-misc-value="Lean Short">Lean Short</button>
+                    <button type="button" data-misc-filter="body" data-misc-value="Lean Medium">Lean Medium</button>
+                    <button type="button" data-misc-filter="body" data-misc-value="Lean Tall">Lean Tall</button>
+                    <button type="button" data-misc-filter="body" data-misc-value="Average Short">Average Short</button>
+                    <button type="button" data-misc-filter="body" data-misc-value="Average Medium">Average Medium</button>
+                    <button type="button" data-misc-filter="body" data-misc-value="Average Tall">Average Tall</button>
+                    <button type="button" data-misc-filter="body" data-misc-value="Stocky Short">Stocky Short</button>
+                    <button type="button" data-misc-filter="body" data-misc-value="Stocky Medium">Stocky Medium</button>
+                    <button type="button" data-misc-filter="body" data-misc-value="Stocky Tall">Stocky Tall</button>
+                    <button type="button" data-misc-filter="body" data-misc-value="Unique">Unique</button>
+                  </div>
+                  <div class="misc-range-groups">
+                    <div class="misc-range-group">
+                      <p class="filter-label"><span aria-hidden="true">↕</span> Height</p>
+                      <div class="range-inputs"><label>Min Height<input id="min-height" type="number" inputmode="numeric" min="0" placeholder="Min" /></label><label>Max Height<input id="max-height" type="number" inputmode="numeric" min="0" placeholder="Max" /></label></div>
+                    </div>
+                    <div class="misc-range-group">
+                      <p class="filter-label"><span aria-hidden="true">⚖</span> Weight</p>
+                      <div class="range-inputs"><label>Min Weight<input id="min-weight" type="number" inputmode="numeric" min="0" placeholder="Min" /></label><label>Max Weight<input id="max-weight" type="number" inputmode="numeric" min="0" placeholder="Max" /></label></div>
+                    </div>
+                    <div class="misc-range-group">
+                      <p class="filter-label"><span aria-hidden="true">▣</span> Age</p>
+                      <div class="range-inputs"><label>Min Age<input id="min-age" type="number" inputmode="numeric" min="0" placeholder="Min" /></label><label>Max Age<input id="max-age" type="number" inputmode="numeric" min="0" placeholder="Max" /></label></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <div id="player-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+      <div class="modal-backdrop" data-close-modal></div>
+      <section class="modal-panel">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">PLAYER SELECT</p>
+            <h2 id="modal-title">선수 선택</h2>
+          </div>
+          <button class="modal-close" type="button" aria-label="선수 선택 창 닫기" data-close-modal>×</button>
+        </header>
+        <p id="modal-description" class="modal-description"></p>
+        <div id="player-list" class="player-list" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div id="player-detail-modal" class="modal player-detail-modal" role="dialog" aria-modal="true" aria-labelledby="player-detail-name" hidden>
+      <div class="modal-backdrop" data-close-detail-modal></div>
+      <section class="modal-panel player-detail-panel">
+        <header class="player-detail-header">
+          <div id="player-detail-identity" class="player-detail-identity"></div>
+          <button id="player-detail-close" class="modal-close" type="button" aria-label="선수 상세 정보 닫기" data-close-detail-modal>×</button>
+        </header>
+        <div class="player-detail-body">
+          <section class="player-detail-section" aria-labelledby="bio-card-specs-title">
+            <h2 id="bio-card-specs-title">Bio &amp; Card Specs</h2>
+            <div id="player-detail-bio" class="detail-spec-grid"></div>
+          </section>
+          <section class="player-detail-section" aria-labelledby="player-stats-title">
+            <h2 id="player-stats-title">Stats</h2>
+            <div id="player-detail-stats" class="detail-stats-grid"></div>
+          </section>
+          <section class="player-detail-section" aria-labelledby="player-roles-title">
+            <h2 id="player-roles-title">Roles</h2>
+            <div id="player-detail-roles" class="detail-badges"></div>
+          </section>
+          <section class="player-detail-section" aria-labelledby="player-playstyles-title">
+            <h2 id="player-playstyles-title">PlayStyles</h2>
+            <div id="player-detail-playstyles" class="detail-badges"></div>
+          </section>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
