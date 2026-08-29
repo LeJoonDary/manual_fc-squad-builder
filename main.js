@@ -1,10 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
+import { adaptChemistryPlayerCard, calculateChemistry } from './utils/chemistry.ts';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 const status = document.querySelector('#status');
+const totalChemistryOutput = document.querySelector('#total-chemistry');
+const chemistryBreakdown = document.querySelector('#chemistry-breakdown');
 const modal = document.querySelector('#player-modal');
 const modalTitle = document.querySelector('#modal-title');
 const modalDescription = document.querySelector('#modal-description');
@@ -94,6 +97,12 @@ let activeSlot = null;
 let selectedPlayer = null;
 const squad = {};
 let affiliationCatalog = [];
+const MOCK_CHEMISTRY_CARDS = [
+  { id: 'mock-icon-beckham', name: 'David Beckham', version: 'Icon', overall: 92, position: 'RM', altPositions: ['CM'], nation: 'England', nationId: 1, league: 'Icons', leagueId: 900, club: 'Icons', clubId: 900, isIcon: true, isMock: true },
+  { id: 'mock-icon-zidane', name: 'Zinedine Zidane', version: 'Icon', overall: 94, position: 'CAM', altPositions: ['CM'], nation: 'France', nationId: 2, league: 'Icons', leagueId: 900, club: 'Icons', clubId: 900, isIcon: true, isMock: true },
+  { id: 'mock-hero-crouch', name: 'Peter Crouch', version: 'Hero', overall: 88, position: 'ST', altPositions: [], nation: 'England', nationId: 1, league: 'Premier League', leagueId: 100, club: 'Heroes', clubId: 901, isHero: true, isMock: true },
+  { id: 'mock-hero-morientes', name: 'Fernando Morientes', version: 'Hero', overall: 89, position: 'ST', altPositions: [], nation: 'Spain', nationId: 3, league: 'LALIGA', leagueId: 101, club: 'Heroes', clubId: 901, isHero: true, isMock: true },
+];
 
 // card_versions 자체에서 사용하는 선택 구문입니다. 역할 관계를 여기 포함해 포지션별/전체
 // 조회가 모두 같은 card_roles 데이터를 받도록 합니다.
@@ -1296,27 +1305,26 @@ async function openPlayerModal(slot) {
   modalDescription.textContent = `${position} 포지션 카드를 불러오는 중…`;
   renderMessage('선수 목록을 불러오는 중입니다…');
 
+  const selectedCardIds = getSelectedCardIds(position);
+  const availableMocks = MOCK_CHEMISTRY_CARDS.filter((card) => !selectedCardIds.has(String(card.id)));
+
   if (!supabase) {
-    modalDescription.textContent = 'Supabase 연결 정보가 설정되지 않았습니다.';
-    renderMessage('VITE_SUPABASE_URL과 VITE_SUPABASE_ANON_KEY를 설정한 뒤 다시 시도하세요.', true);
+    modalDescription.textContent = '케미스트리 테스트용 Icon / Hero 샘플 카드입니다.';
+    renderPlayerList(availableMocks);
     return;
   }
 
   const { cards, usedFallback, error } = await fetchCardsForPosition(position);
   if (error) {
-    modalDescription.textContent = '선수 정보를 불러오지 못했습니다.';
-    renderMessage(error.message, true);
+    modalDescription.textContent = 'DB 선수 목록을 불러오지 못해 케미스트리 샘플 카드만 표시합니다.';
+    renderPlayerList(availableMocks);
     return;
   }
 
-  if (!cards.length) {
-    modalDescription.textContent = `${position}에 배치할 선수가 없습니다.`;
-    renderMessage('card_versions 테이블에 카드가 있는지 확인하세요.', true);
-    return;
-  }
-
-  const selectedCardIds = getSelectedCardIds(position);
-  const availableCards = cards.filter((card) => !selectedCardIds.has(String(card.id)));
+  const availableCards = [
+    ...availableMocks,
+    ...cards.filter((card) => !selectedCardIds.has(String(card.id))),
+  ];
   if (!availableCards.length) {
     modalDescription.textContent = `${position}에 배치할 수 있는 카드가 없습니다.`;
     renderMessage('조회된 모든 카드가 이미 다른 스쿼드 슬롯에 배치되어 있습니다.');
@@ -1324,8 +1332,8 @@ async function openPlayerModal(slot) {
   }
 
   modalDescription.textContent = usedFallback
-    ? `포지션 전용 결과가 없어 중복을 제외한 카드 ${availableCards.length}개를 표시합니다. 원하는 선수를 선택하세요.`
-    : `${position} 포지션 카드 ${availableCards.length}개를 선택할 수 있습니다.`;
+    ? `Icon / Hero 샘플과 대체 DB 카드 ${availableCards.length}개를 표시합니다.`
+    : `Icon / Hero 샘플을 포함해 ${position} 포지션 카드 ${availableCards.length}개를 선택할 수 있습니다.`;
   renderPlayerList(availableCards);
 }
 
@@ -1556,6 +1564,7 @@ function renderPlayerList(cards) {
   cards.forEach((card) => {
     const button = document.createElement('button');
     button.className = 'player-option';
+    button.classList.toggle('is-mock-card', Boolean(card.isMock));
     button.type = 'button';
     button.addEventListener('click', () => {
       placeCard(activeSlot, card);
@@ -1578,6 +1587,12 @@ function renderPlayerList(cards) {
     details.className = 'player-option-details';
     const name = document.createElement('strong');
     name.textContent = getCardName(card);
+    if (card.isMock) {
+      const mockBadge = document.createElement('span');
+      mockBadge.className = `mock-card-badge ${card.isIcon ? 'is-icon' : 'is-hero'}`;
+      mockBadge.textContent = card.isIcon ? 'ICON · CHEM TEST' : 'HERO · CHEM TEST';
+      details.append(mockBadge);
+    }
     const meta = document.createElement('small');
     meta.textContent = [getCardRating(card), getCardPosition(card), card.nation, card.club]
       .filter(Boolean)
@@ -1630,6 +1645,7 @@ function handleRemovePlayer(event, slotKey) {
   positionLabel.textContent = slotKey;
   slot.append(positionLabel);
   status.textContent = `${slotKey} 슬롯에서 선수를 제거했습니다.`;
+  updateSquadChemistry();
 }
 
 function placeCard(slot, card) {
@@ -1664,6 +1680,7 @@ function placeCard(slot, card) {
   const nameElement = document.createElement('strong');
   nameElement.textContent = name;
   const positionElement = document.createElement('small');
+  positionElement.className = 'slot-position';
   positionElement.textContent = slot.dataset.position;
   const stats = getCardStats(card);
   slot.append(ratingElement, nameElement, positionElement);
@@ -1676,6 +1693,212 @@ function placeCard(slot, card) {
   slot.append(createSkillFootBadges(card, 'slot-skill-foot-badges'));
   slot.append(createRoleBadges(card, 2, 'slot-role-badges'));
   slot.append(createPlaystyleBadges(card, 2, 'slot-playstyles'));
+  updateSquadChemistry();
+}
+
+/** @returns {import('./types/chemistry').PlayerCard} */
+function toChemistryPlayerCard(card) {
+  return adaptChemistryPlayerCard(card);
+}
+
+function getChemistrySquad() {
+  return [...document.querySelectorAll('.slot')].map((slot) => ({
+    position: normalizePosition(slot.dataset.position),
+    player: squad[slot.dataset.position]?.card ? toChemistryPlayerCard(squad[slot.dataset.position].card) : null,
+  }));
+}
+
+function isCardInSlotPosition(card, slotPosition) {
+  const chemistryCard = toChemistryPlayerCard(card);
+  const normalizedSlot = normalizePosition(slotPosition);
+  return [chemistryCard.position, ...(chemistryCard.altPositions ?? [])]
+    .map(normalizePosition)
+    .includes(normalizedSlot);
+}
+
+function updateSquadChemistry() {
+  const chemistrySquad = getChemistrySquad();
+  const result = calculateChemistry(chemistrySquad);
+  totalChemistryOutput.value = String(result.totalChemistry);
+  renderChemistryBreakdown();
+
+  document.querySelectorAll('.slot').forEach((slot) => {
+    const card = squad[slot.dataset.position]?.card;
+    slot.querySelector('.slot-chemistry')?.remove();
+    const positionElement = slot.querySelector('.slot-position');
+    if (!card) {
+      slot.classList.remove('is-out-of-position');
+      return;
+    }
+
+    const chemistryCard = toChemistryPlayerCard(card);
+    const chemistry = result.playerChemMap[chemistryCard.id] ?? 0;
+    const positionMatches = isCardInSlotPosition(card, slot.dataset.position);
+    slot.classList.toggle('is-out-of-position', !positionMatches);
+    if (positionElement) {
+      positionElement.classList.toggle('is-position-warning', !positionMatches);
+      positionElement.textContent = positionMatches
+        ? slot.dataset.position
+        : `${slot.dataset.position} ⚠`;
+    }
+
+    const badge = document.createElement('span');
+    badge.className = `slot-chemistry chem-${chemistry}`;
+    badge.setAttribute('aria-label', `케미스트리 ${chemistry}점`);
+    const diamonds = Array.from({ length: 3 }, (_, index) => `<i class="${index < chemistry ? 'is-filled' : ''}">◆</i>`).join('');
+    badge.innerHTML = `${diamonds}<b>${chemistry}</b>`;
+    slot.append(badge);
+  });
+}
+
+const CHEMISTRY_GROUPS = [
+  { key: 'club', title: '클럽', label: 'CLUB', thresholds: [2, 4, 7], groupSizes: [2, 2, 3] },
+  { key: 'league', title: '리그', label: 'LEAGUE', thresholds: [3, 5, 8], groupSizes: [3, 2, 3] },
+  { key: 'nation', title: '국가', label: 'NATION', thresholds: [2, 5, 8], groupSizes: [2, 3, 3] },
+];
+
+function renderChemistryPeopleGroups(count, groupSizes) {
+  let offset = 0;
+  return groupSizes.map((size, groupIndex) => {
+    const icons = Array.from({ length: size }, (_, iconIndex) => {
+      const isFilled = offset + iconIndex < count;
+      return `<i class="${isFilled ? 'is-filled' : ''}">●</i>`;
+    }).join('');
+    const isComplete = count >= offset + size;
+    offset += size;
+    return `<span class="chemistry-people-group${isComplete ? ' is-complete' : ''}" data-stage="${groupIndex + 1}">${icons}</span>`;
+  }).join('');
+}
+
+function getChemistryEntityName(card, key) {
+  const candidates = key === 'nation'
+    ? ['nation', 'nationName', 'nation_name', 'nationality']
+    : key === 'league'
+      ? ['league', 'leagueName', 'league_name']
+      : ['club', 'clubName', 'club_name', 'team'];
+  const field = candidates.find((candidate) => typeof card?.[candidate] === 'string' && card[candidate].trim());
+  return field ? card[field].trim() : `알 수 없는 ${CHEMISTRY_GROUPS.find((group) => group.key === key)?.title ?? '항목'}`;
+}
+
+function getChemistryEntityKey(card, groupKey, entityId) {
+  const name = getChemistryEntityName(card, groupKey);
+  const isUnknown = name.startsWith('알 수 없는 ');
+  return isUnknown
+    ? `${groupKey}:id:${entityId}`
+    : `${groupKey}:name:${name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US')}`;
+}
+
+function getChemistryEntityLogo(card, key) {
+  const candidates = key === 'nation'
+    ? ['nation_flag_url', 'nationFlagUrl', 'flag_url', 'flagUrl']
+    : key === 'league'
+      ? ['league_logo_url', 'leagueLogoUrl', 'league_image_url']
+      : ['club_logo_url', 'clubLogoUrl', 'club_badge_url', 'team_logo_url'];
+  const field = candidates.find((candidate) => typeof card?.[candidate] === 'string' && card[candidate].trim());
+  return field ? card[field].trim() : '';
+}
+
+function getChemistryGroupRows(group) {
+  const counts = new Map();
+  const names = new Map();
+  const cards = new Map();
+
+  function add(key, amount, name, card) {
+    counts.set(key, (counts.get(key) ?? 0) + amount);
+    if (!names.has(key)) names.set(key, name);
+    if (!cards.has(key)) cards.set(key, card);
+  }
+
+  const inPositionCards = [...document.querySelectorAll('.slot')]
+    .map((slot) => ({ slot, card: squad[slot.dataset.position]?.card }))
+    .filter(({ slot, card }) => card && isCardInSlotPosition(card, slot.dataset.position));
+
+  if (group.key === 'league') {
+    const iconCount = inPositionCards.filter(({ card }) => card.isIcon).length;
+    const represented = new Map();
+    inPositionCards.forEach(({ card }) => {
+      const player = toChemistryPlayerCard(card);
+      if (card.isIcon) return;
+      const name = getChemistryEntityName(card, 'league');
+      const key = getChemistryEntityKey(card, 'league', player.leagueId);
+      represented.set(key, name);
+      add(key, card.isHero ? 2 : 1, name, card);
+    });
+    represented.forEach((name, key) => add(key, iconCount, name, cards.get(key)));
+    if (iconCount) {
+      counts.set('league:icon-bonus', iconCount);
+      names.set('league:icon-bonus', 'Icons');
+    }
+  } else {
+    inPositionCards.forEach(({ card }) => {
+      const player = toChemistryPlayerCard(card);
+      if (group.key === 'club') {
+        if (!card.isIcon && !card.isHero) {
+          add(getChemistryEntityKey(card, 'club', player.clubId), 1, getChemistryEntityName(card, 'club'), card);
+        }
+      } else {
+        add(getChemistryEntityKey(card, 'nation', player.nationId), card.isIcon ? 2 : 1, getChemistryEntityName(card, 'nation'), card);
+      }
+    });
+  }
+
+  return [...counts.entries()]
+    .map(([id, count]) => ({ id, count, name: names.get(id), logo: getChemistryEntityLogo(cards.get(id), group.key), isIconBonus: id === 'league:icon-bonus', level: group.thresholds.filter((threshold) => count >= threshold).length }))
+    .sort((a, b) => b.level - a.level || b.count - a.count || a.name.localeCompare(b.name, 'ko'));
+}
+
+function renderChemistryBreakdown() {
+  chemistryBreakdown.replaceChildren();
+  CHEMISTRY_GROUPS.forEach((group) => {
+    const section = document.createElement('section');
+    section.className = 'chemistry-group';
+    const heading = document.createElement('div');
+    heading.className = 'chemistry-group-heading';
+    heading.innerHTML = `<div><span>${group.label}</span><h3>${group.title}</h3></div><small>${group.thresholds.join(' · ')}명</small>`;
+    section.append(heading);
+
+    const rows = getChemistryGroupRows(group);
+    if (!rows.length) {
+      const empty = document.createElement('p');
+      empty.className = 'chemistry-empty';
+      empty.textContent = '해당되는 선수를 배치하면 표시됩니다.';
+      section.append(empty);
+    } else {
+      rows.forEach((row) => {
+        const item = document.createElement('div');
+        item.className = `chemistry-row${row.isIconBonus ? ' is-icon-bonus' : ''}`;
+        if (row.isIconBonus) {
+          item.setAttribute('aria-label', `Icons, 모든 리그에 ${row.count}명 가중치 기여`);
+          item.innerHTML = `<span class="chemistry-identity"><span class="chemistry-mark is-icon">◆</span><span><span class="chemistry-row-name">Icons</span><small>ICON BONUS</small></span></span><span class="chemistry-icon-badge">모든 리그 +${row.count}</span>`;
+        } else {
+          item.setAttribute('aria-label', `${row.name}, 가중치 ${row.count}명, 케미스트리 ${row.level}단계`);
+          const peopleGroups = renderChemistryPeopleGroups(row.count, group.groupSizes);
+          const diamonds = row.level ? '◆'.repeat(row.level) : '—';
+          item.innerHTML = `<span class="chemistry-identity"><span class="chemistry-mark">${group.key === 'nation' ? '⚑' : group.key === 'league' ? '◉' : '⬢'}</span><span><span class="chemistry-row-name" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><small>${row.count}명</small></span></span><span class="chemistry-people-groups" aria-label="${group.groupSizes.join('-')} 인원 그룹 중 ${Math.min(row.count, group.groupSizes.reduce((total, size) => total + size, 0))}명 활성화">${peopleGroups}</span><span class="chemistry-diamonds is-level-${row.level}" aria-label="${row.level}점 기여">${diamonds}</span>`;
+          if (row.logo) {
+            const mark = item.querySelector('.chemistry-mark');
+            const image = document.createElement('img');
+            image.src = row.logo;
+            image.alt = '';
+            image.addEventListener('error', () => image.remove());
+            mark.replaceChildren(image);
+          }
+        }
+        section.append(item);
+      });
+    }
+    chemistryBreakdown.append(section);
+  });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>'"]/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  })[character]);
 }
 
 function createSkillFootBadges(card, className = 'skill-foot-badges') {
@@ -1808,3 +2031,5 @@ function getCardStats(card, includeAll = false) {
     return field ? [`${label} ${card[field]}`] : [];
   });
 }
+
+updateSquadChemistry();
