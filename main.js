@@ -21,9 +21,12 @@ const appShell = document.querySelector('.app-shell');
 const playerNameSearch = document.querySelector('#player-name-search');
 const minOvrInput = document.querySelector('#min-ovr');
 const maxOvrInput = document.querySelector('#max-ovr');
+const minPriceInput = document.querySelector('#min-price');
+const maxPriceInput = document.querySelector('#max-price');
 const playerGrid = document.querySelector('#players-grid');
 const playerResultCount = document.querySelector('#players-result-count');
-const filtersToggle = document.querySelector('#filters-toggle');
+const filterBarMount = document.querySelector('#filter-bar-mount');
+const filterBar = document.querySelector('#players-filters');
 const filtersContent = document.querySelector('#filters-content');
 const clearAllFiltersButton = document.querySelector('#clear-all-filters');
 const onlyPrimaryPositions = document.querySelector('#only-primary-positions');
@@ -42,14 +45,19 @@ const minWeightInput = document.querySelector('#min-weight');
 const maxWeightInput = document.querySelector('#max-weight');
 const minAgeInput = document.querySelector('#min-age');
 const maxAgeInput = document.querySelector('#max-age');
+
+// Vanilla DOM 구조에서 <FilterBar /> 마운트와 동일한 역할을 합니다.
+// 검색 헤더 바로 아래, 선수 그리드 바로 위에 기존 필터 DOM을 배치합니다.
+if (filterBarMount && filterBar) filterBarMount.replaceWith(filterBar);
+
 const playerFilters = {
-  name: '', minOvr: '', maxOvr: '', minSm: null, minWf: null, positions: new Set(), onlyPrimary: false, hasAllPositions: false,
+  name: '', minOvr: '', maxOvr: '', minPrice: '', maxPrice: '', minSm: null, minWf: null, positions: new Set(), onlyPrimary: false, hasAllPositions: false,
   selectedPlayStyles: [], requireAllPlaystyles: false, minPlaystyles: '', maxPlaystyles: '', minPlaystylesPlus: '', maxPlaystylesPlus: '',
   selectedRoles: [], hasAllRoles: false,
   acceleTypes: new Set(), preferredFoot: '', gender: '', bodyTypes: new Set(),
   minHeight: '', maxHeight: '', minWeight: '', maxWeight: '', minAge: '', maxAge: '',
 };
-const filterAccordionState = { ovr: true, positions: true, 'sm-wf': true, playstyles: true, roles: false, miscellaneous: false };
+const filterAccordionState = { ovr: true, positions: true, price: true, 'sm-wf': true, playstyles: true, roles: false, miscellaneous: true };
 const OVR_COLUMN = 'overall';
 const PLAYSTYLE_NAMES = [
   'Quick Step', 'Finesse Shot', 'Power Shot', 'Incisive Pass', 'Whipped Pass', 'Rapid', 'Technical',
@@ -184,13 +192,25 @@ playerNameSearch.addEventListener('input', (event) => {
   });
 });
 
+[minPriceInput, maxPriceInput].forEach((input) => {
+  input.addEventListener('input', (event) => {
+    playerFilters[input === minPriceInput ? 'minPrice' : 'maxPrice'] = event.target.value;
+    schedulePlayerSearch();
+  });
+});
+
 document.querySelectorAll('[data-position-filter]').forEach((button) => {
   button.addEventListener('click', () => {
     const position = button.dataset.positionFilter;
-    playerFilters.positions.has(position)
-      ? playerFilters.positions.delete(position)
-      : playerFilters.positions.add(position);
+    if (playerFilters.positions.has(position)) {
+      playerFilters.positions.delete(position);
+      playerFilters.selectedRoles = playerFilters.selectedRoles.filter((role) => role.position !== position);
+    } else {
+      playerFilters.positions.add(position);
+    }
     button.classList.toggle('is-selected', playerFilters.positions.has(position));
+    button.setAttribute('aria-pressed', String(playerFilters.positions.has(position)));
+    renderRoleFilterRows();
     searchPlayers();
   });
 });
@@ -209,6 +229,7 @@ document.querySelectorAll('[data-rating-filter]').forEach((button) => {
 
 renderPlaystyleFilterButtons();
 renderRoleFilterRows();
+setupFilterCommandBar();
 
 hasAllSelectedRoles.addEventListener('change', () => {
   void handleHasAllRolesChange();
@@ -247,6 +268,8 @@ document.querySelectorAll('[data-misc-filter]').forEach((button) => {
   });
 });
 
+setupDualRangeControls();
+
 requireAllPlaystyles.addEventListener('change', () => {
   playerFilters.requireAllPlaystyles = requireAllPlaystyles.checked;
   searchPlayers();
@@ -271,14 +294,7 @@ requireAllPlaystyles.addEventListener('change', () => {
 });
 
 document.querySelectorAll('[data-filter-accordion]').forEach((button) => {
-  button.addEventListener('click', () => toggleFilterAccordion(button.dataset.filterAccordion));
-});
-
-filtersToggle.addEventListener('click', () => {
-  const isExpanded = filtersToggle.getAttribute('aria-expanded') === 'true';
-  filtersToggle.setAttribute('aria-expanded', String(!isExpanded));
-  filtersToggle.textContent = isExpanded ? '펼치기' : '접기';
-  filtersContent.hidden = isExpanded;
+  button.addEventListener('click', () => toggleCommandPopover(button.dataset.filterAccordion));
 });
 
 clearAllFiltersButton.addEventListener('click', clearAllFilters);
@@ -295,6 +311,12 @@ document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
   if (!playerDetailModal.hidden) closePlayerDetailModal();
   else if (!modal.hidden) closeModal();
+  else closeCommandPopovers();
+});
+
+document.addEventListener('pointerdown', (event) => {
+  const isInsidePopover = event.composedPath().some((node) => node instanceof Element && node.classList.contains('command-filter'));
+  if (!isInsidePopover) closeCommandPopovers();
 });
 
 function setActiveTab(tabName) {
@@ -318,6 +340,77 @@ function schedulePlayerSearch() {
   playerSearchTimer = window.setTimeout(searchPlayers, 250);
 }
 
+function setupDualRangeControls() {
+  document.querySelectorAll('[data-range-control]').forEach((control) => {
+    const lowerBound = Number(control.dataset.min);
+    const upperBound = Number(control.dataset.max);
+    const minRange = control.querySelector('[data-range-min]');
+    const maxRange = control.querySelector('[data-range-max]');
+    const minInput = document.getElementById(control.dataset.minInput);
+    const maxInput = document.getElementById(control.dataset.maxInput);
+
+    const updatePresentation = () => {
+      const minValue = Number(minRange.value);
+      const maxValue = Number(maxRange.value);
+      const span = upperBound - lowerBound || 1;
+      const minPercent = ((minValue - lowerBound) / span) * 100;
+      const maxPercent = ((maxValue - lowerBound) / span) * 100;
+      control.style.setProperty('--range-start', `${minPercent}%`);
+      control.style.setProperty('--range-end', `${maxPercent}%`);
+      const output = control.querySelector('[data-range-output]');
+      const unit = control.dataset.unit ?? '';
+      const hasMinimum = minInput.value !== '';
+      const hasMaximum = maxInput.value !== '';
+      output.textContent = hasMinimum || hasMaximum
+        ? `${hasMinimum ? minInput.value : 'Any'}${hasMinimum ? unit : ''} — ${hasMaximum ? maxInput.value : 'Any'}${hasMaximum ? unit : ''}`
+        : `Any ${control.dataset.minInput.includes('ovr') ? 'OVR' : control.dataset.minInput.replace('min-', '')}`;
+    };
+
+    const dispatchNumberInput = (input, value) => {
+      input.value = String(value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    minRange.addEventListener('input', () => {
+      if (Number(minRange.value) > Number(maxRange.value)) minRange.value = maxRange.value;
+      dispatchNumberInput(minInput, minRange.value);
+      updatePresentation();
+    });
+
+    maxRange.addEventListener('input', () => {
+      if (Number(maxRange.value) < Number(minRange.value)) maxRange.value = minRange.value;
+      dispatchNumberInput(maxInput, maxRange.value);
+      updatePresentation();
+    });
+
+    [minInput, maxInput].forEach((input) => {
+      input.addEventListener('input', () => {
+        const parsed = Number(input.value);
+        if (input.value !== '' && Number.isFinite(parsed)) {
+          const clamped = Math.min(upperBound, Math.max(lowerBound, parsed));
+          if (input === minInput) minRange.value = String(Math.min(clamped, Number(maxRange.value)));
+          else maxRange.value = String(Math.max(clamped, Number(minRange.value)));
+        } else if (input === minInput) minRange.value = String(lowerBound);
+        else maxRange.value = String(upperBound);
+        updatePresentation();
+      });
+    });
+
+    updatePresentation();
+  });
+}
+
+function resetDualRangeControls() {
+  document.querySelectorAll('[data-range-control]').forEach((control) => {
+    control.querySelector('[data-range-min]').value = control.dataset.min;
+    control.querySelector('[data-range-max]').value = control.dataset.max;
+    const minInput = document.getElementById(control.dataset.minInput);
+    const maxInput = document.getElementById(control.dataset.maxInput);
+    minInput.dispatchEvent(new Event('input', { bubbles: true }));
+    maxInput.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
 async function handleHasAllRolesChange() {
   try {
     playerFilters.hasAllRoles = Boolean(hasAllSelectedRoles?.checked);
@@ -333,15 +426,127 @@ async function handleHasAllRolesChange() {
   }
 }
 
-function toggleFilterAccordion(section) {
-  filterAccordionState[section] = !filterAccordionState[section];
+function setupFilterCommandBar() {
+  document.querySelectorAll('[data-filter-panel]').forEach((panel) => { panel.hidden = false; });
+
+  const ovrPanel = document.querySelector('[data-filter-section="ovr"]');
+  const pricePanel = document.querySelector('[data-filter-section="price"]');
+  const metricGrid = document.createElement('div');
+  metricGrid.className = 'metric-popover-grid';
+  metricGrid.append(...ovrPanel.querySelector('.filter-accordion-content').children);
+  metricGrid.append(...pricePanel.querySelector('.filter-accordion-content').children);
+  ovrPanel.querySelector('.filter-accordion-content').append(metricGrid);
+  pricePanel.remove();
+
+  const positionsPanel = document.querySelector('[data-filter-section="positions"]');
+  const rolesPanel = document.querySelector('[data-filter-section="roles"]');
+  const roleSubfilter = document.createElement('section');
+  roleSubfilter.className = 'position-role-subfilter';
+  roleSubfilter.hidden = true;
+  const roleHeading = document.createElement('div');
+  roleHeading.className = 'position-role-heading';
+  const roleTitle = document.createElement('strong');
+  roleTitle.textContent = '역할';
+  const roleOptional = document.createElement('span');
+  roleOptional.textContent = '선택 사항';
+  roleHeading.append(roleTitle, roleOptional);
+  roleSubfilter.append(roleHeading, ...rolesPanel.querySelector('.filter-accordion-content').children);
+  positionsPanel.querySelector('.filter-accordion-content').append(roleSubfilter);
+  rolesPanel.remove();
+  renderRoleFilterRows();
+
+  const commands = {
+    positions: { icon: '⚽', label: '포지션' },
+    ovr: { icon: '📊', label: 'OVR / 가격' },
+    'sm-wf': { icon: '★', label: '개인기 / 약발' },
+    playstyles: { icon: '✨', label: 'PlayStyles' },
+    miscellaneous: { icon: '⚙️', label: '피지컬 / 기타' },
+  };
+
+  Object.entries(commands).forEach(([section, command]) => {
+    const panel = document.querySelector(`[data-filter-section="${section}"]`);
+    const trigger = panel.querySelector('.filter-accordion-trigger');
+    const content = panel.querySelector('.filter-accordion-content');
+    panel.classList.remove('is-closed');
+    panel.classList.add('command-filter');
+    trigger.replaceChildren();
+    const icon = document.createElement('span');
+    icon.className = 'command-icon';
+    icon.textContent = command.icon;
+    const label = document.createElement('span');
+    label.className = 'command-label';
+    label.textContent = command.label;
+    const summary = document.createElement('span');
+    summary.className = 'command-summary';
+    summary.dataset.commandSummary = section;
+    summary.hidden = true;
+    const chevron = document.createElement('span');
+    chevron.className = 'command-chevron';
+    chevron.textContent = '⌄';
+    trigger.append(icon, label, summary, chevron);
+    trigger.setAttribute('aria-haspopup', 'dialog');
+    trigger.setAttribute('aria-expanded', 'false');
+    content.setAttribute('role', 'dialog');
+    content.setAttribute('aria-label', `${command.label} 필터`);
+    // React PopoverContent의 onPointerDown/onClick stopPropagation과 동일한 보호 계층입니다.
+    // 슬라이더, input, button의 기본 동작은 취소하지 않고 문서 바깥 클릭 감지로의 전파만 막습니다.
+    content.addEventListener('pointerdown', (event) => event.stopPropagation());
+    content.addEventListener('click', (event) => event.stopPropagation());
+  });
+
+  document.querySelectorAll('[data-rating-filter]').forEach((button) => {
+    const rating = Number(button.dataset.ratingValue);
+    const type = button.dataset.ratingFilter === 'sm' ? '개인기' : '약발';
+    button.textContent = '★'.repeat(rating);
+    button.setAttribute('aria-label', `${type} ${rating}성 이상`);
+  });
+
+  filtersContent.setAttribute('aria-label', '선수 필터 명령 바');
+  updateCommandSummaries();
+}
+
+function toggleCommandPopover(section) {
   const accordion = document.querySelector(`[data-filter-section="${section}"]`);
-  const button = accordion.querySelector('[data-filter-accordion]');
-  accordion.classList.toggle('is-closed', !filterAccordionState[section]);
-  button.setAttribute('aria-expanded', String(filterAccordionState[section]));
+  const shouldOpen = !accordion.classList.contains('is-command-open');
+  closeCommandPopovers();
+  accordion.classList.toggle('is-command-open', shouldOpen);
+  accordion.querySelector('[data-filter-accordion]').setAttribute('aria-expanded', String(shouldOpen));
+}
+
+function closeCommandPopovers() {
+  document.querySelectorAll('.command-filter.is-command-open').forEach((panel) => {
+    panel.classList.remove('is-command-open');
+    panel.querySelector('[data-filter-accordion]').setAttribute('aria-expanded', 'false');
+  });
+}
+
+function updateCommandSummaries() {
+  const summaries = {
+    positions: playerFilters.positions.size
+      ? `${playerFilters.positions.size}${playerFilters.selectedRoles.length ? ` · 역할 ${playerFilters.selectedRoles.length}` : ''}` : '',
+    ovr: playerFilters.minOvr !== '' || playerFilters.maxOvr !== ''
+      ? `${playerFilters.minOvr || 'Any'}–${playerFilters.maxOvr || 'Any'}`
+      : (playerFilters.minPrice !== '' || playerFilters.maxPrice !== '' ? '가격 설정' : ''),
+    'sm-wf': playerFilters.minSm || playerFilters.minWf
+      ? `SM ${playerFilters.minSm || '–'} · WF ${playerFilters.minWf || '–'}` : '',
+    playstyles: playerFilters.selectedPlayStyles.length ? `${playerFilters.selectedPlayStyles.length}` : '',
+    miscellaneous: [
+      playerFilters.acceleTypes.size, playerFilters.bodyTypes.size, playerFilters.preferredFoot, playerFilters.gender,
+      playerFilters.minHeight, playerFilters.maxHeight, playerFilters.minWeight, playerFilters.maxWeight,
+      playerFilters.minAge, playerFilters.maxAge,
+    ].filter(Boolean).length || '',
+  };
+  Object.entries(summaries).forEach(([section, value]) => {
+    const badge = document.querySelector(`[data-command-summary="${section}"]`);
+    if (!badge) return;
+    badge.textContent = value;
+    badge.hidden = !value;
+    badge.closest('.command-filter').classList.toggle('has-active-filter', Boolean(value));
+  });
 }
 
 async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions()) {
+  updateCommandSummaries();
   const requestId = ++playerSearchRequest;
   if (!supabase) {
     renderPlayerGridMessage('Supabase 연결 정보를 설정한 뒤 선수 데이터를 검색할 수 있습니다.', true, scrollPositions);
@@ -357,6 +562,8 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
 
     if (playerFilters.minOvr !== '') query = query.gte(OVR_COLUMN, Number(playerFilters.minOvr));
     if (playerFilters.maxOvr !== '') query = query.lte(OVR_COLUMN, Number(playerFilters.maxOvr));
+    if (playerFilters.minPrice !== '') query = query.gte('price', Number(playerFilters.minPrice));
+    if (playerFilters.maxPrice !== '') query = query.lte('price', Number(playerFilters.maxPrice));
     if (playerFilters.minSm !== null) query = query.gte('sm', playerFilters.minSm);
     if (playerFilters.minWf !== null) query = query.gte('wf', playerFilters.minWf);
     if (playerFilters.acceleTypes.size) query = query.in('accele_type', [...playerFilters.acceleTypes]);
@@ -487,39 +694,76 @@ function matchesMiscellaneous(card) {
 
 function renderRoleFilterRows() {
   roleFilterList.replaceChildren();
-  ROLE_DATA.forEach(({ pos, roles }) => {
+  const selectedPositions = [...playerFilters.positions];
+  const subfilter = roleFilterList.closest('.position-role-subfilter');
+  if (subfilter) subfilter.hidden = selectedPositions.length === 0;
+
+  const allChip = document.createElement('button');
+  allChip.type = 'button';
+  allChip.className = 'role-all-chip';
+  allChip.classList.toggle('is-selected', playerFilters.selectedRoles.length === 0);
+  allChip.setAttribute('aria-pressed', String(playerFilters.selectedRoles.length === 0));
+  allChip.textContent = '전체 / 지정 안 함';
+  allChip.addEventListener('click', () => {
+    playerFilters.selectedRoles = [];
+    playerFilters.hasAllRoles = false;
+    hasAllSelectedRoles.checked = false;
+    renderRoleFilterRows();
+    searchPlayers();
+  });
+  roleFilterList.append(allChip);
+
+  ROLE_DATA.filter(({ pos }) => selectedPositions.includes(pos)).forEach(({ pos, roles }) => {
     const group = document.createElement('section');
     group.className = 'role-filter-group';
     const heading = document.createElement('h3');
     heading.textContent = pos;
     group.append(heading);
     roles.forEach((roleName) => {
+      const selectedRole = playerFilters.selectedRoles.find(
+        (role) => role.position === pos && role.name === roleName,
+      );
+      const row = document.createElement('div');
+      row.className = 'role-option-row';
+      row.classList.toggle('is-active', Boolean(selectedRole));
+      const roleChip = document.createElement('button');
+      roleChip.type = 'button';
+      roleChip.className = 'role-name-chip';
+      roleChip.textContent = roleName;
+      roleChip.setAttribute('aria-pressed', String(Boolean(selectedRole)));
+      roleChip.addEventListener('click', () => {
+        if (selectedRole) playerFilters.selectedRoles = playerFilters.selectedRoles.filter(
+          (role) => !(role.position === pos && role.name === roleName),
+        );
+        else setRoleFilter(pos, roleName, 1);
+        renderRoleFilterRows();
+        searchPlayers();
+      });
+
+      const levels = document.createElement('div');
+      levels.className = 'role-level-toggles';
       [1, 2].forEach((level) => {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = level === 2 ? 'role-filter-row is-plus-plus' : 'role-filter-row is-plus';
-        const isSelected = isRoleSelected(pos, roleName, level);
-        row.classList.toggle('is-selected', isSelected);
-        row.setAttribute('aria-pressed', String(isSelected));
-        const label = document.createElement('span');
-        label.textContent = `${pos} ${roleName}`;
-        const badge = document.createElement('strong');
-        badge.textContent = level === 2 ? '++' : '+';
-        const indicator = document.createElement('span');
-        indicator.className = 'role-filter-indicator';
-        indicator.setAttribute('aria-hidden', 'true');
-        row.append(label, badge, indicator);
-        row.addEventListener('click', () => {
-          toggleRoleFilter(pos, roleName, level);
-          row.classList.toggle('is-selected', isRoleSelected(pos, roleName, level));
-          row.setAttribute('aria-pressed', String(isRoleSelected(pos, roleName, level)));
+        const levelButton = document.createElement('button');
+        levelButton.type = 'button';
+        levelButton.textContent = level === 2 ? 'Role++' : 'Role+';
+        levelButton.disabled = !selectedRole;
+        levelButton.classList.toggle('is-selected', selectedRole?.level === level);
+        levelButton.setAttribute('aria-pressed', String(selectedRole?.level === level));
+        levelButton.addEventListener('click', () => {
+          setRoleFilter(pos, roleName, level);
+          renderRoleFilterRows();
           searchPlayers();
         });
-        group.append(row);
+        levels.append(levelButton);
       });
+      row.append(roleChip, levels);
+      group.append(row);
     });
     roleFilterList.append(group);
   });
+
+  const requireAllSwitch = hasAllSelectedRoles.closest('.filter-switch');
+  if (requireAllSwitch) requireAllSwitch.hidden = playerFilters.selectedRoles.length === 0;
 }
 
 function isRoleSelected(position, name, level) {
@@ -536,6 +780,13 @@ function toggleRoleFilter(position, name, level) {
   else playerFilters.selectedRoles.push({ position, name, level });
 }
 
+function setRoleFilter(position, name, level) {
+  playerFilters.selectedRoles = playerFilters.selectedRoles.filter(
+    (role) => !(role.position === position && role.name === name),
+  );
+  playerFilters.selectedRoles.push({ position, name, level });
+}
+
 function matchesRoles(card) {
   const selectedRoles = Array.isArray(playerFilters.selectedRoles) ? playerFilters.selectedRoles : [];
   if (!selectedRoles.length) return true;
@@ -543,9 +794,10 @@ function matchesRoles(card) {
   const matchesSelectedRole = (selectedRole) => {
     return (card.card_roles ?? []).some((cardRole) => {
       const role = unwrapRelation(cardRole.roles);
+      const cardRoleLevel = Number(cardRole.role_level);
       return role?.position === selectedRole.position
         && role?.role_name === selectedRole.name
-        && Number(cardRole.role_level) === selectedRole.level;
+        && (selectedRole.level === 1 ? cardRoleLevel >= 1 : cardRoleLevel === 2);
     });
   };
 
@@ -567,25 +819,36 @@ async function getSelectedRoleIds(selectedRoles = []) {
       .filter((role) => role && selectedRoles.some(
         (selectedRole) => selectedRole?.position === role.position && selectedRole?.name === role.role_name,
       ))
-      .map((role) => role.id)
-      .filter((roleId) => roleId !== null && roleId !== undefined);
+      .map((role) => {
+        const selectedRole = selectedRoles.find(
+          (item) => item?.position === role.position && item?.name === role.role_name,
+        );
+        return { id: role.id, level: Number(selectedRole?.level) === 2 ? 2 : 1 };
+      })
+      .filter((role) => role.id !== null && role.id !== undefined);
   } catch (error) {
     console.error('Role ID lookup error:', error);
     return [];
   }
 }
 
-async function getMatchedCardIds(selectedRoleIds, hasAllRoles) {
-  if (!Array.isArray(selectedRoleIds) || !selectedRoleIds.length) return [];
+async function getMatchedCardIds(selectedRoles, hasAllRoles) {
+  if (!Array.isArray(selectedRoles) || !selectedRoles.length) return [];
 
   try {
+    const selectedRoleIds = selectedRoles.map((role) => role.id);
     const { data, error } = await supabase
       .from('card_roles')
-      .select('card_id, role_id')
+      .select('card_id, role_id, role_level')
       .in('role_id', selectedRoleIds);
     if (error) throw error;
 
-    const safeRoles = Array.isArray(data) ? data.filter(Boolean) : [];
+    const safeRoles = (Array.isArray(data) ? data.filter(Boolean) : []).filter((cardRole) => {
+      const selectedRole = selectedRoles.find((role) => String(role.id) === String(cardRole.role_id));
+      if (!selectedRole) return false;
+      const cardRoleLevel = Number(cardRole.role_level);
+      return selectedRole.level === 1 ? cardRoleLevel >= 1 : cardRoleLevel === 2;
+    });
     if (!hasAllRoles) {
       return [...new Set(safeRoles.map((item) => item?.card_id).filter((cardId) => cardId !== null && cardId !== undefined))];
     }
@@ -613,6 +876,8 @@ function clearAllFilters() {
   playerFilters.name = '';
   playerFilters.minOvr = '';
   playerFilters.maxOvr = '';
+  playerFilters.minPrice = '';
+  playerFilters.maxPrice = '';
   playerFilters.minSm = null;
   playerFilters.minWf = null;
   playerFilters.positions.clear();
@@ -640,6 +905,8 @@ function clearAllFilters() {
   playerNameSearch.value = '';
   minOvrInput.value = '';
   maxOvrInput.value = '';
+  minPriceInput.value = '';
+  maxPriceInput.value = '';
   onlyPrimaryPositions.checked = false;
   hasAllSelectedPositions.checked = false;
   requireAllPlaystyles.checked = false;
@@ -649,7 +916,10 @@ function clearAllFilters() {
   maxPlaystylesPlusInput.value = '';
   hasAllSelectedRoles.checked = false;
   [minHeightInput, maxHeightInput, minWeightInput, maxWeightInput, minAgeInput, maxAgeInput].forEach((input) => { input.value = ''; });
-  document.querySelectorAll('[data-position-filter]').forEach((button) => button.classList.remove('is-selected'));
+  document.querySelectorAll('[data-position-filter]').forEach((button) => {
+    button.classList.remove('is-selected');
+    button.setAttribute('aria-pressed', 'false');
+  });
   document.querySelectorAll('[data-rating-filter]').forEach((button) => button.classList.remove('is-selected'));
   document.querySelectorAll('[data-misc-filter]').forEach((button) => button.classList.remove('is-selected'));
   document.querySelectorAll('.playstyle-filter-button').forEach((button) => {
@@ -657,6 +927,7 @@ function clearAllFilters() {
     button.setAttribute('aria-pressed', 'false');
   });
   renderRoleFilterRows();
+  resetDualRangeControls();
   searchPlayers();
 }
 
@@ -791,6 +1062,7 @@ function restorePlayerPanelScrollPositions(scrollPositions) {
 }
 
 async function openPlayerDetailModal(card) {
+  console.log('[DEBUG] Player Raw Data:', card.raw ?? card);
   selectedPlayer = card;
   renderPlayerDetail(card);
   playerDetailModal.hidden = false;
@@ -804,6 +1076,8 @@ async function openPlayerDetailModal(card) {
     .select(PLAYER_DETAIL_SELECT)
     .eq('id', card.id)
     .single();
+
+  if (cardDetail) console.log('[DEBUG] Player Raw Data:', cardDetail);
 
   if (error || requestId !== playerDetailRequest || selectedPlayer?.id !== card.id) return;
 
@@ -849,20 +1123,19 @@ function renderPlayerDetail(card) {
   renderDetailSpecs(card);
   renderDetailStats(card);
   renderDetailRoles(card);
-  playerDetailPlaystyles.replaceChildren(createPlaystyleBadges(card, Infinity, 'detail-playstyle-badges playstyle-badges'));
-  if (!card.playstyles?.length) playerDetailPlaystyles.textContent = '등록된 특성이 없습니다.';
+  const detailPlaystyles = getPlayStyles(card);
+  playerDetailPlaystyles.replaceChildren(
+    createPlaystyleBadges({ ...card, playstyles: detailPlaystyles }, Infinity, 'detail-playstyle-badges playstyle-badges'),
+  );
+  if (!detailPlaystyles.length) {
+    playerDetailPlaystyles.textContent = '등록된 특성이 없습니다.';
+    if (import.meta.env.DEV) console.log('[PlayerDetail] PlayStyles raw player data:', card.raw ?? card);
+  }
 }
 
 function renderDetailRoles(card) {
   playerDetailRoles.replaceChildren();
-  const roles = (card.card_roles ?? [])
-    .map((cardRole) => {
-      const role = unwrapRelation(cardRole.roles);
-      const level = Number(cardRole.role_level);
-      if (!role?.position || !role?.role_name || ![1, 2].includes(level)) return null;
-      return { position: role.position, name: role.role_name, level };
-    })
-    .filter(Boolean)
+  const roles = getRoles(card)
     .sort((left, right) => left.position.localeCompare(right.position) || left.name.localeCompare(right.name) || right.level - left.level);
 
   if (!roles.length) {
@@ -1005,10 +1278,7 @@ function normalizePlayerCard(row) {
   const player = unwrapRelation(cardVersion.players) ?? {};
   const stats = unwrapRelation(cardVersion.player_stats) ?? {};
   const position = unwrapRelation(row.positions) ?? {};
-  const playstyles = asArray(cardVersion.card_playstyles).flatMap((cardPlaystyle) => {
-    const playstyle = unwrapRelation(cardPlaystyle.playstyles);
-    return playstyle?.name ? [{ name: playstyle.name, isPlus: Boolean(cardPlaystyle.is_plus) }] : [];
-  });
+  const playstyles = normalizePlaystyles(cardVersion, player, row);
 
   return {
     id: cardVersion.id,
@@ -1038,6 +1308,7 @@ function normalizePlayerCard(row) {
     def: stats.def,
     phy: stats.phy,
     playstyles,
+    raw: cardVersion,
     // card_roles는 Supabase가 배열로 반환합니다. 렌더링 시 이 원본 배열을 직접 순회합니다.
     card_roles: asArray(cardVersion.card_roles),
   };
@@ -1049,6 +1320,131 @@ function unwrapRelation(value) {
 
 function asArray(value) {
   return Array.isArray(value) ? value : value ? [value] : [];
+}
+
+function parsePlaystyleSource(value) {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+function normalizePlaystyles(...records) {
+  const normalized = new Map();
+
+  const addSource = (source, forcedPlus = null) => {
+    const parsed = parsePlaystyleSource(source);
+    asArray(parsed).forEach((entry) => {
+      const safeEntry = parsePlaystyleSource(entry);
+      if (Array.isArray(safeEntry)) {
+        safeEntry.forEach((item) => addSource(item, forcedPlus));
+        return;
+      }
+
+      if (typeof safeEntry === 'string') {
+        const name = safeEntry.trim();
+        if (name) normalized.set(`${name.toLowerCase()}|${Boolean(forcedPlus)}`, { name, isPlus: Boolean(forcedPlus) });
+        return;
+      }
+      if (!safeEntry || typeof safeEntry !== 'object') return;
+
+      const relation = unwrapRelation(
+        safeEntry.playstyles ?? safeEntry.playStyles ?? safeEntry.play_styles ?? safeEntry.playstyle ?? safeEntry.trait,
+      );
+      const sourceObject = relation && typeof relation === 'object' ? relation : safeEntry;
+      const name = sourceObject.name ?? sourceObject.playstyle_name ?? sourceObject.playStyleName
+        ?? sourceObject.trait_name ?? sourceObject.label;
+      if (typeof name !== 'string' || !name.trim()) return;
+
+      const rawLevel = safeEntry.level ?? sourceObject.level;
+      const levelIsPlus = (typeof rawLevel === 'string' && rawLevel.toLowerCase().includes('plus'))
+        || (Number.isFinite(Number(rawLevel)) && Number(rawLevel) > 0);
+      const isPlus = forcedPlus ?? Boolean(
+        safeEntry.is_plus ?? safeEntry.isPlus ?? safeEntry.plus
+        ?? sourceObject.is_plus ?? sourceObject.isPlus ?? sourceObject.plus
+        ?? levelIsPlus,
+      );
+      const cleanName = name.trim().replace(/\+$/, '').trim();
+      const plusFromName = /\+$/.test(name.trim());
+      normalized.set(`${cleanName.toLowerCase()}|${isPlus || plusFromName}`, {
+        name: cleanName,
+        isPlus: isPlus || plusFromName,
+      });
+    });
+  };
+
+  records.filter((record) => record && typeof record === 'object').forEach((record) => {
+    [record.card_playstyles, record.playstyles, record.playStyles, record.play_styles, record.traits, record.playstyle_ids]
+      .forEach((source) => addSource(source));
+    [record.normalPlayStyles, record.normal_playstyles, record.normal_play_styles]
+      .forEach((source) => addSource(source, false));
+    [record.playStylePlus, record.playStylesPlus, record.play_style_plus, record.play_styles_plus, record.traitsPlus]
+      .forEach((source) => addSource(source, true));
+  });
+
+  return [...normalized.values()].sort((left, right) => Number(right.isPlus) - Number(left.isPlus) || left.name.localeCompare(right.name));
+}
+
+function getPlayStyles(player) {
+  const raw = player?.raw;
+  const nestedPlayer = unwrapRelation(raw?.players);
+  return normalizePlaystyles(player, raw, nestedPlayer);
+}
+
+function getRoles(player) {
+  const normalized = new Map();
+
+  const addSource = (source, forcedLevel = null) => {
+    const parsed = parsePlaystyleSource(source);
+    asArray(parsed).forEach((entry) => {
+      const safeEntry = parsePlaystyleSource(entry);
+      if (Array.isArray(safeEntry)) {
+        safeEntry.forEach((item) => addSource(item, forcedLevel));
+        return;
+      }
+      if (typeof safeEntry === 'string') {
+        const name = safeEntry.trim();
+        if (name) normalized.set(`|${name.toLowerCase()}|${forcedLevel ?? 1}`, { position: '', name, level: forcedLevel ?? 1 });
+        return;
+      }
+      if (!safeEntry || typeof safeEntry !== 'object') return;
+
+      const relation = unwrapRelation(
+        safeEntry.roles ?? safeEntry.role ?? safeEntry.player_roles ?? safeEntry.role_data,
+      );
+      const sourceObject = relation && typeof relation === 'object' ? relation : safeEntry;
+      const position = sourceObject.position ?? sourceObject.pos ?? safeEntry.position ?? '';
+      const name = sourceObject.role_name ?? sourceObject.roleName ?? sourceObject.name
+        ?? sourceObject.label ?? safeEntry.role_name ?? safeEntry.roleName;
+      if (typeof name !== 'string' || !name.trim()) return;
+
+      const rawLevel = forcedLevel ?? safeEntry.role_level ?? safeEntry.roleLevel
+        ?? safeEntry.level ?? sourceObject.role_level ?? sourceObject.level ?? 1;
+      const numericLevel = Number(rawLevel);
+      const level = numericLevel >= 2 || (typeof rawLevel === 'string' && rawLevel.includes('++')) ? 2 : 1;
+      const cleanPosition = typeof position === 'string' ? position.trim() : String(position ?? '');
+      const cleanName = name.trim().replace(/\+{1,2}$/, '').trim();
+      normalized.set(`${cleanPosition.toLowerCase()}|${cleanName.toLowerCase()}|${level}`, {
+        position: cleanPosition,
+        name: cleanName,
+        level,
+      });
+    });
+  };
+
+  const raw = player?.raw;
+  const nestedPlayer = unwrapRelation(raw?.players);
+  [player, raw, nestedPlayer].filter((record) => record && typeof record === 'object').forEach((record) => {
+    [record.card_roles, record.roles, record.player_roles].forEach((source) => addSource(source));
+    [record.role_plus, record.roles_plus, record.rolePlus, record.rolesPlus].forEach((source) => addSource(source, 1));
+    [record.role_plus_plus, record.roles_plus_plus, record.rolePlusPlus, record.rolesPlusPlus].forEach((source) => addSource(source, 2));
+  });
+
+  return [...normalized.values()];
 }
 
 function renderPlayerList(cards) {
@@ -1240,7 +1636,7 @@ function createRoleBadges(card, maxCount = Infinity, className = 'role-badges') 
 function createPlaystyleBadges(card, maxCount = Infinity, className = 'playstyle-badges') {
   const container = document.createElement('span');
   container.className = className;
-  const playstyles = card.playstyles ?? [];
+  const playstyles = getPlayStyles(card);
 
   playstyles.slice(0, maxCount).forEach((playstyle) => {
     const badge = document.createElement('span');

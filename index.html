@@ -65,6 +65,7 @@
                 <input id="player-name-search" type="search" placeholder="Search players" autocomplete="off" />
               </label>
             </div>
+            <div id="filter-bar-mount" aria-live="off"></div>
             <div id="players-grid" class="players-grid" aria-live="polite"></div>
           </section>
 
@@ -76,48 +77,57 @@
               </div>
               <div class="filters-actions">
                 <button id="clear-all-filters" class="clear-all-filters" type="button">Clear All</button>
-                <button id="filters-toggle" class="filters-toggle" type="button" aria-expanded="true" aria-controls="filters-content">접기</button>
               </div>
             </div>
             <div id="filters-content" class="filters-content">
-              <section class="filter-accordion" data-filter-section="ovr">
+              <section class="filter-accordion" data-filter-section="ovr" data-filter-panel="basic">
                 <button class="filter-accordion-trigger" type="button" aria-expanded="true" aria-controls="ovr-filter-options" data-filter-accordion="ovr">
                   <span class="filter-accordion-icon" aria-hidden="true">^</span>
                   <span>Overall Rating</span>
                 </button>
                 <div id="ovr-filter-options" class="filter-accordion-content">
-                <div class="range-inputs">
-                  <label>Min OVR<input id="min-ovr" type="number" inputmode="numeric" min="0" max="99" placeholder="Min" /></label>
-                  <label>Max OVR<input id="max-ovr" type="number" inputmode="numeric" min="0" max="99" placeholder="Max" /></label>
-                </div>
+                  <div class="dual-range" data-range-control data-min="0" data-max="99" data-step="1" data-min-input="min-ovr" data-max-input="max-ovr">
+                    <div class="range-summary"><span>Rating window</span><output data-range-output>Any OVR</output></div>
+                    <div class="range-track-wrap">
+                      <div class="range-track"><span class="range-track-fill" data-range-fill></span></div>
+                      <input class="range-thumb range-thumb-min" data-range-min type="range" min="0" max="99" value="0" aria-label="Minimum overall rating" />
+                      <input class="range-thumb range-thumb-max" data-range-max type="range" min="0" max="99" value="99" aria-label="Maximum overall rating" />
+                    </div>
+                    <div class="range-inputs">
+                      <label><span>From</span><input id="min-ovr" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label>
+                      <span class="range-separator" aria-hidden="true">→</span>
+                      <label><span>To</span><input id="max-ovr" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label>
+                    </div>
+                  </div>
                 </div>
               </section>
-              <section class="filter-accordion" data-filter-section="positions">
+              <section class="filter-accordion" data-filter-section="positions" data-filter-panel="basic">
                 <button class="filter-accordion-trigger" type="button" aria-expanded="true" aria-controls="positions-filter-options" data-filter-accordion="positions">
                   <span class="filter-accordion-icon" aria-hidden="true">^</span>
                   <span>Positions</span>
                 </button>
                 <div id="positions-filter-options" class="filter-accordion-content">
-                <p class="filter-label">Attackers</p>
-                <div class="position-filter-list">
-                  <button type="button" data-position-filter="LW">LW</button>
-                  <button type="button" data-position-filter="ST">ST</button>
-                  <button type="button" data-position-filter="RW">RW</button>
+                <div class="mini-pitch-heading">
+                  <div><span class="mini-pitch-kicker">TACTICAL MAP</span><strong>Tap zones to combine</strong></div>
+                  <span class="selection-hint"><i></i> Multi-select</span>
                 </div>
-                <p class="filter-label">Midfielders</p>
-                <div class="position-filter-list">
-                  <button type="button" data-position-filter="LM">LM</button>
-                  <button type="button" data-position-filter="CAM">CAM</button>
-                  <button type="button" data-position-filter="RM">RM</button>
-                  <button type="button" data-position-filter="CM">CM</button>
-                  <button type="button" data-position-filter="CDM">CDM</button>
-                </div>
-                <p class="filter-label">Defenders</p>
-                <div class="position-filter-list">
-                  <button type="button" data-position-filter="CB">CB</button>
-                  <button type="button" data-position-filter="RB">RB</button>
-                  <button type="button" data-position-filter="LB">LB</button>
-                  <button type="button" data-position-filter="GK">GK</button>
+                <div class="position-mini-pitch" role="group" aria-label="피치 위에서 포지션 선택">
+                  <span class="pitch-line pitch-halfway" aria-hidden="true"></span>
+                  <span class="pitch-line pitch-circle" aria-hidden="true"></span>
+                  <span class="pitch-line pitch-box-top" aria-hidden="true"></span>
+                  <span class="pitch-line pitch-box-bottom" aria-hidden="true"></span>
+                  <button class="position-node pos-lw" type="button" data-position-filter="LW" aria-pressed="false"><span>LW</span><small>Wide</small></button>
+                  <button class="position-node pos-st" type="button" data-position-filter="ST" aria-pressed="false"><span>ST</span><small>Striker</small></button>
+                  <button class="position-node pos-rw" type="button" data-position-filter="RW" aria-pressed="false"><span>RW</span><small>Wide</small></button>
+                  <button class="position-node pos-lm" type="button" data-position-filter="LM" aria-pressed="false"><span>LM</span></button>
+                  <button class="position-node pos-cam" type="button" data-position-filter="CAM" aria-pressed="false"><span>CAM</span></button>
+                  <button class="position-node pos-rm" type="button" data-position-filter="RM" aria-pressed="false"><span>RM</span></button>
+                  <button class="position-node pos-cm" type="button" data-position-filter="CM" aria-pressed="false"><span>CM</span></button>
+                  <button class="position-node pos-cdm" type="button" data-position-filter="CDM" aria-pressed="false"><span>CDM</span></button>
+                  <button class="position-node pos-lb" type="button" data-position-filter="LB" aria-pressed="false"><span>LB</span></button>
+                  <button class="position-node pos-cb" type="button" data-position-filter="CB" aria-pressed="false"><span>CB</span></button>
+                  <button class="position-node pos-rb" type="button" data-position-filter="RB" aria-pressed="false"><span>RB</span></button>
+                  <button class="position-node pos-gk" type="button" data-position-filter="GK" aria-pressed="false"><span>GK</span></button>
                 </div>
                 <div class="position-filter-toggles">
                   <label class="filter-switch">
@@ -133,7 +143,19 @@
                 </div>
                 </div>
               </section>
-              <section class="filter-accordion" data-filter-section="sm-wf">
+              <section class="filter-accordion" data-filter-section="price" data-filter-panel="basic">
+                <button class="filter-accordion-trigger" type="button" aria-expanded="true" aria-controls="price-filter-options" data-filter-accordion="price">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Market Price</span>
+                </button>
+                <div id="price-filter-options" class="filter-accordion-content">
+                  <div class="dual-range" data-range-control data-min="0" data-max="15000000" data-step="10000" data-unit=" coins" data-min-input="min-price" data-max-input="max-price">
+                    <div class="range-summary"><span>Coin budget</span><output data-range-output>Any price</output></div>
+                    <div class="range-track-wrap"><div class="range-track"><span class="range-track-fill" data-range-fill></span></div><input class="range-thumb range-thumb-min" data-range-min type="range" min="0" max="15000000" step="10000" value="0" aria-label="Minimum price" /><input class="range-thumb range-thumb-max" data-range-max type="range" min="0" max="15000000" step="10000" value="15000000" aria-label="Maximum price" /></div>
+                    <div class="range-inputs"><label><span>Min</span><input id="min-price" type="number" inputmode="numeric" min="0" max="15000000" step="10000" placeholder="Any" /></label><span class="range-separator">→</span><label><span>Max</span><input id="max-price" type="number" inputmode="numeric" min="0" max="15000000" step="10000" placeholder="Any" /></label></div>
+                  </div>
+                </div>
+              </section>
+              <section class="filter-accordion" data-filter-section="sm-wf" data-filter-panel="style" hidden>
                 <button class="filter-accordion-trigger" type="button" aria-expanded="true" aria-controls="sm-wf-filter-options" data-filter-accordion="sm-wf">
                   <span class="filter-accordion-icon" aria-hidden="true">^</span>
                   <span>SM / WF</span>
@@ -158,7 +180,7 @@
                   <p class="rating-filter-help">선택한 별점 이상</p>
                 </div>
               </section>
-              <section class="filter-accordion" data-filter-section="playstyles">
+              <section class="filter-accordion" data-filter-section="playstyles" data-filter-panel="style" hidden>
                 <button class="filter-accordion-trigger" type="button" aria-expanded="true" aria-controls="playstyles-filter-options" data-filter-accordion="playstyles">
                   <span class="filter-accordion-icon" aria-hidden="true">^</span>
                   <span>PlayStyles</span>
@@ -178,7 +200,7 @@
                   </div>
                 </div>
               </section>
-              <section class="filter-accordion is-closed" data-filter-section="roles">
+              <section class="filter-accordion is-closed" data-filter-section="roles" data-filter-panel="style" hidden>
                 <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="roles-filter-options" data-filter-accordion="roles">
                   <span class="filter-accordion-icon" aria-hidden="true">^</span>
                   <span>Roles</span>
@@ -192,7 +214,7 @@
                   </label>
                 </div>
               </section>
-              <section class="filter-accordion is-closed" data-filter-section="miscellaneous">
+              <section class="filter-accordion" data-filter-section="miscellaneous" data-filter-panel="physical" hidden>
                 <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="miscellaneous-filter-options" data-filter-accordion="miscellaneous">
                   <span class="filter-accordion-icon" aria-hidden="true">^</span>
                   <span>Miscellaneous</span>
@@ -230,15 +252,27 @@
                   <div class="misc-range-groups">
                     <div class="misc-range-group">
                       <p class="filter-label"><span aria-hidden="true">↕</span> Height</p>
-                      <div class="range-inputs"><label>Min Height<input id="min-height" type="number" inputmode="numeric" min="0" placeholder="Min" /></label><label>Max Height<input id="max-height" type="number" inputmode="numeric" min="0" placeholder="Max" /></label></div>
+                      <div class="dual-range compact" data-range-control data-min="140" data-max="220" data-step="1" data-unit="cm" data-min-input="min-height" data-max-input="max-height">
+                        <div class="range-summary"><span>Player height</span><output data-range-output>Any height</output></div>
+                        <div class="range-track-wrap"><div class="range-track"><span class="range-track-fill" data-range-fill></span></div><input class="range-thumb range-thumb-min" data-range-min type="range" min="140" max="220" value="140" aria-label="Minimum height" /><input class="range-thumb range-thumb-max" data-range-max type="range" min="140" max="220" value="220" aria-label="Maximum height" /></div>
+                        <div class="range-inputs"><label><span>Min</span><input id="min-height" type="number" inputmode="numeric" min="140" max="220" placeholder="Any" /></label><span class="range-separator">→</span><label><span>Max</span><input id="max-height" type="number" inputmode="numeric" min="140" max="220" placeholder="Any" /></label></div>
+                      </div>
                     </div>
                     <div class="misc-range-group">
                       <p class="filter-label"><span aria-hidden="true">⚖</span> Weight</p>
-                      <div class="range-inputs"><label>Min Weight<input id="min-weight" type="number" inputmode="numeric" min="0" placeholder="Min" /></label><label>Max Weight<input id="max-weight" type="number" inputmode="numeric" min="0" placeholder="Max" /></label></div>
+                      <div class="dual-range compact" data-range-control data-min="40" data-max="130" data-step="1" data-unit="kg" data-min-input="min-weight" data-max-input="max-weight">
+                        <div class="range-summary"><span>Player weight</span><output data-range-output>Any weight</output></div>
+                        <div class="range-track-wrap"><div class="range-track"><span class="range-track-fill" data-range-fill></span></div><input class="range-thumb range-thumb-min" data-range-min type="range" min="40" max="130" value="40" aria-label="Minimum weight" /><input class="range-thumb range-thumb-max" data-range-max type="range" min="40" max="130" value="130" aria-label="Maximum weight" /></div>
+                        <div class="range-inputs"><label><span>Min</span><input id="min-weight" type="number" inputmode="numeric" min="40" max="130" placeholder="Any" /></label><span class="range-separator">→</span><label><span>Max</span><input id="max-weight" type="number" inputmode="numeric" min="40" max="130" placeholder="Any" /></label></div>
+                      </div>
                     </div>
                     <div class="misc-range-group">
                       <p class="filter-label"><span aria-hidden="true">▣</span> Age</p>
-                      <div class="range-inputs"><label>Min Age<input id="min-age" type="number" inputmode="numeric" min="0" placeholder="Min" /></label><label>Max Age<input id="max-age" type="number" inputmode="numeric" min="0" placeholder="Max" /></label></div>
+                      <div class="dual-range compact" data-range-control data-min="15" data-max="50" data-step="1" data-unit=" yrs" data-min-input="min-age" data-max-input="max-age">
+                        <div class="range-summary"><span>Player age</span><output data-range-output>Any age</output></div>
+                        <div class="range-track-wrap"><div class="range-track"><span class="range-track-fill" data-range-fill></span></div><input class="range-thumb range-thumb-min" data-range-min type="range" min="15" max="50" value="15" aria-label="Minimum age" /><input class="range-thumb range-thumb-max" data-range-max type="range" min="15" max="50" value="50" aria-label="Maximum age" /></div>
+                        <div class="range-inputs"><label><span>Min</span><input id="min-age" type="number" inputmode="numeric" min="15" max="50" placeholder="Any" /></label><span class="range-separator">→</span><label><span>Max</span><input id="max-age" type="number" inputmode="numeric" min="15" max="50" placeholder="Any" /></label></div>
+                      </div>
                     </div>
                   </div>
                 </div>
