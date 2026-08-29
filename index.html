@@ -214,6 +214,48 @@
                   </label>
                 </div>
               </section>
+              <section class="filter-accordion" data-filter-section="affiliation" data-filter-panel="identity" hidden>
+                <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="affiliation-filter-options" data-filter-accordion="affiliation">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Affiliation</span>
+                </button>
+                <div id="affiliation-filter-options" class="filter-accordion-content">
+                  <div class="affiliation-select-grid">
+                    <label><span>국가</span><select id="nation-filter"><option value="">전체 국가</option></select></label>
+                    <label><span>리그</span><select id="league-filter"><option value="">전체 리그</option></select></label>
+                    <label><span>클럽</span><select id="club-filter"><option value="">전체 클럽</option></select></label>
+                  </div>
+                  <p class="filter-panel-help">리그를 선택하면 해당 리그의 클럽만 표시됩니다.</p>
+                </div>
+              </section>
+              <section class="filter-accordion" data-filter-section="rarity" data-filter-panel="identity" hidden>
+                <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="rarity-filter-options" data-filter-accordion="rarity">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Rarity</span>
+                </button>
+                <div id="rarity-filter-options" class="filter-accordion-content">
+                  <p class="filter-label">카드 등급 · 다중 선택</p>
+                  <div class="rarity-filter-grid" role="group" aria-label="카드 등급 필터">
+                    <button type="button" data-rarity-filter="Gold" aria-pressed="false">Gold</button>
+                    <button type="button" data-rarity-filter="Silver" aria-pressed="false">Silver</button>
+                    <button type="button" data-rarity-filter="Bronze" aria-pressed="false">Bronze</button>
+                    <button type="button" data-rarity-filter="Special" aria-pressed="false">Special / Promo</button>
+                  </div>
+                </div>
+              </section>
+              <section class="filter-accordion" data-filter-section="stats" data-filter-panel="performance" hidden>
+                <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="stats-filter-options" data-filter-accordion="stats">
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Stats</span>
+                </button>
+                <div id="stats-filter-options" class="filter-accordion-content">
+                  <div class="stats-filter-grid">
+                    <div class="stat-range-row" data-stat="pac"><strong>PAC</strong><label>Min<input id="min-pac" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-pac" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
+                    <div class="stat-range-row" data-stat="sho"><strong>SHO</strong><label>Min<input id="min-sho" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-sho" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
+                    <div class="stat-range-row" data-stat="pas"><strong>PAS</strong><label>Min<input id="min-pas" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-pas" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
+                    <div class="stat-range-row" data-stat="dri"><strong>DRI</strong><label>Min<input id="min-dri" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-dri" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
+                    <div class="stat-range-row" data-stat="def"><strong>DEF</strong><label>Min<input id="min-def" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-def" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
+                    <div class="stat-range-row" data-stat="phy"><strong>PHY</strong><label>Min<input id="min-phy" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-phy" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
+                  </div>
+                </div>
+              </section>
               <section class="filter-accordion" data-filter-section="miscellaneous" data-filter-panel="physical" hidden>
                 <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="miscellaneous-filter-options" data-filter-accordion="miscellaneous">
                   <span class="filter-accordion-icon" aria-hidden="true">^</span>

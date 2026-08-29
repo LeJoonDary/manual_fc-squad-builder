@@ -45,6 +45,13 @@ const minWeightInput = document.querySelector('#min-weight');
 const maxWeightInput = document.querySelector('#max-weight');
 const minAgeInput = document.querySelector('#min-age');
 const maxAgeInput = document.querySelector('#max-age');
+const nationFilter = document.querySelector('#nation-filter');
+const leagueFilter = document.querySelector('#league-filter');
+const clubFilter = document.querySelector('#club-filter');
+const STAT_KEYS = ['pac', 'sho', 'pas', 'dri', 'def', 'phy'];
+const statFilterInputs = STAT_KEYS.flatMap((stat) => [
+  document.querySelector(`#min-${stat}`), document.querySelector(`#max-${stat}`),
+]);
 
 // Vanilla DOM 구조에서 <FilterBar /> 마운트와 동일한 역할을 합니다.
 // 검색 헤더 바로 아래, 선수 그리드 바로 위에 기존 필터 DOM을 배치합니다.
@@ -56,8 +63,10 @@ const playerFilters = {
   selectedRoles: [], hasAllRoles: false,
   acceleTypes: new Set(), preferredFoot: '', gender: '', bodyTypes: new Set(),
   minHeight: '', maxHeight: '', minWeight: '', maxWeight: '', minAge: '', maxAge: '',
+  nation: '', league: '', club: '', rarities: new Set(),
+  stats: Object.fromEntries(STAT_KEYS.map((stat) => [stat, { min: '', max: '' }])),
 };
-const filterAccordionState = { ovr: true, positions: true, price: true, 'sm-wf': true, playstyles: true, roles: false, miscellaneous: true };
+const filterAccordionState = { ovr: true, positions: true, price: true, 'sm-wf': true, playstyles: true, roles: false, affiliation: true, rarity: true, stats: true, miscellaneous: true };
 const OVR_COLUMN = 'overall';
 const PLAYSTYLE_NAMES = [
   'Quick Step', 'Finesse Shot', 'Power Shot', 'Incisive Pass', 'Whipped Pass', 'Rapid', 'Technical',
@@ -84,6 +93,7 @@ let pendingPanelScrollPositions = null;
 let activeSlot = null;
 let selectedPlayer = null;
 const squad = {};
+let affiliationCatalog = [];
 
 // card_versions 자체에서 사용하는 선택 구문입니다. 역할 관계를 여기 포함해 포지션별/전체
 // 조회가 모두 같은 card_roles 데이터를 받도록 합니다.
@@ -230,6 +240,37 @@ document.querySelectorAll('[data-rating-filter]').forEach((button) => {
 renderPlaystyleFilterButtons();
 renderRoleFilterRows();
 setupFilterCommandBar();
+void loadAffiliationFilterOptions();
+
+[nationFilter, leagueFilter, clubFilter].forEach((select) => {
+  select.addEventListener('change', () => {
+    playerFilters.nation = nationFilter.value;
+    playerFilters.league = leagueFilter.value;
+    if (select === leagueFilter) renderClubOptions();
+    playerFilters.club = clubFilter.value;
+    searchPlayers();
+  });
+});
+
+document.querySelectorAll('[data-rarity-filter]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const rarity = button.dataset.rarityFilter;
+    playerFilters.rarities.has(rarity) ? playerFilters.rarities.delete(rarity) : playerFilters.rarities.add(rarity);
+    const selected = playerFilters.rarities.has(rarity);
+    button.classList.toggle('is-selected', selected);
+    button.setAttribute('aria-pressed', String(selected));
+    searchPlayers();
+  });
+});
+
+STAT_KEYS.forEach((stat) => {
+  ['min', 'max'].forEach((bound) => {
+    document.querySelector(`#${bound}-${stat}`).addEventListener('input', (event) => {
+      playerFilters.stats[stat][bound] = event.target.value;
+      schedulePlayerSearch();
+    });
+  });
+});
 
 hasAllSelectedRoles.addEventListener('change', () => {
   void handleHasAllRolesChange();
@@ -460,6 +501,9 @@ function setupFilterCommandBar() {
     ovr: { icon: '📊', label: 'OVR / 가격' },
     'sm-wf': { icon: '★', label: '개인기 / 약발' },
     playstyles: { icon: '✨', label: 'PlayStyles' },
+    affiliation: { icon: '🌐', label: '소속 / 국적' },
+    rarity: { icon: '🃏', label: '카드 등급' },
+    stats: { icon: '📈', label: '세부 스탯' },
     miscellaneous: { icon: '⚙️', label: '피지컬 / 기타' },
   };
 
@@ -530,6 +574,9 @@ function updateCommandSummaries() {
     'sm-wf': playerFilters.minSm || playerFilters.minWf
       ? `SM ${playerFilters.minSm || '–'} · WF ${playerFilters.minWf || '–'}` : '',
     playstyles: playerFilters.selectedPlayStyles.length ? `${playerFilters.selectedPlayStyles.length}` : '',
+    affiliation: [playerFilters.nation, playerFilters.league, playerFilters.club].filter(Boolean).length || '',
+    rarity: playerFilters.rarities.size || '',
+    stats: STAT_KEYS.filter((stat) => playerFilters.stats[stat].min !== '' || playerFilters.stats[stat].max !== '').length || '',
     miscellaneous: [
       playerFilters.acceleTypes.size, playerFilters.bodyTypes.size, playerFilters.preferredFoot, playerFilters.gender,
       playerFilters.minHeight, playerFilters.maxHeight, playerFilters.minWeight, playerFilters.maxWeight,
@@ -576,6 +623,9 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
     if (playerFilters.maxWeight !== '') query = query.lte('players.weight', Number(playerFilters.maxWeight));
     if (playerFilters.minAge !== '') query = query.gte('players.age', Number(playerFilters.minAge));
     if (playerFilters.maxAge !== '') query = query.lte('players.age', Number(playerFilters.maxAge));
+    if (playerFilters.nation) query = query.eq('players.nation', playerFilters.nation);
+    if (playerFilters.league) query = query.eq('league', playerFilters.league);
+    if (playerFilters.club) query = query.eq('club', playerFilters.club);
 
     const selectedRoles = Array.isArray(playerFilters.selectedRoles) ? playerFilters.selectedRoles : [];
     if (selectedRoles.length) {
@@ -605,6 +655,7 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
       .filter((card) => matchesPlaystyles(card))
       .filter((card) => matchesRoles(card))
       .filter((card) => matchesMiscellaneous(card))
+      .filter((card) => matchesIdentityAndStats(card))
       .sort((left, right) => Number(getCardRating(right)) - Number(getCardRating(left)));
     renderPlayerGrid(cards, scrollPositions);
   } catch (error) {
@@ -690,6 +741,60 @@ function matchesMiscellaneous(card) {
   return matchesCountRange(card.height, playerFilters.minHeight, playerFilters.maxHeight)
     && matchesCountRange(card.weight, playerFilters.minWeight, playerFilters.maxWeight)
     && matchesCountRange(card.age, playerFilters.minAge, playerFilters.maxAge);
+}
+
+function getRarityCategory(version) {
+  const normalized = String(version ?? '').trim().toLowerCase();
+  if (/^gold(?: common| rare)?$/.test(normalized)) return 'Gold';
+  if (/^silver(?: common| rare)?$/.test(normalized)) return 'Silver';
+  if (/^bronze(?: common| rare)?$/.test(normalized)) return 'Bronze';
+  return 'Special';
+}
+
+function matchesIdentityAndStats(card) {
+  if (playerFilters.nation && card.nation !== playerFilters.nation) return false;
+  if (playerFilters.league && card.league !== playerFilters.league) return false;
+  if (playerFilters.club && card.club !== playerFilters.club) return false;
+  if (playerFilters.rarities.size && !playerFilters.rarities.has(getRarityCategory(card.version))) return false;
+  return STAT_KEYS.every((stat) => matchesCountRange(card[stat], playerFilters.stats[stat].min, playerFilters.stats[stat].max));
+}
+
+function replaceSelectOptions(select, placeholder, values, selectedValue = '') {
+  const options = [new Option(placeholder, ''), ...values.map((value) => new Option(value, value))];
+  select.replaceChildren(...options);
+  select.value = values.includes(selectedValue) ? selectedValue : '';
+}
+
+function renderClubOptions() {
+  const selectedLeague = leagueFilter.value;
+  const clubs = [...new Set(affiliationCatalog
+    .filter((item) => !selectedLeague || item.league === selectedLeague)
+    .map((item) => item.club).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  replaceSelectOptions(clubFilter, '전체 클럽', clubs, playerFilters.club);
+  playerFilters.club = clubFilter.value;
+}
+
+async function loadAffiliationFilterOptions() {
+  if (!supabase) return;
+  try {
+    const { data, error } = await supabase
+      .from('card_versions')
+      .select('club, league, players!inner(nation)')
+      .limit(1000);
+    if (error) throw error;
+    affiliationCatalog = (Array.isArray(data) ? data : []).map((item) => ({
+      club: item?.club ?? '',
+      league: item?.league ?? '',
+      nation: unwrapRelation(item?.players)?.nation ?? '',
+    }));
+    const uniqueSorted = (key) => [...new Set(affiliationCatalog.map((item) => item[key]).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b));
+    replaceSelectOptions(nationFilter, '전체 국가', uniqueSorted('nation'), playerFilters.nation);
+    replaceSelectOptions(leagueFilter, '전체 리그', uniqueSorted('league'), playerFilters.league);
+    renderClubOptions();
+  } catch (error) {
+    console.error('Affiliation filter options error:', error);
+  }
 }
 
 function renderRoleFilterRows() {
@@ -887,6 +992,11 @@ function clearAllFilters() {
   playerFilters.maxWeight = '';
   playerFilters.minAge = '';
   playerFilters.maxAge = '';
+  playerFilters.nation = '';
+  playerFilters.league = '';
+  playerFilters.club = '';
+  playerFilters.rarities.clear();
+  STAT_KEYS.forEach((stat) => { playerFilters.stats[stat] = { min: '', max: '' }; });
 
   playerNameSearch.value = '';
   minOvrInput.value = '';
@@ -902,12 +1012,20 @@ function clearAllFilters() {
   maxPlaystylesPlusInput.value = '';
   hasAllSelectedRoles.checked = false;
   [minHeightInput, maxHeightInput, minWeightInput, maxWeightInput, minAgeInput, maxAgeInput].forEach((input) => { input.value = ''; });
+  nationFilter.value = '';
+  leagueFilter.value = '';
+  renderClubOptions();
+  statFilterInputs.forEach((input) => { input.value = ''; });
   document.querySelectorAll('[data-position-filter]').forEach((button) => {
     button.classList.remove('is-selected');
     button.setAttribute('aria-pressed', 'false');
   });
   document.querySelectorAll('[data-rating-filter]').forEach((button) => button.classList.remove('is-selected'));
   document.querySelectorAll('[data-misc-filter]').forEach((button) => button.classList.remove('is-selected'));
+  document.querySelectorAll('[data-rarity-filter]').forEach((button) => {
+    button.classList.remove('is-selected');
+    button.setAttribute('aria-pressed', 'false');
+  });
   document.querySelectorAll('.playstyle-filter-button').forEach((button) => {
     button.classList.remove('is-selected');
     button.setAttribute('aria-pressed', 'false');
