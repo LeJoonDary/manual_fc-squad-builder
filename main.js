@@ -456,7 +456,7 @@ function setupFilterCommandBar() {
   renderRoleFilterRows();
 
   const commands = {
-    positions: { icon: '⚽', label: '포지션' },
+    positions: { icon: '⚽', label: '포지션 / Roles' },
     ovr: { icon: '📊', label: 'OVR / 가격' },
     'sm-wf': { icon: '★', label: '개인기 / 약발' },
     playstyles: { icon: '✨', label: 'PlayStyles' },
@@ -720,37 +720,29 @@ function renderRoleFilterRows() {
     heading.textContent = pos;
     group.append(heading);
     roles.forEach((roleName) => {
-      const selectedRole = playerFilters.selectedRoles.find(
+      const roleIsActive = playerFilters.selectedRoles.some(
         (role) => role.position === pos && role.name === roleName,
       );
       const row = document.createElement('div');
       row.className = 'role-option-row';
-      row.classList.toggle('is-active', Boolean(selectedRole));
-      const roleChip = document.createElement('button');
-      roleChip.type = 'button';
+      row.classList.toggle('is-active', roleIsActive);
+      const roleChip = document.createElement('span');
       roleChip.className = 'role-name-chip';
       roleChip.textContent = roleName;
-      roleChip.setAttribute('aria-pressed', String(Boolean(selectedRole)));
-      roleChip.addEventListener('click', () => {
-        if (selectedRole) playerFilters.selectedRoles = playerFilters.selectedRoles.filter(
-          (role) => !(role.position === pos && role.name === roleName),
-        );
-        else setRoleFilter(pos, roleName, 1);
-        renderRoleFilterRows();
-        searchPlayers();
-      });
 
       const levels = document.createElement('div');
       levels.className = 'role-level-toggles';
+      levels.setAttribute('aria-label', `${pos} ${roleName} 역할 레벨`);
       [1, 2].forEach((level) => {
+        const selected = isRoleSelected(pos, roleName, level);
         const levelButton = document.createElement('button');
         levelButton.type = 'button';
         levelButton.textContent = level === 2 ? 'Role++' : 'Role+';
-        levelButton.disabled = !selectedRole;
-        levelButton.classList.toggle('is-selected', selectedRole?.level === level);
-        levelButton.setAttribute('aria-pressed', String(selectedRole?.level === level));
+        levelButton.classList.toggle('is-selected', selected);
+        levelButton.setAttribute('aria-pressed', String(selected));
+        levelButton.setAttribute('aria-label', `${pos} ${roleName} ${level === 2 ? 'Role++' : 'Role+'} 필터`);
         levelButton.addEventListener('click', () => {
-          setRoleFilter(pos, roleName, level);
+          toggleRoleFilter(pos, roleName, level);
           renderRoleFilterRows();
           searchPlayers();
         });
@@ -778,13 +770,6 @@ function toggleRoleFilter(position, name, level) {
   );
   if (roleIndex >= 0) playerFilters.selectedRoles.splice(roleIndex, 1);
   else playerFilters.selectedRoles.push({ position, name, level });
-}
-
-function setRoleFilter(position, name, level) {
-  playerFilters.selectedRoles = playerFilters.selectedRoles.filter(
-    (role) => !(role.position === position && role.name === name),
-  );
-  playerFilters.selectedRoles.push({ position, name, level });
 }
 
 function matchesRoles(card) {
@@ -815,17 +800,14 @@ async function getSelectedRoleIds(selectedRoles = []) {
       .select('id, position, role_name');
     if (error) throw error;
 
-    return (Array.isArray(data) ? data : [])
-      .filter((role) => role && selectedRoles.some(
-        (selectedRole) => selectedRole?.position === role.position && selectedRole?.name === role.role_name,
-      ))
-      .map((role) => {
-        const selectedRole = selectedRoles.find(
-          (item) => item?.position === role.position && item?.name === role.role_name,
-        );
-        return { id: role.id, level: Number(selectedRole?.level) === 2 ? 2 : 1 };
-      })
-      .filter((role) => role.id !== null && role.id !== undefined);
+    return selectedRoles.flatMap((selectedRole) => {
+      const role = (Array.isArray(data) ? data : []).find(
+        (item) => item?.position === selectedRole?.position && item?.role_name === selectedRole?.name,
+      );
+      return role?.id === null || role?.id === undefined
+        ? []
+        : [{ id: role.id, level: Number(selectedRole.level) === 2 ? 2 : 1 }];
+    });
   } catch (error) {
     console.error('Role ID lookup error:', error);
     return [];
@@ -836,34 +818,38 @@ async function getMatchedCardIds(selectedRoles, hasAllRoles) {
   if (!Array.isArray(selectedRoles) || !selectedRoles.length) return [];
 
   try {
-    const selectedRoleIds = selectedRoles.map((role) => role.id);
+    const selectedRoleIds = [...new Set(selectedRoles.map((role) => role.id))];
     const { data, error } = await supabase
       .from('card_roles')
       .select('card_id, role_id, role_level')
       .in('role_id', selectedRoleIds);
     if (error) throw error;
 
-    const safeRoles = (Array.isArray(data) ? data.filter(Boolean) : []).filter((cardRole) => {
-      const selectedRole = selectedRoles.find((role) => String(role.id) === String(cardRole.role_id));
-      if (!selectedRole) return false;
-      const cardRoleLevel = Number(cardRole.role_level);
-      return selectedRole.level === 1 ? cardRoleLevel >= 1 : cardRoleLevel === 2;
-    });
+    const selectedKey = (roleId, level) => `${String(roleId)}:${Number(level)}`;
+    const requiredRoleKeys = new Set(selectedRoles.map((role) => selectedKey(role.id, role.level)));
+    const safeRoles = (Array.isArray(data) ? data.filter(Boolean) : []).filter((cardRole) => selectedRoles.some(
+      (role) => String(role.id) === String(cardRole.role_id)
+        && (role.level === 1 ? Number(cardRole.role_level) >= 1 : Number(cardRole.role_level) === 2),
+    ));
     if (!hasAllRoles) {
       return [...new Set(safeRoles.map((item) => item?.card_id).filter((cardId) => cardId !== null && cardId !== undefined))];
     }
 
-    const requiredRoleIds = new Set(selectedRoleIds.map(String));
-    const cardRoleIds = new Map();
+    const cardRoleKeys = new Map();
     safeRoles.forEach((item) => {
       if (item?.card_id === null || item?.card_id === undefined || item?.role_id === null || item?.role_id === undefined) return;
       const cardId = String(item.card_id);
-      if (!cardRoleIds.has(cardId)) cardRoleIds.set(cardId, new Set());
-      cardRoleIds.get(cardId).add(String(item.role_id));
+      if (!cardRoleKeys.has(cardId)) cardRoleKeys.set(cardId, new Set());
+      selectedRoles.forEach((role) => {
+        if (String(role.id) !== String(item.role_id)) return;
+        if (role.level === 1 ? Number(item.role_level) >= 1 : Number(item.role_level) === 2) {
+          cardRoleKeys.get(cardId).add(selectedKey(role.id, role.level));
+        }
+      });
     });
 
-    return [...cardRoleIds]
-      .filter(([, roleIds]) => [...requiredRoleIds].every((roleId) => roleIds.has(roleId)))
+    return [...cardRoleKeys]
+      .filter(([, roleKeys]) => [...requiredRoleKeys].every((roleKey) => roleKeys.has(roleKey)))
       .map(([cardId]) => Number(cardId))
       .filter(Number.isFinite);
   } catch (error) {
