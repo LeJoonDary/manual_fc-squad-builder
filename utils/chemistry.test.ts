@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlayerCard, SquadSlot } from '../types/chemistry';
-import { adaptChemistryPlayerCard, calculateChemistry } from './chemistry';
+import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched } from './chemistry';
 
 function card(id: string, overrides: Partial<PlayerCard> = {}): PlayerCard {
   return {
@@ -79,6 +79,51 @@ describe('calculateChemistry', () => {
     expect(result.playerChemMap.zidane).toBe(3);
     expect(result.playerChemMap.mbappe).toBe(1);
     expect(result.totalChemistry).toBe(4);
+  });
+
+  it('keeps Mbappé in position at both primary ST and alt_positions LW after a move', () => {
+    const zidane = adaptChemistryPlayerCard({
+      id: 'zidane-position-test',
+      name: 'Zinedine Zidane',
+      position: 'CAM',
+      nation: 'France',
+      league: 'Icons',
+      club: 'Icons',
+      isIcon: true,
+    });
+    const mbappe = adaptChemistryPlayerCard({
+      id: 'mbappe-position-test',
+      name: 'Kylian Mbappé',
+      position: 'ST',
+      altPositions: [],
+      alt_positions: [' lw '],
+      nation: 'France',
+      league: 'LALIGA',
+      club: 'Real Madrid',
+    });
+
+    const atStriker = calculateChemistry([slot('CAM', zidane), slot('ST', mbappe)]);
+    const atLeftWing = calculateChemistry([slot('CAM', zidane), slot('LW', mbappe)]);
+    const outOfPosition = calculateChemistry([slot('CAM', zidane), slot('RW', mbappe)]);
+
+    expect(mbappe.position).toBe('ST');
+    expect(mbappe.altPositions).toEqual(['LW']);
+    expect(isPositionMatched('LW', mbappe)).toBe(true);
+    expect(isPositionMatched(' lw ', mbappe)).toBe(true);
+    expect(atStriker.playerChemMap['mbappe-position-test']).toBe(1);
+    expect(atLeftWing.playerChemMap['mbappe-position-test']).toBe(1);
+    expect(outOfPosition.playerChemMap['mbappe-position-test']).toBe(0);
+  });
+
+  it('normalizes formation-specific midfield slots before position matching', () => {
+    const midfielder = card('8', { position: 'CM', altPositions: [] });
+    const result = calculateChemistry([
+      slot('LCM', midfielder),
+      slot('RCM', card('9', { position: 'CM', clubId: midfielder.clubId })),
+    ]);
+
+    expect(result.playerChemMap['8']).toBe(1);
+    expect(result.playerChemMap['9']).toBe(1);
   });
 
   it('sets an out-of-position player to zero and excludes it from every count', () => {

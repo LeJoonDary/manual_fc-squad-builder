@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { adaptChemistryPlayerCard, calculateChemistry } from './utils/chemistry.ts';
+import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -95,6 +95,8 @@ let playerDetailRequest = 0;
 let pendingPanelScrollPositions = null;
 let activeSlot = null;
 let selectedPlayer = null;
+let dragOriginPosition = null;
+let suppressSlotClick = false;
 const squad = {};
 let affiliationCatalog = [];
 const MOCK_CHEMISTRY_CARDS = [
@@ -192,7 +194,15 @@ const PLAYER_DETAIL_SELECT = `
 `;
 
 document.querySelectorAll('.slot').forEach((slot) => {
-  slot.addEventListener('click', () => openPlayerModal(slot));
+  slot.addEventListener('click', () => {
+    if (!suppressSlotClick) openPlayerModal(slot);
+  });
+  slot.addEventListener('dragstart', handleSlotDragStart);
+  slot.addEventListener('dragover', handleSlotDragOver);
+  slot.addEventListener('dragenter', handleSlotDragEnter);
+  slot.addEventListener('dragleave', handleSlotDragLeave);
+  slot.addEventListener('drop', handleSlotDrop);
+  slot.addEventListener('dragend', handleSlotDragEnd);
 });
 
 tabButtons.forEach((button) => {
@@ -1347,19 +1357,8 @@ function getSelectedCardIds(currentSlotKey) {
 
 async function fetchCardsForPosition(selectedSlot) {
   const targetPosition = normalizePosition(selectedSlot);
-  // 포지션은 card_positions에 정규화되어 있으므로, 조인한 positions.name으로 필터링합니다.
-  const { data: positionRows, error: positionError } = await supabase
-    .from('card_positions')
-    .select(PLAYER_CARD_SELECT)
-    .eq('positions.name', targetPosition)
-    .limit(100);
-
-  const positionedCards = (positionRows ?? []).map(normalizePlayerCard).filter(Boolean);
-  if (!positionError && positionedCards.length) {
-    return { cards: positionedCards, usedFallback: false, error: null };
-  }
-
-  // 포지션 관계가 없거나 데이터가 비어 있는 카드는 전체 목록에서 선택할 수 있도록 대체합니다.
+  // 모든 포지션 관계를 먼저 받아 카드별로 합쳐야, 주 포지션에서 고른 카드도
+  // 드래그 이후 보조 포지션 정보를 잃지 않습니다.
   const { data: fallbackRows, error: fallbackError } = await supabase
     .from('card_positions')
     .select(PLAYER_CARD_SELECT)
@@ -1367,20 +1366,16 @@ async function fetchCardsForPosition(selectedSlot) {
 
   if (fallbackError) return { cards: [], usedFallback: true, error: fallbackError };
 
-  const fallbackCards = fallbackRows.map(normalizePlayerCard).filter(Boolean);
-  return { cards: fallbackCards, usedFallback: true, error: null };
+  const allCards = normalizePlayerCardRows(fallbackRows ?? []);
+  const positionedCards = allCards.filter((card) => [card.position, ...(card.alt_positions ?? [])]
+    .some((position) => normalizePosition(position) === targetPosition));
+  return positionedCards.length
+    ? { cards: positionedCards, usedFallback: false, error: null }
+    : { cards: allCards, usedFallback: true, error: null };
 }
 
 function normalizePosition(slot) {
-  const positionMap = {
-    LCB: 'CB', RCB: 'CB',
-    LCM: 'CM', RCM: 'CM',
-    LDM: 'CDM', RDM: 'CDM',
-    LAM: 'CAM', RAM: 'CAM',
-    LS: 'ST', RS: 'ST',
-    LF: 'CF', RF: 'CF',
-  };
-  return positionMap[slot] || slot;
+  return normalizeChemistryPosition(slot);
 }
 
 function normalizePlayerCard(row) {
@@ -1424,6 +1419,35 @@ function normalizePlayerCard(row) {
     // card_roles는 Supabase가 배열로 반환합니다. 렌더링 시 이 원본 배열을 직접 순회합니다.
     card_roles: asArray(cardVersion.card_roles),
   };
+}
+
+function normalizePlayerCardRows(rows) {
+  const rowsByCard = new Map();
+  rows.forEach((row) => {
+    const cardVersion = unwrapRelation(row.card_versions);
+    if (!cardVersion?.id) return;
+    const key = String(cardVersion.id);
+    if (!rowsByCard.has(key)) rowsByCard.set(key, []);
+    rowsByCard.get(key).push(row);
+  });
+
+  return [...rowsByCard.values()].map((cardRows) => {
+    const primaryRow = cardRows.find((row) => row.is_primary) ?? cardRows[0];
+    const normalized = normalizePlayerCard(primaryRow);
+    if (!normalized) return null;
+    const primaryPosition = unwrapRelation(primaryRow.positions)?.name ?? normalized.position;
+    const altPositions = [...new Set(cardRows
+      .filter((row) => row !== primaryRow)
+      .map((row) => unwrapRelation(row.positions)?.name)
+      .filter(Boolean))];
+    return {
+      ...normalized,
+      position: primaryPosition,
+      primary_position: primaryPosition,
+      alt_positions: altPositions,
+      secondary_positions: altPositions,
+    };
+  }).filter(Boolean);
 }
 
 function unwrapRelation(value) {
@@ -1635,26 +1659,35 @@ function handleRemovePlayer(event, slotKey) {
   const slot = document.querySelector(`.slot[data-position="${slotKey}"]`);
   if (!slot) return;
 
+  resetSlot(slot, false);
+  status.textContent = `${slotKey} 슬롯에서 선수를 제거했습니다.`;
+  updateSquadChemistry();
+}
+
+function resetSlot(slot, shouldUpdate = true) {
+  const slotKey = slot.dataset.position;
   squad[slotKey] = null;
   delete slot.dataset.card;
   delete slot.dataset.cardId;
-  slot.classList.remove('occupied');
+  slot.draggable = false;
+  slot.classList.remove('occupied', 'is-out-of-position', 'is-dragging', 'is-drop-target');
   slot.replaceChildren();
 
   const positionLabel = document.createElement('span');
   positionLabel.textContent = slotKey;
   slot.append(positionLabel);
-  status.textContent = `${slotKey} 슬롯에서 선수를 제거했습니다.`;
-  updateSquadChemistry();
+  if (shouldUpdate) updateSquadChemistry();
 }
 
-function placeCard(slot, card) {
+function placeCard(slot, card, shouldUpdate = true) {
   const name = getCardName(card);
   const rating = getCardRating(card);
   const image = getCardImage(card);
+  const chemistryCard = toChemistryPlayerCard(card);
   slot.dataset.card = name;
-  slot.dataset.cardId = card.id ?? '';
-  squad[slot.dataset.position] = { card_id: card.id, card };
+  slot.dataset.cardId = chemistryCard.id;
+  squad[slot.dataset.position] = { card_id: chemistryCard.id, card, chemistryCard };
+  slot.draggable = true;
   slot.classList.add('occupied');
   slot.replaceChildren();
 
@@ -1693,7 +1726,81 @@ function placeCard(slot, card) {
   slot.append(createSkillFootBadges(card, 'slot-skill-foot-badges'));
   slot.append(createRoleBadges(card, 2, 'slot-role-badges'));
   slot.append(createPlaystyleBadges(card, 2, 'slot-playstyles'));
+  if (shouldUpdate) updateSquadChemistry();
+}
+
+function clearSlotDragFeedback() {
+  document.querySelectorAll('.slot').forEach((slot) => {
+    slot.classList.remove('is-dragging', 'is-drop-target');
+  });
+}
+
+function handleSlotDragStart(event) {
+  const slot = event.currentTarget;
+  if (!slot.classList.contains('occupied') || !squad[slot.dataset.position]?.card) {
+    event.preventDefault();
+    return;
+  }
+
+  dragOriginPosition = slot.dataset.position;
+  suppressSlotClick = true;
+  slot.classList.add('is-dragging');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', dragOriginPosition);
+}
+
+function handleSlotDragOver(event) {
+  if (!dragOriginPosition) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+}
+
+function handleSlotDragEnter(event) {
+  const slot = event.currentTarget;
+  if (dragOriginPosition && slot.dataset.position !== dragOriginPosition) {
+    event.preventDefault();
+    slot.classList.add('is-drop-target');
+  }
+}
+
+function handleSlotDragLeave(event) {
+  const slot = event.currentTarget;
+  if (!slot.contains(event.relatedTarget)) slot.classList.remove('is-drop-target');
+}
+
+function handleSlotDrop(event) {
+  event.preventDefault();
+  const targetSlot = event.currentTarget;
+  const originPosition = dragOriginPosition || event.dataTransfer.getData('text/plain');
+  const targetPosition = targetSlot.dataset.position;
+  const originSlot = document.querySelector(`.slot[data-position="${originPosition}"]`);
+  const originCard = squad[originPosition]?.card;
+
+  if (!originSlot || !originCard || originPosition === targetPosition) {
+    clearSlotDragFeedback();
+    return;
+  }
+
+  const targetCard = squad[targetPosition]?.card ?? null;
+  placeCard(targetSlot, originCard, false);
+  if (targetCard) {
+    placeCard(originSlot, targetCard, false);
+    status.textContent = `${originPosition}와 ${targetPosition} 슬롯의 선수를 교체했습니다.`;
+  } else {
+    resetSlot(originSlot, false);
+    status.textContent = `${getCardName(originCard)} 선수를 ${originPosition}에서 ${targetPosition}(으)로 이동했습니다.`;
+  }
+
+  clearSlotDragFeedback();
   updateSquadChemistry();
+}
+
+function handleSlotDragEnd() {
+  clearSlotDragFeedback();
+  dragOriginPosition = null;
+  setTimeout(() => {
+    suppressSlotClick = false;
+  }, 0);
 }
 
 /** @returns {import('./types/chemistry').PlayerCard} */
@@ -1704,16 +1811,13 @@ function toChemistryPlayerCard(card) {
 function getChemistrySquad() {
   return [...document.querySelectorAll('.slot')].map((slot) => ({
     position: normalizePosition(slot.dataset.position),
-    player: squad[slot.dataset.position]?.card ? toChemistryPlayerCard(squad[slot.dataset.position].card) : null,
+    player: squad[slot.dataset.position]?.chemistryCard
+      ?? (squad[slot.dataset.position]?.card ? toChemistryPlayerCard(squad[slot.dataset.position].card) : null),
   }));
 }
 
 function isCardInSlotPosition(card, slotPosition) {
-  const chemistryCard = toChemistryPlayerCard(card);
-  const normalizedSlot = normalizePosition(slotPosition);
-  return [chemistryCard.position, ...(chemistryCard.altPositions ?? [])]
-    .map(normalizePosition)
-    .includes(normalizedSlot);
+  return isPositionMatched(slotPosition, toChemistryPlayerCard(card));
 }
 
 function updateSquadChemistry() {
@@ -1733,7 +1837,7 @@ function updateSquadChemistry() {
 
     const chemistryCard = toChemistryPlayerCard(card);
     const chemistry = result.playerChemMap[chemistryCard.id] ?? 0;
-    const positionMatches = isCardInSlotPosition(card, slot.dataset.position);
+    const positionMatches = isPositionMatched(slot.dataset.position, chemistryCard);
     slot.classList.toggle('is-out-of-position', !positionMatches);
     if (positionElement) {
       positionElement.classList.toggle('is-position-warning', !positionMatches);

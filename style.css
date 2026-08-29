@@ -168,7 +168,10 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .formation-label { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,.6); font-size: 1.4rem; font-weight: 900; }
 .slot { position: absolute; z-index: 1; width: 104px; height: 116px; transform: translateX(-50%); border: 2px dashed rgba(255,255,255,.7); border-radius: 14px; background: rgba(4,30,27,.54); color: white; cursor: pointer; }
 .slot > span { font-weight: 800; }
-.slot.occupied { display: grid; place-content: center; gap: 4px; border-style: solid; border-color: #ffd43b; background: linear-gradient(145deg, #273d86, #0a1645); box-shadow: 0 8px 18px rgba(0,0,0,.3); overflow: hidden; }
+.slot.occupied { display: grid; place-content: center; gap: 4px; border-style: solid; border-color: #ffd43b; background: linear-gradient(145deg, #273d86, #0a1645); box-shadow: 0 8px 18px rgba(0,0,0,.3); overflow: hidden; cursor: grab; transition: opacity .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.slot.occupied:active { cursor: grabbing; }
+.slot.is-dragging { opacity: .42; }
+.slot.is-drop-target { z-index: 3; transform: translateX(-50%) scale(1.045); border-style: solid; border-color: #63e6be; background-color: rgba(99,230,190,.18); box-shadow: 0 0 0 4px rgba(99,230,190,.14), 0 12px 28px rgba(2,7,19,.48); }
 .slot.occupied strong { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; }
 .slot small { color: #d9e2ff; font-weight: 700; }.card-rating { color: #ffd43b; font-size: 1.2rem; }.card-stats { color: #b9c7da; font-size: .57rem; font-weight: 800; white-space: nowrap; }
 .slot.occupied.is-out-of-position { border-color: #ff6b5f; box-shadow: 0 0 0 2px rgba(255,107,95,.13), 0 8px 18px rgba(0,0,0,.3); }

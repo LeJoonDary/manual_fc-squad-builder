@@ -7,15 +7,29 @@ const NATION_THRESHOLDS = [2, 5, 8] as const;
 type EntityId = PlayerCard['nationId'];
 type CountMap = Map<string, number>;
 
-function normalizePosition(position: string): string {
-  return position.trim().toUpperCase();
+const FORMATION_POSITION_MAP: Record<string, string> = {
+  LCB: 'CB', RCB: 'CB',
+  LCM: 'CM', RCM: 'CM',
+  LDM: 'CDM', RDM: 'CDM',
+  LAM: 'CAM', RAM: 'CAM',
+  LS: 'ST', RS: 'ST',
+  LF: 'CF', RF: 'CF',
+};
+
+export function normalizeChemistryPosition(position: string): string {
+  const normalized = String(position ?? '').trim().toUpperCase();
+  return FORMATION_POSITION_MAP[normalized] ?? normalized;
+}
+
+export function isPositionMatched(slotPosition: string, player: PlayerCard | null): player is PlayerCard {
+  if (!player) return false;
+  const normalizedSlotPosition = normalizeChemistryPosition(slotPosition);
+  return [player.position, ...(player.altPositions ?? [])]
+    .some((position) => normalizeChemistryPosition(position) === normalizedSlotPosition);
 }
 
 function isPositionMatch(slot: SquadSlot): slot is SquadSlot & { player: PlayerCard } {
-  if (!slot.player) return false;
-  const slotPosition = normalizePosition(slot.position);
-  return [slot.player.position, ...(slot.player.altPositions ?? [])]
-    .some((position) => normalizePosition(position) === slotPosition);
+  return isPositionMatched(slot.position, slot.player);
 }
 
 function normalizeEntityId(id: EntityId): string {
@@ -55,12 +69,23 @@ function canonicalAffiliationKey(
  * with nationId/nation_id differences still join the same chemistry group.
  */
 export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): PlayerCard {
-  const rawAltPositions = firstValue(rawCard, ['altPositions', 'secondary_positions']);
-  const altPositions = Array.isArray(rawAltPositions)
-    ? rawAltPositions.map(String)
-    : typeof rawAltPositions === 'string'
-      ? rawAltPositions.split(',').map((position) => position.trim()).filter(Boolean)
-      : [];
+  const altPositions = [...new Set(['altPositions', 'alt_positions', 'secondary_positions']
+    .flatMap((field) => {
+      const source = rawCard[field];
+      if (Array.isArray(source)) return source.map(String);
+      if (typeof source !== 'string') return [];
+      const trimmed = source.trim();
+      if (!trimmed) return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.map(String);
+      } catch {
+        // Plain comma lists and PostgreSQL-style arrays are handled below.
+      }
+      return trimmed.replace(/^\{|\}$/g, '').split(',');
+    })
+    .map((position) => normalizeChemistryPosition(position))
+    .filter(Boolean))];
 
   return {
     id: String(firstValue(rawCard, ['id', 'card_id']) ?? ''),
