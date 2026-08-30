@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
+import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1746,7 +1747,7 @@ function resetSlot(slot, shouldUpdate = true) {
   delete slot.dataset.card;
   delete slot.dataset.cardId;
   slot.draggable = false;
-  slot.classList.remove('occupied', 'is-locked', 'is-out-of-position', 'is-dragging', 'is-drop-target');
+  slot.classList.remove('occupied', 'is-locked', 'is-owned', 'is-out-of-position', 'is-dragging', 'is-drop-target');
   slot.replaceChildren();
 
   const positionLabel = document.createElement('span');
@@ -1755,14 +1756,13 @@ function resetSlot(slot, shouldUpdate = true) {
   if (shouldUpdate) updateSquadChemistry();
 }
 
-function placeCard(slot, card, shouldUpdate = true) {
+function placeCard(slot, card, shouldUpdate = true, state = {}) {
   const name = getCardName(card);
-  const rating = getCardRating(card);
-  const image = getCardImage(card);
   const chemistryCard = toChemistryPlayerCard(card);
   slot.dataset.card = name;
   slot.dataset.cardId = chemistryCard.id;
   squad[slot.dataset.position] = createSquadEntry(chemistryCard.id, card, chemistryCard);
+  squad[slot.dataset.position].isOwned = state.isOwned === true;
   slot.draggable = true;
   slot.classList.add('occupied');
   slot.classList.remove('is-locked');
@@ -1775,43 +1775,41 @@ function placeCard(slot, card, shouldUpdate = true) {
   lockButton.type = 'button';
   lockButton.addEventListener('click', (event) => handleTogglePlayerLock(event, slot));
 
+  const ownedButton = document.createElement('button');
+  ownedButton.className = 'owned-player';
+  ownedButton.type = 'button';
+  ownedButton.addEventListener('click', (event) => handleTogglePlayerOwned(event, slot));
+
   const removeButton = document.createElement('button');
   removeButton.className = 'remove-player';
   removeButton.type = 'button';
   removeButton.setAttribute('aria-label', `${name} 선수 제거`);
   removeButton.textContent = '×';
   removeButton.addEventListener('click', (event) => handleRemovePlayer(event, slot.dataset.position));
-  cardActions.append(lockButton, removeButton);
+  cardActions.append(lockButton, ownedButton, removeButton);
   slot.append(cardActions);
   updateSlotLockUI(slot);
+  updateSlotOwnedUI(slot);
 
-  if (image) {
-    const portrait = document.createElement('img');
-    portrait.className = 'slot-card-image';
-    portrait.src = image;
-    portrait.alt = '';
-    portrait.addEventListener('error', () => portrait.remove());
-    slot.append(portrait);
-  }
-  const ratingElement = document.createElement('span');
-  ratingElement.className = 'card-rating';
-  ratingElement.textContent = rating;
+  const content = document.createElement('span');
+  content.className = 'slot-card-content';
+  const affiliations = document.createElement('small');
+  affiliations.className = 'slot-affiliations';
+  affiliations.textContent = [card.nation, card.league, card.club].filter(Boolean).join(' / ') || '소속 정보 없음';
   const nameElement = document.createElement('strong');
   nameElement.textContent = name;
-  const positionElement = document.createElement('small');
-  positionElement.className = 'slot-position';
-  positionElement.textContent = slot.dataset.position;
-  const stats = getCardStats(card);
-  slot.append(ratingElement, nameElement, positionElement);
-  if (stats.length) {
-    const statsElement = document.createElement('span');
-    statsElement.className = 'card-stats';
-    statsElement.textContent = stats.join(' · ');
-    slot.append(statsElement);
-  }
-  slot.append(createSkillFootBadges(card, 'slot-skill-foot-badges'));
-  slot.append(createRoleBadges(card, 2, 'slot-role-badges'));
-  slot.append(createPlaystyleBadges(card, 2, 'slot-playstyles'));
+  const rarityElement = document.createElement('span');
+  rarityElement.className = 'slot-rarity';
+  rarityElement.textContent = card.version || 'Standard';
+  const skillFoot = document.createElement('span');
+  skillFoot.className = 'slot-skill-foot-line';
+  skillFoot.textContent = `SM ${card.sm ?? '-'}★ / WF ${card.wf ?? '-'}★`;
+  content.append(affiliations, nameElement, rarityElement, skillFoot);
+  slot.append(content);
+  const priceBadge = document.createElement('div');
+  priceBadge.className = 'card-price-badge';
+  slot.append(priceBadge);
+  updateSlotOwnedUI(slot);
   if (shouldUpdate) updateSquadChemistry();
 }
 
@@ -1840,6 +1838,42 @@ function updateSlotLockUI(slot) {
     lockButton.setAttribute('aria-pressed', String(isLocked));
   }
   if (removeButton) removeButton.hidden = isLocked;
+}
+
+function handleTogglePlayerOwned(event, slot) {
+  event.stopPropagation();
+  const entry = squad[slot.dataset.position];
+  if (!entry?.card) return;
+  entry.isOwned = !entry.isOwned;
+  updateSlotOwnedUI(slot);
+  updateSquadChemistry();
+  status.textContent = `${getCardName(entry.card)} 선수를 ${entry.isOwned ? '보유 중으로 설정했습니다.' : '미보유로 설정했습니다.'}`;
+}
+
+function updateSlotOwnedUI(slot) {
+  const entry = squad[slot.dataset.position];
+  if (!entry?.card) return;
+  const isOwned = entry.isOwned === true;
+  const ownedButton = slot.querySelector('.owned-player');
+  const priceBadge = slot.querySelector('.card-price-badge');
+  const formattedPrice = new Intl.NumberFormat('en-US').format(getCardCoinPrice(entry.card));
+  slot.classList.toggle('is-owned', isOwned);
+  if (ownedButton) {
+    ownedButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m7.5 12.2 3 3 6-6.4"></path></svg>';
+    ownedButton.dataset.tooltip = isOwned ? '보유 중 (비용 0원)' : '미보유 (비용 포함)';
+    ownedButton.setAttribute('aria-label', `${getCardName(entry.card)} 선수 ${isOwned ? '미보유로 변경' : '보유 중으로 변경'}`);
+    ownedButton.setAttribute('aria-pressed', String(isOwned));
+  }
+  if (priceBadge) {
+    priceBadge.replaceChildren();
+    if (isOwned) {
+      const originalPrice = document.createElement('s');
+      originalPrice.textContent = formattedPrice;
+      priceBadge.append(originalPrice, document.createTextNode(' → 0 C'));
+    } else {
+      priceBadge.textContent = `${formattedPrice} C`;
+    }
+  }
 }
 
 function clearUnlockedPlayers() {
@@ -1971,6 +2005,7 @@ function handleSlotDrop(event) {
   const targetPosition = targetSlot.dataset.position;
   const originSlot = document.querySelector(`.slot[data-position="${originPosition}"]`);
   const originCard = squad[originPosition]?.card;
+  const originOwned = squad[originPosition]?.isOwned === true;
 
   if (!originSlot || !originCard || originPosition === targetPosition
     || isSquadSlotLocked(squad[originPosition]) || isSquadSlotLocked(squad[targetPosition])) {
@@ -1979,9 +2014,10 @@ function handleSlotDrop(event) {
   }
 
   const targetCard = squad[targetPosition]?.card ?? null;
-  placeCard(targetSlot, originCard, false);
+  const targetOwned = squad[targetPosition]?.isOwned === true;
+  placeCard(targetSlot, originCard, false, { isOwned: originOwned });
   if (targetCard) {
-    placeCard(originSlot, targetCard, false);
+    placeCard(originSlot, targetCard, false, { isOwned: targetOwned });
     status.textContent = `${originPosition}와 ${targetPosition} 슬롯의 선수를 교체했습니다.`;
   } else {
     resetSlot(originSlot, false);
@@ -2021,7 +2057,7 @@ function updateSquadChemistry() {
   const chemistrySquad = getChemistrySquad();
   const result = calculateChemistry(chemistrySquad, getManagerChemistryBonus());
   totalChemistryOutput.value = String(result.totalChemistry);
-  totalCostOutput.value = new Intl.NumberFormat('en-US').format(getSquadTotalCost());
+  totalCostOutput.value = new Intl.NumberFormat('en-US').format(calculateSquadTotalCost(squad));
   renderChemistryBreakdown();
 
   document.querySelectorAll('.slot').forEach((slot) => {
@@ -2051,15 +2087,6 @@ function updateSquadChemistry() {
     badge.innerHTML = `${diamonds}<b>${chemistry}</b>`;
     slot.append(badge);
   });
-}
-
-function getSquadTotalCost() {
-  return Object.values(squad).reduce((total, entry) => {
-    if (!entry?.card) return total;
-    const rawPrice = entry.card.price ?? entry.card.cost ?? 0;
-    const price = Number(String(rawPrice).replace(/[^\d.-]/g, ''));
-    return total + (Number.isFinite(price) && price > 0 ? price : 0);
-  }, 0);
 }
 
 const CHEMISTRY_GROUPS = [

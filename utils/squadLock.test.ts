@@ -6,6 +6,7 @@ describe('squad slot lock state', () => {
     const entry = createSquadEntry('card-1', { name: 'Zidane' }, { id: 'card-1' });
 
     expect(entry.isLocked).toBe(false);
+    expect(entry.isOwned).toBe(false);
     expect(isSquadSlotLocked(entry)).toBe(false);
   });
 

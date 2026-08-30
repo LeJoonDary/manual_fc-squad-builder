@@ -3,6 +3,7 @@ export type LockableSquadEntry<TCard = unknown, TChemistryCard = unknown> = {
   card: TCard;
   chemistryCard: TChemistryCard;
   isLocked: boolean;
+  isOwned: boolean;
 };
 
 export function createSquadEntry<TCard, TChemistryCard>(
@@ -10,7 +11,7 @@ export function createSquadEntry<TCard, TChemistryCard>(
   card: TCard,
   chemistryCard: TChemistryCard,
 ): LockableSquadEntry<TCard, TChemistryCard> {
-  return { card_id: cardId, card, chemistryCard, isLocked: false };
+  return { card_id: cardId, card, chemistryCard, isLocked: false, isOwned: false };
 }
 
 export function isSquadSlotLocked(entry: LockableSquadEntry | null | undefined): boolean {

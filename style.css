@@ -167,7 +167,7 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .chemistry-row.is-icon-bonus { grid-template-columns: minmax(0, 1fr) auto; border-color: rgba(255,212,59,.18); background: rgba(255,212,59,.055); }
 .chemistry-icon-badge { display: inline-flex; align-items: center; justify-content: center; min-height: 24px; border: 1px solid rgba(255,212,59,.42); border-radius: 999px; padding: 0 9px; color: #ffe68b; background: rgba(255,212,59,.09); font-size: .61rem; font-weight: 900; white-space: nowrap; }
 .chemistry-empty { margin: 5px 4px 0; border: 1px dashed rgba(255,255,255,.1); border-radius: 9px; padding: 12px 10px; color: #71829d; font-size: .65rem; text-align: center; }
-.pitch { position: relative; min-height: 720px; overflow: hidden; border: 4px solid rgba(255,255,255,.9); border-radius: 18px; background: repeating-linear-gradient(90deg, #118b55 0 9%, #0d7d4a 9% 18%); box-shadow: 0 20px 60px #020713; }
+.pitch { position: relative; min-height: 860px; overflow: hidden; border: 4px solid rgba(255,255,255,.9); border-radius: 18px; padding-bottom: 32px; background: repeating-linear-gradient(90deg, #118b55 0 9%, #0d7d4a 9% 18%); box-shadow: 0 20px 60px #020713; }
 .pitch::before, .pitch::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); border: 3px solid rgba(255,255,255,.82); pointer-events: none; }
 .pitch::before { top: 0; width: 27%; height: 12%; border-top: 0; }
 .pitch::after { top: 42%; width: 130px; height: 130px; border-radius: 50%; }
@@ -179,33 +179,47 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .manager-slot.is-configured { border-style: solid; border-color: rgba(200,255,82,.72); background: linear-gradient(145deg, rgba(31,66,62,.95), rgba(7,28,37,.95)); }
 .manager-slot strong { overflow: hidden; color: #c8ff52; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
 .manager-affiliation { overflow: hidden; color: #dce8f5; font-size: .58rem; text-overflow: ellipsis; white-space: nowrap; }
-.slot { position: absolute; z-index: 1; width: 104px; height: 116px; transform: translateX(-50%); border: 2px dashed rgba(255,255,255,.7); border-radius: 14px; background: rgba(4,30,27,.54); color: white; cursor: pointer; }
+.slot { position: absolute; z-index: 1; width: 112px; height: 132px; transform: translateX(-50%); border: 2px dashed rgba(255,255,255,.7); border-radius: 14px; background: rgba(4,30,27,.54); color: white; cursor: pointer; }
 .slot > span { font-weight: 800; }
-.slot.occupied { display: grid; place-content: center; gap: 4px; border-style: solid; border-color: #ffd43b; background: linear-gradient(145deg, #273d86, #0a1645); box-shadow: 0 8px 18px rgba(0,0,0,.3); overflow: hidden; cursor: grab; transition: opacity .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.slot.occupied { display: grid; box-sizing: border-box; place-content: center; gap: 4px; border-style: solid; border-color: #ffd43b; background: linear-gradient(145deg, #273d86, #0a1645); box-shadow: 0 8px 18px rgba(0,0,0,.3); overflow: visible; cursor: grab; transition: opacity .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
 .slot.occupied:active { cursor: grabbing; }
 .slot.occupied.is-locked { border-color: #c8ff52; box-shadow: 0 0 0 2px rgba(200,255,82,.14), 0 8px 18px rgba(0,0,0,.3); cursor: default; }
 .slot.is-dragging { opacity: .42; }
 .slot.is-drop-target { z-index: 3; transform: translateX(-50%) scale(1.045); border-style: solid; border-color: #63e6be; background-color: rgba(99,230,190,.18); box-shadow: 0 0 0 4px rgba(99,230,190,.14), 0 12px 28px rgba(2,7,19,.48); }
-.slot.occupied strong { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; }
+.slot-card-content { display: grid; width: 100%; min-width: 0; align-content: center; gap: 5px; padding: 25px 7px 24px; text-align: center; }
+.slot-card-content strong { overflow: hidden; color: #fff; font-size: .9rem; font-weight: 950; line-height: 1.08; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px rgba(0,0,0,.55); }
+.slot-affiliations { overflow: hidden; color: #d9e2ff !important; font-size: .52rem; font-weight: 750; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.slot-rarity { overflow: hidden; color: #ffd43b; font-size: .61rem; font-weight: 850; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+.slot-skill-foot-line { color: #f7fbff; font-size: .62rem; font-weight: 900; line-height: 1.1; white-space: nowrap; }
 .slot small { color: #d9e2ff; font-weight: 700; }.card-rating { color: #ffd43b; font-size: 1.2rem; }.card-stats { color: #b9c7da; font-size: .57rem; font-weight: 800; white-space: nowrap; }
 .slot.occupied.is-out-of-position { border-color: #ff6b5f; box-shadow: 0 0 0 2px rgba(255,107,95,.13), 0 8px 18px rgba(0,0,0,.3); }
 .slot-position.is-position-warning { color: #ff8a65; font-weight: 950; }
-.slot-chemistry { position: absolute; right: 4px; bottom: 4px; display: inline-flex; height: 20px; align-items: center; gap: 1px; border: 1px solid rgba(255,255,255,.18); border-radius: 7px; padding: 0 4px; color: #60718b; background: rgba(2,8,24,.88); font-size: .48rem; line-height: 1; }
+.slot-chemistry { position: absolute; right: 4px; bottom: 4px; display: inline-flex; height: 20px; align-items: center; gap: 1px; border: 1px solid rgba(255,255,255,.18); border-radius: 6px; padding: 0 4px; color: #60718b; background: rgba(2,8,24,.94); font-size: .46rem; line-height: 1; }
 .slot-chemistry i { font-style: normal; }.slot-chemistry i.is-filled { color: #63e6be; text-shadow: 0 0 6px rgba(99,230,190,.7); }
 .slot-chemistry b { min-width: 10px; margin-left: 2px; color: #eef8ff; font-size: .58rem; text-align: center; }
 .slot-chemistry.chem-0 { border-color: rgba(255,107,95,.45); }.slot-chemistry.chem-3 { border-color: rgba(99,230,190,.6); }
-.slot-card-actions { position: absolute; top: 5px; right: 5px; left: 5px; z-index: 2; display: flex; align-items: center; justify-content: space-between; }
-.lock-player, .remove-player { display: grid; place-items: center; width: 21px; height: 21px; border: 1px solid rgba(255,255,255,.55); border-radius: 50%; padding: 0; background: rgba(4,12,31,.76); color: #fff; font-size: .8rem; line-height: 1; cursor: pointer; }
+.slot-card-actions { position: absolute; top: 5px; right: 5px; left: 5px; z-index: 2; display: grid; grid-template-columns: 21px 21px 21px; align-items: center; justify-content: space-between; }
+.lock-player, .owned-player, .remove-player { position: relative; display: grid; place-items: center; width: 21px; height: 21px; border: 1px solid rgba(255,255,255,.55); border-radius: 50%; padding: 0; background: rgba(4,12,31,.76); color: #fff; font-size: .8rem; line-height: 1; cursor: pointer; }
 .lock-player:hover, .lock-player:focus-visible { border-color: #c8ff52; background: rgba(91,124,22,.8); outline: none; }
 .slot.is-locked .lock-player { border-color: #c8ff52; color: #eaffb6; background: rgba(91,124,22,.86); box-shadow: 0 0 8px rgba(200,255,82,.34); }
-.lock-player::after { position: absolute; top: 26px; left: 0; padding: 4px 7px; transform: translateY(-2px); border: 1px solid rgba(255,255,255,.14); border-radius: 6px; background: rgba(2,8,24,.92); box-shadow: 0 5px 14px rgba(0,0,0,.28); color: #fff; content: attr(data-tooltip); font-size: .55rem; font-weight: 800; line-height: 1; opacity: 0; pointer-events: none; transition: opacity .12s, transform .12s; white-space: nowrap; }
+.owned-player { border-color: #fff; color: #fff; background: rgba(0,0,0,.62); box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 1px 5px rgba(0,0,0,.45); opacity: .78; }
+.owned-player svg { width: 17px; height: 17px; overflow: visible; fill: rgba(0,0,0,.22); stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.4; }
+.owned-player:hover, .owned-player:focus-visible { border-color: #fff; color: #fff; background: rgba(0,0,0,.88); opacity: 1; outline: none; }
+.slot.is-owned .owned-player { border-color: #fff; color: #fff; background: #198f3a; box-shadow: 0 0 0 1px rgba(0,0,0,.72), 0 0 9px rgba(81,207,102,.55); opacity: 1; }
+.slot.is-owned .owned-player svg { fill: rgba(0,0,0,.12); stroke-width: 2.8; }
+.lock-player::after, .owned-player::after { position: absolute; top: 26px; left: 0; padding: 4px 7px; transform: translateY(-2px); border: 1px solid rgba(255,255,255,.14); border-radius: 6px; background: rgba(2,8,24,.92); box-shadow: 0 5px 14px rgba(0,0,0,.28); color: #fff; content: attr(data-tooltip); font-size: .55rem; font-weight: 800; line-height: 1; opacity: 0; pointer-events: none; transition: opacity .12s, transform .12s; white-space: nowrap; }
+.owned-player::after { right: 50%; left: auto; transform: translate(50%, -2px); }
 .lock-player:hover::after, .lock-player:focus-visible::after { transform: translateY(0); opacity: 1; }
+.owned-player:hover::after, .owned-player:focus-visible::after { transform: translate(50%, 0); opacity: 1; }
+.card-price-badge { position: absolute; top: calc(100% + 6px); left: 50%; display: inline-flex; width: max-content; max-width: 142px; min-height: 30px; align-items: center; justify-content: center; overflow: hidden; transform: translateX(-50%); border: 1px solid rgba(250,204,21,.5); border-radius: 7px; padding: 4px 9px; background: rgba(2,8,24,.95); box-shadow: inset 0 1px rgba(255,255,255,.07), 0 3px 9px rgba(0,0,0,.38); color: #facc15; font-size: .85rem; font-weight: 800; line-height: 1; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+.card-price-badge s { margin-right: 3px; color: #9aa8bc; }
+.slot.is-owned .card-price-badge { border-color: rgba(81,207,102,.5); color: #8ce99a; }
 .remove-player { font-size: 1rem; }
 .remove-player[hidden] { display: none; }
 .remove-player:hover, .remove-player:focus-visible { border-color: #ff8787; background: #c92a2a; outline: none; }
 .slot-card-image { width: 44px; height: 44px; margin: 0 auto; object-fit: cover; border-radius: 50%; border: 1px solid rgba(255,255,255,.7); }
 .left { left: 20%; }.center { left: 50%; }.right { left: 80%; }
-.forward { top: 8%; }.midfield { top: 39%; }.defense { top: 69%; }.goalkeeper { left: 50%; top: 85%; }
+.forward { top: 6%; }.midfield { top: 31%; }.defense { top: 56%; }.goalkeeper { left: 50%; top: 76%; }
 .left-center { left: 38%; }.right-center { left: 62%; }
 .modal[hidden] { display: none; }
 .modal { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 20px; }
@@ -284,7 +298,7 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .list-message.error { color: #ffb4b4; }
 @media (max-width: 980px) { .squad-workspace { grid-template-columns: 1fr; }.chemistry-panel { position: static; height: min(560px, 70vh); }.pitch { grid-row: 1; }.chemistry-panel { grid-row: 2; } }
 @media (max-width: 760px) { .players-layout { grid-template-columns: 1fr; }.players-filters { position: static; grid-row: 1; }.players-results { grid-row: 2; }.app-shell.is-players-active .players-layout { overflow-y: auto; }.app-shell.is-players-active .players-results, .app-shell.is-players-active .players-filters { height: auto; overflow: visible; padding-right: 0; }.players-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); } }
-@media (max-width: 560px) { .app-header-inner { min-height: 60px; padding: 0 16px; }.brand { font-size: .84rem; }.main-nav { gap: 0; }.nav-tab { padding: 0 9px; font-size: .76rem; }.nav-tab::after { right: 9px; left: 9px; }.app-shell { padding: 24px 14px 32px; }.app-shell.is-players-active { height: calc(100vh - 60px); padding-bottom: 16px; }.players-results-header { align-items: stretch; flex-direction: column; }.player-search { width: 100%; }.player-detail-header { padding: 18px; }.player-detail-body { padding: 18px; }.detail-spec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.detail-stats-grid { grid-template-columns: repeat(3, 1fr); }.pitch { min-height: 650px; }.slot { width: 76px; height: 94px; }.left { left: 16%; }.right { left: 84%; }.left-center { left: 38%; }.right-center { left: 62%; } }
+@media (max-width: 560px) { .app-header-inner { min-height: 60px; padding: 0 16px; }.brand { font-size: .84rem; }.main-nav { gap: 0; }.nav-tab { padding: 0 9px; font-size: .76rem; }.nav-tab::after { right: 9px; left: 9px; }.app-shell { padding: 24px 14px 32px; }.app-shell.is-players-active { height: calc(100vh - 60px); padding-bottom: 16px; }.players-results-header { align-items: stretch; flex-direction: column; }.player-search { width: 100%; }.player-detail-header { padding: 18px; }.player-detail-body { padding: 18px; }.detail-spec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.detail-stats-grid { grid-template-columns: repeat(3, 1fr); }.pitch { min-height: 780px; padding-bottom: 32px; }.slot { width: 82px; height: 120px; }.slot-card-content { gap: 4px; padding-right: 4px; padding-left: 4px; }.slot-card-content strong { font-size: .76rem; }.slot-affiliations { font-size: .44rem; }.slot-rarity, .slot-skill-foot-line { font-size: .52rem; }.card-price-badge { max-width: 106px; min-height: 27px; padding: 3px 7px; font-size: .7rem; }.left { left: 16%; }.right { left: 84%; }.left-center { left: 38%; }.right-center { left: 62%; } }
 
 /* Match Lab filter system */
 .players-filters { --lab-lime: #c8ff52; --lab-coral: #ff6b5f; --lab-ink: #07111f; border-color: rgba(200,255,82,.18); border-radius: 22px; background: linear-gradient(180deg, #111e33 0%, #091425 100%); box-shadow: 0 22px 55px rgba(0,0,0,.3), inset 0 1px rgba(255,255,255,.05); }
