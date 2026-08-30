@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
+import { createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -198,7 +199,7 @@ const PLAYER_DETAIL_SELECT = `
 
 document.querySelectorAll('.slot').forEach((slot) => {
   slot.addEventListener('click', () => {
-    if (!suppressSlotClick) openPlayerModal(slot);
+    if (!suppressSlotClick && !isSquadSlotLocked(squad[slot.dataset.position])) openPlayerModal(slot);
   });
   slot.addEventListener('dragstart', handleSlotDragStart);
   slot.addEventListener('dragover', handleSlotDragOver);
@@ -1321,6 +1322,7 @@ function createDetailValue(label, value) {
 }
 
 async function openPlayerModal(slot) {
+  if (isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot;
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
@@ -1696,6 +1698,7 @@ function closeModal() {
 
 function handleRemovePlayer(event, slotKey) {
   event.stopPropagation();
+  if (isSquadSlotLocked(squad[slotKey])) return;
   const slot = document.querySelector(`.slot[data-position="${slotKey}"]`);
   if (!slot) return;
 
@@ -1710,7 +1713,7 @@ function resetSlot(slot, shouldUpdate = true) {
   delete slot.dataset.card;
   delete slot.dataset.cardId;
   slot.draggable = false;
-  slot.classList.remove('occupied', 'is-out-of-position', 'is-dragging', 'is-drop-target');
+  slot.classList.remove('occupied', 'is-locked', 'is-out-of-position', 'is-dragging', 'is-drop-target');
   slot.replaceChildren();
 
   const positionLabel = document.createElement('span');
@@ -1726,10 +1729,18 @@ function placeCard(slot, card, shouldUpdate = true) {
   const chemistryCard = toChemistryPlayerCard(card);
   slot.dataset.card = name;
   slot.dataset.cardId = chemistryCard.id;
-  squad[slot.dataset.position] = { card_id: chemistryCard.id, card, chemistryCard };
+  squad[slot.dataset.position] = createSquadEntry(chemistryCard.id, card, chemistryCard);
   slot.draggable = true;
   slot.classList.add('occupied');
+  slot.classList.remove('is-locked');
   slot.replaceChildren();
+
+  const cardActions = document.createElement('span');
+  cardActions.className = 'slot-card-actions';
+  const lockButton = document.createElement('button');
+  lockButton.className = 'lock-player';
+  lockButton.type = 'button';
+  lockButton.addEventListener('click', (event) => handleTogglePlayerLock(event, slot));
 
   const removeButton = document.createElement('button');
   removeButton.className = 'remove-player';
@@ -1737,7 +1748,9 @@ function placeCard(slot, card, shouldUpdate = true) {
   removeButton.setAttribute('aria-label', `${name} 선수 제거`);
   removeButton.textContent = '×';
   removeButton.addEventListener('click', (event) => handleRemovePlayer(event, slot.dataset.position));
-  slot.append(removeButton);
+  cardActions.append(lockButton, removeButton);
+  slot.append(cardActions);
+  updateSlotLockUI(slot);
 
   if (image) {
     const portrait = document.createElement('img');
@@ -1769,6 +1782,32 @@ function placeCard(slot, card, shouldUpdate = true) {
   if (shouldUpdate) updateSquadChemistry();
 }
 
+function handleTogglePlayerLock(event, slot) {
+  event.stopPropagation();
+  const entry = squad[slot.dataset.position];
+  if (!entry?.card) return;
+
+  const isLocked = toggleSquadSlotLock(entry);
+  updateSlotLockUI(slot);
+  status.textContent = `${getCardName(entry.card)} 선수를 ${isLocked ? '고정했습니다.' : '고정 해제했습니다.'}`;
+}
+
+function updateSlotLockUI(slot) {
+  const entry = squad[slot.dataset.position];
+  const isLocked = isSquadSlotLocked(entry);
+  const lockButton = slot.querySelector('.lock-player');
+  const removeButton = slot.querySelector('.remove-player');
+
+  slot.classList.toggle('is-locked', isLocked);
+  slot.draggable = Boolean(entry?.card) && !isLocked;
+  if (lockButton) {
+    lockButton.textContent = isLocked ? '🔒' : '🔓';
+    lockButton.setAttribute('aria-label', `${getCardName(entry.card)} 선수 ${isLocked ? '고정 해제' : '고정'}`);
+    lockButton.setAttribute('aria-pressed', String(isLocked));
+  }
+  if (removeButton) removeButton.hidden = isLocked;
+}
+
 function clearSlotDragFeedback() {
   document.querySelectorAll('.slot').forEach((slot) => {
     slot.classList.remove('is-dragging', 'is-drop-target');
@@ -1777,7 +1816,8 @@ function clearSlotDragFeedback() {
 
 function handleSlotDragStart(event) {
   const slot = event.currentTarget;
-  if (!slot.classList.contains('occupied') || !squad[slot.dataset.position]?.card) {
+  if (!slot.classList.contains('occupied') || !squad[slot.dataset.position]?.card
+    || isSquadSlotLocked(squad[slot.dataset.position])) {
     event.preventDefault();
     return;
   }
@@ -1790,14 +1830,16 @@ function handleSlotDragStart(event) {
 }
 
 function handleSlotDragOver(event) {
-  if (!dragOriginPosition) return;
+  const slot = event.currentTarget;
+  if (!dragOriginPosition || isSquadSlotLocked(squad[slot.dataset.position])) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
 }
 
 function handleSlotDragEnter(event) {
   const slot = event.currentTarget;
-  if (dragOriginPosition && slot.dataset.position !== dragOriginPosition) {
+  if (dragOriginPosition && slot.dataset.position !== dragOriginPosition
+    && !isSquadSlotLocked(squad[slot.dataset.position])) {
     event.preventDefault();
     slot.classList.add('is-drop-target');
   }
@@ -1816,7 +1858,8 @@ function handleSlotDrop(event) {
   const originSlot = document.querySelector(`.slot[data-position="${originPosition}"]`);
   const originCard = squad[originPosition]?.card;
 
-  if (!originSlot || !originCard || originPosition === targetPosition) {
+  if (!originSlot || !originCard || originPosition === targetPosition
+    || isSquadSlotLocked(squad[originPosition]) || isSquadSlotLocked(squad[targetPosition])) {
     clearSlotDragFeedback();
     return;
   }

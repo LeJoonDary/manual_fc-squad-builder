@@ -170,6 +170,7 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .slot > span { font-weight: 800; }
 .slot.occupied { display: grid; place-content: center; gap: 4px; border-style: solid; border-color: #ffd43b; background: linear-gradient(145deg, #273d86, #0a1645); box-shadow: 0 8px 18px rgba(0,0,0,.3); overflow: hidden; cursor: grab; transition: opacity .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
 .slot.occupied:active { cursor: grabbing; }
+.slot.occupied.is-locked { border-color: #c8ff52; box-shadow: 0 0 0 2px rgba(200,255,82,.14), 0 8px 18px rgba(0,0,0,.3); cursor: default; }
 .slot.is-dragging { opacity: .42; }
 .slot.is-drop-target { z-index: 3; transform: translateX(-50%) scale(1.045); border-style: solid; border-color: #63e6be; background-color: rgba(99,230,190,.18); box-shadow: 0 0 0 4px rgba(99,230,190,.14), 0 12px 28px rgba(2,7,19,.48); }
 .slot.occupied strong { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; }
@@ -180,7 +181,12 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .slot-chemistry i { font-style: normal; }.slot-chemistry i.is-filled { color: #63e6be; text-shadow: 0 0 6px rgba(99,230,190,.7); }
 .slot-chemistry b { min-width: 10px; margin-left: 2px; color: #eef8ff; font-size: .58rem; text-align: center; }
 .slot-chemistry.chem-0 { border-color: rgba(255,107,95,.45); }.slot-chemistry.chem-3 { border-color: rgba(99,230,190,.6); }
-.remove-player { position: absolute; top: 5px; right: 5px; z-index: 2; display: grid; place-items: center; width: 21px; height: 21px; border: 1px solid rgba(255,255,255,.55); border-radius: 50%; padding: 0; background: rgba(4,12,31,.76); color: #fff; font-size: 1rem; line-height: 1; cursor: pointer; }
+.slot-card-actions { position: absolute; top: 5px; right: 5px; left: 5px; z-index: 2; display: flex; align-items: center; justify-content: space-between; }
+.lock-player, .remove-player { display: grid; place-items: center; width: 21px; height: 21px; border: 1px solid rgba(255,255,255,.55); border-radius: 50%; padding: 0; background: rgba(4,12,31,.76); color: #fff; font-size: .8rem; line-height: 1; cursor: pointer; }
+.lock-player:hover, .lock-player:focus-visible { border-color: #c8ff52; background: rgba(91,124,22,.8); outline: none; }
+.slot.is-locked .lock-player { border-color: #c8ff52; color: #eaffb6; background: rgba(91,124,22,.86); box-shadow: 0 0 8px rgba(200,255,82,.34); }
+.remove-player { font-size: 1rem; }
+.remove-player[hidden] { display: none; }
 .remove-player:hover, .remove-player:focus-visible { border-color: #ff8787; background: #c92a2a; outline: none; }
 .slot-card-image { width: 44px; height: 44px; margin: 0 auto; object-fit: cover; border-radius: 50%; border: 1px solid rgba(255,255,255,.7); }
 .left { left: 20%; }.center { left: 50%; }.right { left: 80%; }
