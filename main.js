@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
 import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts';
+import { calculateBudgetStatus } from './utils/budget.ts';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -18,6 +19,13 @@ const managerNameInput = document.querySelector('#manager-name');
 const managerLeagueSelect = document.querySelector('#manager-league');
 const managerNationSelect = document.querySelector('#manager-nation');
 const removeManagerButton = document.querySelector('#remove-manager');
+const targetBudgetInput = document.querySelector('#target-budget');
+const budgetProgress = document.querySelector('.budget-progress');
+const budgetProgressFill = document.querySelector('#budget-progress-fill');
+const budgetPercentage = document.querySelector('#budget-percentage');
+const budgetRemaining = document.querySelector('#budget-remaining');
+const budgetWarning = document.querySelector('#budget-warning');
+const totalCostSummary = document.querySelector('.total-cost-summary');
 const chemistryBreakdown = document.querySelector('#chemistry-breakdown');
 const modal = document.querySelector('#player-modal');
 const modalTitle = document.querySelector('#modal-title');
@@ -108,6 +116,7 @@ let playerDetailRequest = 0;
 let pendingPanelScrollPositions = null;
 let activeSlot = null;
 let managerState = null;
+let targetBudget = 0;
 let modalPlayerCards = [];
 let selectedPlayer = null;
 let dragOriginPosition = null;
@@ -225,6 +234,7 @@ managerSlot.addEventListener('click', openManagerModal);
 document.querySelectorAll('[data-close-manager-modal]').forEach((button) => button.addEventListener('click', closeManagerModal));
 managerForm.addEventListener('submit', saveManager);
 removeManagerButton.addEventListener('click', removeManager);
+targetBudgetInput.addEventListener('input', updateTargetBudget);
 
 tabButtons.forEach((button) => {
   button.addEventListener('click', () => setActiveTab(button.dataset.tab));
@@ -2057,7 +2067,9 @@ function updateSquadChemistry() {
   const chemistrySquad = getChemistrySquad();
   const result = calculateChemistry(chemistrySquad, getManagerChemistryBonus());
   totalChemistryOutput.value = String(result.totalChemistry);
-  totalCostOutput.value = new Intl.NumberFormat('en-US').format(calculateSquadTotalCost(squad));
+  const totalCost = calculateSquadTotalCost(squad);
+  totalCostOutput.value = new Intl.NumberFormat('en-US').format(totalCost);
+  updateBudgetUI(totalCost);
   renderChemistryBreakdown();
 
   document.querySelectorAll('.slot').forEach((slot) => {
@@ -2087,6 +2099,28 @@ function updateSquadChemistry() {
     badge.innerHTML = `${diamonds}<b>${chemistry}</b>`;
     slot.append(badge);
   });
+}
+
+function updateTargetBudget(event) {
+  const digits = event.target.value.replace(/\D/g, '');
+  targetBudget = Number(digits) || 0;
+  event.target.value = new Intl.NumberFormat('en-US').format(targetBudget);
+  updateBudgetUI(calculateSquadTotalCost(squad));
+}
+
+function updateBudgetUI(totalCost) {
+  const budget = calculateBudgetStatus(totalCost, targetBudget);
+  const formatter = new Intl.NumberFormat('en-US');
+  budgetProgress.className = `budget-progress is-${budget.level}`;
+  budgetProgress.setAttribute('aria-valuenow', String(Math.round(budget.displayPercentage)));
+  budgetProgressFill.style.width = `${budget.displayPercentage}%`;
+  budgetPercentage.textContent = budget.level === 'unlimited' ? '제한 없음' : `${budget.percentage.toFixed(1)}% 사용`;
+  budgetRemaining.textContent = targetBudget > 0 && budget.level !== 'over'
+    ? `잔여 ${formatter.format(Math.max(0, targetBudget - totalCost))} C` : '';
+  const isOverBudget = budget.level === 'over';
+  totalCostSummary.classList.toggle('is-over-budget', isOverBudget);
+  budgetWarning.hidden = !isOverBudget;
+  budgetWarning.textContent = isOverBudget ? `⚠️ 예산 초과 (+${formatter.format(budget.overAmount)} 코인)` : '';
 }
 
 const CHEMISTRY_GROUPS = [

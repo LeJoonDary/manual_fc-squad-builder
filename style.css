@@ -130,6 +130,22 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .chemistry-panel-header h2 { margin: 0; color: #dce8f5; font-size: .88rem; }
 .chemistry-panel-header strong { flex: none; color: #fff; font-size: 2.35rem; line-height: 1; letter-spacing: -.06em; text-shadow: 0 0 24px rgba(99,230,190,.2); }
 .chemistry-panel-header small { color: #8193aa; font-size: .75rem; letter-spacing: 0; }
+.budget-summary { display: grid; gap: 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 11px; background: rgba(2,10,24,.38); }
+.budget-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.budget-input-wrap { display: flex; width: 142px; align-items: center; gap: 5px; border: 1px solid rgba(255,255,255,.18); border-radius: 8px; padding: 0 8px; background: rgba(4,12,31,.72); color: #8193aa; font-size: .65rem; }
+.budget-input-wrap:focus-within { border-color: #63e6be; box-shadow: 0 0 0 2px rgba(99,230,190,.1); }
+.budget-input-wrap input { width: 100%; min-width: 0; border: 0; padding: 8px 0; background: transparent; color: #fff; font: inherit; font-size: .78rem; font-weight: 850; text-align: right; outline: none; }
+.budget-progress { height: 7px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.1); }
+.budget-progress-fill { display: block; width: 0; height: 100%; border-radius: inherit; background: #22c55e; transition: width .2s ease, background .2s ease; }
+.budget-progress.is-warning .budget-progress-fill { background: #eab308; }
+.budget-progress.is-over .budget-progress-fill { background: #ef4444; }
+.budget-progress-meta { display: flex; justify-content: space-between; gap: 8px; color: #8193aa; font-size: .58rem; font-weight: 750; }
+.budget-warning { margin: 0; color: #ff8787 !important; font-size: .64rem !important; font-weight: 850 !important; letter-spacing: 0 !important; }
+.total-cost-summary { border: 1px solid transparent; border-radius: 10px; padding: 6px 8px; transition: border-color .2s, background .2s; }
+.total-cost-summary.is-over-budget { border-color: rgba(239,68,68,.72); background: rgba(239,68,68,.08); animation: budget-pulse 1.8s ease-in-out infinite; }
+.total-cost-summary.is-over-budget strong { color: #ef4444; text-shadow: 0 0 18px rgba(239,68,68,.32); }
+@keyframes budget-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } 50% { box-shadow: 0 0 0 3px rgba(239,68,68,.12); } }
+@media (prefers-reduced-motion: reduce) { .total-cost-summary.is-over-budget { animation: none; } }
 .chemistry-panel-toolbar, .chemistry-total-summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .chemistry-panel-toolbar { align-items: flex-start; }
 .total-cost-summary strong { display: block; margin-top: 8px; color: #ffd43b; font-size: 1.42rem; letter-spacing: -.03em; text-shadow: 0 0 18px rgba(255,212,59,.16); }

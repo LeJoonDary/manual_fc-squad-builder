@@ -52,6 +52,17 @@
 
           <aside class="chemistry-panel" aria-label="케미스트리 상세 현황">
             <header class="chemistry-panel-header">
+              <section class="budget-summary" aria-labelledby="budget-title">
+                <div class="budget-heading">
+                  <div><p>TARGET BUDGET</p><h2 id="budget-title">예산 상한</h2></div>
+                  <label class="budget-input-wrap"><input id="target-budget" type="text" inputmode="numeric" value="0" aria-label="예산 상한" /><span>C</span></label>
+                </div>
+                <div class="budget-progress" role="progressbar" aria-label="예산 사용량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <span id="budget-progress-fill" class="budget-progress-fill"></span>
+                </div>
+                <div class="budget-progress-meta"><span id="budget-percentage">제한 없음</span><span id="budget-remaining"></span></div>
+                <p id="budget-warning" class="budget-warning" role="status" hidden></p>
+              </section>
               <div class="chemistry-panel-toolbar">
                 <div class="total-cost-summary">
                   <p>TOTAL COST</p>
