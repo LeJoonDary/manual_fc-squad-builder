@@ -11,6 +11,8 @@ const chemistryBreakdown = document.querySelector('#chemistry-breakdown');
 const modal = document.querySelector('#player-modal');
 const modalTitle = document.querySelector('#modal-title');
 const modalDescription = document.querySelector('#modal-description');
+const modalPlayerSearchInput = document.querySelector('#modal-player-search-input');
+const modalPlayerSearchClear = document.querySelector('#modal-player-search-clear');
 const playerList = document.querySelector('#player-list');
 const playerDetailModal = document.querySelector('#player-detail-modal');
 const playerDetailIdentity = document.querySelector('#player-detail-identity');
@@ -94,6 +96,7 @@ let playerSearchTimer;
 let playerDetailRequest = 0;
 let pendingPanelScrollPositions = null;
 let activeSlot = null;
+let modalPlayerCards = [];
 let selectedPlayer = null;
 let dragOriginPosition = null;
 let suppressSlotClick = false;
@@ -212,6 +215,16 @@ tabButtons.forEach((button) => {
 playerNameSearch.addEventListener('input', (event) => {
   playerFilters.name = event.target.value.trim();
   schedulePlayerSearch();
+});
+
+modalPlayerSearchInput.addEventListener('input', () => {
+  updateModalPlayerSearch();
+});
+
+modalPlayerSearchClear.addEventListener('click', () => {
+  modalPlayerSearchInput.value = '';
+  updateModalPlayerSearch();
+  modalPlayerSearchInput.focus();
 });
 
 [minOvrInput, maxOvrInput].forEach((input) => {
@@ -1309,8 +1322,12 @@ function createDetailValue(label, value) {
 
 async function openPlayerModal(slot) {
   activeSlot = slot;
+  modalPlayerCards = [];
+  modalPlayerSearchInput.value = '';
+  modalPlayerSearchClear.hidden = true;
   const position = slot.dataset.position;
   modal.hidden = false;
+  requestAnimationFrame(() => modalPlayerSearchInput.focus());
   modalTitle.textContent = `${position} 선수 선택`;
   modalDescription.textContent = `${position} 포지션 카드를 불러오는 중…`;
   renderMessage('선수 목록을 불러오는 중입니다…');
@@ -1584,8 +1601,30 @@ function getRoles(player) {
 }
 
 function renderPlayerList(cards) {
+  modalPlayerCards = cards;
+  renderFilteredPlayerList();
+}
+
+function updateModalPlayerSearch() {
+  modalPlayerSearchClear.hidden = !modalPlayerSearchInput.value;
+  renderFilteredPlayerList();
+}
+
+function renderFilteredPlayerList() {
+  const searchTerm = normalizeText(modalPlayerSearchInput.value.trim());
+  const filteredCards = searchTerm
+    ? modalPlayerCards.filter((card) => [card.name, card.shortName, getCardName(card)]
+      .some((name) => normalizeText(name).includes(searchTerm)))
+    : modalPlayerCards;
+
+  if (searchTerm && !filteredCards.length) {
+    renderMessage('검색 결과와 일치하는 선수가 없습니다.');
+    playerList.firstElementChild?.classList.add('search-empty');
+    return;
+  }
+
   playerList.replaceChildren();
-  cards.forEach((card) => {
+  filteredCards.forEach((card) => {
     const button = document.createElement('button');
     button.className = 'player-option';
     button.classList.toggle('is-mock-card', Boolean(card.isMock));
@@ -1652,6 +1691,7 @@ function renderMessage(message, isError = false) {
 function closeModal() {
   modal.hidden = true;
   activeSlot = null;
+  modalPlayerCards = [];
 }
 
 function handleRemovePlayer(event, slotKey) {
