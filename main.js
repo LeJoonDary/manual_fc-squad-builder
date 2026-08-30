@@ -235,6 +235,7 @@ document.querySelectorAll('[data-close-manager-modal]').forEach((button) => butt
 managerForm.addEventListener('submit', saveManager);
 removeManagerButton.addEventListener('click', removeManager);
 targetBudgetInput.addEventListener('input', updateTargetBudget);
+targetBudgetInput.addEventListener('focus', (event) => event.target.select());
 
 tabButtons.forEach((button) => {
   button.addEventListener('click', () => setActiveTab(button.dataset.tab));
@@ -422,6 +423,8 @@ document.addEventListener('pointerdown', (event) => {
 
 function setActiveTab(tabName) {
   appShell.classList.toggle('is-players-active', tabName === 'players');
+  appShell.classList.toggle('is-squad-active', tabName === 'squad-builder');
+  document.body.classList.toggle('is-squad-active', tabName === 'squad-builder');
   tabButtons.forEach((button) => {
     const isActive = button.dataset.tab === tabName;
     button.classList.toggle('is-active', isActive);
@@ -2104,7 +2107,7 @@ function updateSquadChemistry() {
 function updateTargetBudget(event) {
   const digits = event.target.value.replace(/\D/g, '');
   targetBudget = Number(digits) || 0;
-  event.target.value = new Intl.NumberFormat('en-US').format(targetBudget);
+  event.target.value = targetBudget > 0 ? new Intl.NumberFormat('en-US').format(targetBudget) : '';
   updateBudgetUI(calculateSquadTotalCost(squad));
 }
 
