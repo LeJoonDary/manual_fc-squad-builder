@@ -21,3 +21,15 @@ export function toggleSquadSlotLock(entry: LockableSquadEntry): boolean {
   entry.isLocked = !entry.isLocked;
   return entry.isLocked;
 }
+
+export function clearUnlockedSquadEntries<TEntry extends LockableSquadEntry>(
+  squad: Record<string, TEntry | null | undefined>,
+): string[] {
+  const clearedSlots: string[] = [];
+  Object.entries(squad).forEach(([slotKey, entry]) => {
+    if (!entry || isSquadSlotLocked(entry)) return;
+    squad[slotKey] = null;
+    clearedSlots.push(slotKey);
+  });
+  return clearedSlots;
+}

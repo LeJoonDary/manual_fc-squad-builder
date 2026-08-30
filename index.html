@@ -49,11 +49,21 @@
 
           <aside class="chemistry-panel" aria-label="케미스트리 상세 현황">
             <header class="chemistry-panel-header">
-              <div>
-                <p>TEAM CHEMISTRY</p>
-                <h2>총 팀 케미스트리</h2>
+              <div class="chemistry-panel-toolbar">
+                <div class="total-cost-summary">
+                  <p>TOTAL COST</p>
+                  <h2>총 비용</h2>
+                  <strong><output id="total-cost">0</output><small> Coins</small></strong>
+                </div>
+                <button id="clear-squad" class="clear-squad" type="button">Clear All</button>
               </div>
-              <strong><output id="total-chemistry">0</output><small> / 33</small></strong>
+              <div class="chemistry-total-summary">
+                <div>
+                  <p>TEAM CHEMISTRY</p>
+                  <h2>총 팀 케미스트리</h2>
+                </div>
+                <strong><output id="total-chemistry">0</output><small> / 33</small></strong>
+              </div>
             </header>
             <div class="chemistry-panel-scroll" id="chemistry-breakdown" aria-live="polite"></div>
           </aside>

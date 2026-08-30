@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
-import { createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
+import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -8,6 +8,8 @@ const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supa
 
 const status = document.querySelector('#status');
 const totalChemistryOutput = document.querySelector('#total-chemistry');
+const totalCostOutput = document.querySelector('#total-cost');
+const clearSquadButton = document.querySelector('#clear-squad');
 const chemistryBreakdown = document.querySelector('#chemistry-breakdown');
 const modal = document.querySelector('#player-modal');
 const modalTitle = document.querySelector('#modal-title');
@@ -208,6 +210,8 @@ document.querySelectorAll('.slot').forEach((slot) => {
   slot.addEventListener('drop', handleSlotDrop);
   slot.addEventListener('dragend', handleSlotDragEnd);
 });
+
+clearSquadButton.addEventListener('click', clearUnlockedPlayers);
 
 tabButtons.forEach((button) => {
   button.addEventListener('click', () => setActiveTab(button.dataset.tab));
@@ -1802,10 +1806,23 @@ function updateSlotLockUI(slot) {
   slot.draggable = Boolean(entry?.card) && !isLocked;
   if (lockButton) {
     lockButton.textContent = isLocked ? '🔒' : '🔓';
+    lockButton.dataset.tooltip = isLocked ? 'Unlock' : 'Lock';
     lockButton.setAttribute('aria-label', `${getCardName(entry.card)} 선수 ${isLocked ? '고정 해제' : '고정'}`);
     lockButton.setAttribute('aria-pressed', String(isLocked));
   }
   if (removeButton) removeButton.hidden = isLocked;
+}
+
+function clearUnlockedPlayers() {
+  const clearedSlots = clearUnlockedSquadEntries(squad);
+  clearedSlots.forEach((slotKey) => {
+    const slot = document.querySelector(`.slot[data-position="${slotKey}"]`);
+    if (slot) resetSlot(slot, false);
+  });
+  status.textContent = clearedSlots.length
+    ? `고정되지 않은 선수 ${clearedSlots.length}명을 스쿼드에서 제거했습니다.`
+    : '제거할 수 있는 고정 해제 선수가 없습니다.';
+  updateSquadChemistry();
 }
 
 function clearSlotDragFeedback() {
@@ -1907,6 +1924,7 @@ function updateSquadChemistry() {
   const chemistrySquad = getChemistrySquad();
   const result = calculateChemistry(chemistrySquad);
   totalChemistryOutput.value = String(result.totalChemistry);
+  totalCostOutput.value = new Intl.NumberFormat('en-US').format(getSquadTotalCost());
   renderChemistryBreakdown();
 
   document.querySelectorAll('.slot').forEach((slot) => {
@@ -1936,6 +1954,15 @@ function updateSquadChemistry() {
     badge.innerHTML = `${diamonds}<b>${chemistry}</b>`;
     slot.append(badge);
   });
+}
+
+function getSquadTotalCost() {
+  return Object.values(squad).reduce((total, entry) => {
+    if (!entry?.card) return total;
+    const rawPrice = entry.card.price ?? entry.card.cost ?? 0;
+    const price = Number(String(rawPrice).replace(/[^\d.-]/g, ''));
+    return total + (Number.isFinite(price) && price > 0 ? price : 0);
+  }, 0);
 }
 
 const CHEMISTRY_GROUPS = [
