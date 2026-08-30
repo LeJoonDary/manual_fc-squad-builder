@@ -10,6 +10,13 @@ const status = document.querySelector('#status');
 const totalChemistryOutput = document.querySelector('#total-chemistry');
 const totalCostOutput = document.querySelector('#total-cost');
 const clearSquadButton = document.querySelector('#clear-squad');
+const managerSlot = document.querySelector('#manager-slot');
+const managerModal = document.querySelector('#manager-modal');
+const managerForm = document.querySelector('#manager-form');
+const managerNameInput = document.querySelector('#manager-name');
+const managerLeagueSelect = document.querySelector('#manager-league');
+const managerNationSelect = document.querySelector('#manager-nation');
+const removeManagerButton = document.querySelector('#remove-manager');
 const chemistryBreakdown = document.querySelector('#chemistry-breakdown');
 const modal = document.querySelector('#player-modal');
 const modalTitle = document.querySelector('#modal-title');
@@ -99,6 +106,7 @@ let playerSearchTimer;
 let playerDetailRequest = 0;
 let pendingPanelScrollPositions = null;
 let activeSlot = null;
+let managerState = null;
 let modalPlayerCards = [];
 let selectedPlayer = null;
 let dragOriginPosition = null;
@@ -212,6 +220,10 @@ document.querySelectorAll('.slot').forEach((slot) => {
 });
 
 clearSquadButton.addEventListener('click', clearUnlockedPlayers);
+managerSlot.addEventListener('click', openManagerModal);
+document.querySelectorAll('[data-close-manager-modal]').forEach((button) => button.addEventListener('click', closeManagerModal));
+managerForm.addEventListener('submit', saveManager);
+removeManagerButton.addEventListener('click', removeManager);
 
 tabButtons.forEach((button) => {
   button.addEventListener('click', () => setActiveTab(button.dataset.tab));
@@ -812,26 +824,43 @@ function renderClubOptions() {
 }
 
 async function loadAffiliationFilterOptions() {
-  if (!supabase) return;
+  const fallbackAffiliations = [
+    { league: 'Premier League', nation: 'England' }, { league: 'LALIGA EA SPORTS', nation: 'Spain' },
+    { league: 'Ligue 1', nation: 'France' }, { league: 'Bundesliga', nation: 'Germany' },
+    { league: 'Serie A', nation: 'Italy' }, { league: 'Icons', nation: 'Brazil' },
+  ];
+  if (!supabase) {
+    affiliationCatalog = fallbackAffiliations;
+    renderAffiliationOptions();
+    return;
+  }
   try {
     const { data, error } = await supabase
       .from('card_versions')
       .select('club, league, players!inner(nation)')
       .limit(1000);
     if (error) throw error;
-    affiliationCatalog = (Array.isArray(data) ? data : []).map((item) => ({
+    affiliationCatalog = [...fallbackAffiliations, ...(Array.isArray(data) ? data : []).map((item) => ({
       club: item?.club ?? '',
       league: item?.league ?? '',
       nation: unwrapRelation(item?.players)?.nation ?? '',
-    }));
-    const uniqueSorted = (key) => [...new Set(affiliationCatalog.map((item) => item[key]).filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b));
-    replaceSelectOptions(nationFilter, '전체 국가', uniqueSorted('nation'), playerFilters.nation);
-    replaceSelectOptions(leagueFilter, '전체 리그', uniqueSorted('league'), playerFilters.league);
-    renderClubOptions();
+    }))];
+    renderAffiliationOptions();
   } catch (error) {
     console.error('Affiliation filter options error:', error);
+    affiliationCatalog = fallbackAffiliations;
+    renderAffiliationOptions();
   }
+}
+
+function renderAffiliationOptions() {
+  const uniqueSorted = (key) => [...new Set(affiliationCatalog.map((item) => item[key]).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+  replaceSelectOptions(nationFilter, '전체 국가', uniqueSorted('nation'), playerFilters.nation);
+  replaceSelectOptions(leagueFilter, '전체 리그', uniqueSorted('league'), playerFilters.league);
+  replaceSelectOptions(managerNationSelect, '국가를 선택하세요', uniqueSorted('nation'), managerState?.nation ?? '');
+  replaceSelectOptions(managerLeagueSelect, '리그를 선택하세요', uniqueSorted('league'), managerState?.league ?? '');
+  renderClubOptions();
 }
 
 function renderRoleFilterRows() {
@@ -1814,15 +1843,83 @@ function updateSlotLockUI(slot) {
 }
 
 function clearUnlockedPlayers() {
+  const hadManager = Boolean(managerState);
   const clearedSlots = clearUnlockedSquadEntries(squad);
   clearedSlots.forEach((slotKey) => {
     const slot = document.querySelector(`.slot[data-position="${slotKey}"]`);
     if (slot) resetSlot(slot, false);
   });
-  status.textContent = clearedSlots.length
-    ? `고정되지 않은 선수 ${clearedSlots.length}명을 스쿼드에서 제거했습니다.`
+  managerState = null;
+  renderManagerSlot();
+  status.textContent = clearedSlots.length || hadManager
+    ? `고정되지 않은 선수 ${clearedSlots.length}명과 감독 정보를 초기화했습니다.`
     : '제거할 수 있는 고정 해제 선수가 없습니다.';
   updateSquadChemistry();
+}
+
+function openManagerModal() {
+  managerNameInput.value = managerState?.name ?? '';
+  managerLeagueSelect.value = managerState?.league ?? '';
+  managerNationSelect.value = managerState?.nation ?? '';
+  removeManagerButton.hidden = !managerState;
+  managerModal.hidden = false;
+  requestAnimationFrame(() => (managerState ? managerNameInput : managerLeagueSelect).focus());
+}
+
+function closeManagerModal() {
+  managerModal.hidden = true;
+}
+
+function saveManager(event) {
+  event.preventDefault();
+  const league = managerLeagueSelect.value;
+  const nation = managerNationSelect.value;
+  if (!league || !nation) return;
+  managerState = { name: managerNameInput.value.trim(), league, nation };
+  renderManagerSlot();
+  closeManagerModal();
+  updateSquadChemistry();
+  status.textContent = `${managerState.name || '감독'} 설정을 저장했습니다.`;
+}
+
+function removeManager() {
+  managerState = null;
+  renderManagerSlot();
+  closeManagerModal();
+  updateSquadChemistry();
+  status.textContent = '감독 정보를 해제했습니다.';
+}
+
+function getManagerChemistryBonus() {
+  if (!managerState) return null;
+  const adapted = adaptChemistryPlayerCard({
+    id: 'manager', name: managerState.name || 'Manager', nation: managerState.nation,
+    league: managerState.league, club: 'Manager', position: '',
+  });
+  return { leagueId: adapted.leagueId, nationId: adapted.nationId };
+}
+
+function getNationFlag(nation) {
+  return ({ England: '🏴', France: '🇫🇷', Spain: '🇪🇸', Germany: '🇩🇪', Italy: '🇮🇹', Brazil: '🇧🇷' })[nation] ?? '⚑';
+}
+
+function renderManagerSlot() {
+  if (!managerState) {
+    managerSlot.classList.remove('is-configured');
+    managerSlot.innerHTML = '<span class="manager-empty"><b>＋</b> 감독 추가</span>';
+    return;
+  }
+  managerSlot.classList.add('is-configured');
+  managerSlot.replaceChildren();
+  const title = document.createElement('strong');
+  title.textContent = managerState.name || 'Manager';
+  const league = document.createElement('span');
+  league.className = 'manager-affiliation';
+  league.textContent = `◉ ${managerState.league}`;
+  const nation = document.createElement('span');
+  nation.className = 'manager-affiliation';
+  nation.textContent = `${getNationFlag(managerState.nation)} ${managerState.nation}`;
+  managerSlot.append(title, league, nation);
 }
 
 function clearSlotDragFeedback() {
@@ -1922,7 +2019,7 @@ function isCardInSlotPosition(card, slotPosition) {
 
 function updateSquadChemistry() {
   const chemistrySquad = getChemistrySquad();
-  const result = calculateChemistry(chemistrySquad);
+  const result = calculateChemistry(chemistrySquad, getManagerChemistryBonus());
   totalChemistryOutput.value = String(result.totalChemistry);
   totalCostOutput.value = new Intl.NumberFormat('en-US').format(getSquadTotalCost());
   renderChemistryBreakdown();
@@ -2054,6 +2151,12 @@ function getChemistryGroupRows(group) {
         add(getChemistryEntityKey(card, 'nation', player.nationId), card.isIcon ? 2 : 1, getChemistryEntityName(card, 'nation'), card);
       }
     });
+  }
+
+  if (managerState && (group.key === 'league' || group.key === 'nation')) {
+    const name = managerState[group.key];
+    const key = getChemistryEntityKey({ [group.key]: name }, group.key, name);
+    add(key, 1, name, null);
   }
 
   return [...counts.entries()]

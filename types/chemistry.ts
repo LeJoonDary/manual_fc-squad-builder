@@ -15,6 +15,11 @@ export interface SquadSlot {
   player: PlayerCard | null;
 }
 
+export interface ChemistryManager {
+  leagueId?: number | string;
+  nationId?: number | string;
+}
+
 export interface ChemistryResult {
   totalChemistry: number;
   playerChemMap: Record<string, number>;

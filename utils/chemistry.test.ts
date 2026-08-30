@@ -19,6 +19,20 @@ function slot(position: string, player: PlayerCard | null): SquadSlot {
 }
 
 describe('calculateChemistry', () => {
+  it('adds one league and nation count from the manager', () => {
+    const france = 'nation:name:france';
+    const premierLeague = 'league:name:premier league';
+    const result = calculateChemistry([
+      slot('ST', card('1', { nationId: france, leagueId: premierLeague, clubId: 'club-a' })),
+      slot('ST', card('2', { nationId: 'nation:name:england', leagueId: premierLeague, clubId: 'club-b' })),
+    ], { nationId: france, leagueId: premierLeague });
+
+    expect(result.groupCounts.league[premierLeague]).toBe(3);
+    expect(result.groupCounts.nation[france]).toBe(2);
+    expect(result.playerChemMap['1']).toBe(2);
+    expect(result.playerChemMap['2']).toBe(1);
+  });
+
   it('gives each player one chemistry when two in-position players share a club', () => {
     const result = calculateChemistry([
       slot('ST', card('1')),

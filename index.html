@@ -34,6 +34,9 @@
         <div class="squad-workspace">
           <section class="pitch" aria-label="4-3-3 포메이션">
             <div class="formation-label">4-3-3</div>
+            <button id="manager-slot" class="manager-slot" type="button" aria-haspopup="dialog">
+              <span class="manager-empty"><b>＋</b> 감독 추가</span>
+            </button>
             <button class="slot forward left" data-position="LW" type="button"><span>LW</span></button>
             <button class="slot forward center" data-position="ST" type="button"><span>ST</span></button>
             <button class="slot forward right" data-position="RW" type="button"><span>RW</span></button>
@@ -347,6 +350,25 @@
         </div>
       </section>
     </main>
+
+    <div id="manager-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="manager-modal-title" hidden>
+      <div class="modal-backdrop" data-close-manager-modal></div>
+      <section class="modal-panel manager-modal-panel">
+        <header class="modal-header">
+          <div><p class="eyebrow">MANAGER</p><h2 id="manager-modal-title">감독 설정</h2></div>
+          <button class="modal-close" type="button" aria-label="감독 설정 창 닫기" data-close-manager-modal>×</button>
+        </header>
+        <form id="manager-form" class="manager-form">
+          <label><span>감독 이름 <small>(선택)</small></span><input id="manager-name" type="text" placeholder="감독 이름" autocomplete="off" /></label>
+          <label><span>리그 선택</span><select id="manager-league" required><option value="">리그를 선택하세요</option></select></label>
+          <label><span>국가 선택</span><select id="manager-nation" required><option value="">국가를 선택하세요</option></select></label>
+          <div class="manager-form-actions">
+            <button id="remove-manager" class="remove-manager" type="button">감독 해제</button>
+            <button class="save-manager" type="submit">설정 저장</button>
+          </div>
+        </form>
+      </section>
+    </div>
 
     <div id="player-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
       <div class="modal-backdrop" data-close-modal></div>

@@ -1,4 +1,4 @@
-import type { ChemistryResult, PlayerCard, SquadSlot } from '../types/chemistry';
+import type { ChemistryManager, ChemistryResult, PlayerCard, SquadSlot } from '../types/chemistry';
 
 const CLUB_THRESHOLDS = [2, 4, 7] as const;
 const LEAGUE_THRESHOLDS = [3, 5, 8] as const;
@@ -107,7 +107,7 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
  * card in the squad. Out-of-position cards never establish or contribute to
  * a chemistry group.
  */
-export function calculateChemistry(squad: SquadSlot[]): ChemistryResult {
+export function calculateChemistry(squad: SquadSlot[], manager: ChemistryManager | null = null): ChemistryResult {
   const playerChemMap: Record<string, number> = {};
   const validSlots = squad.filter(isPositionMatch);
   const clubCounts: CountMap = new Map();
@@ -141,6 +141,8 @@ export function calculateChemistry(squad: SquadSlot[]): ChemistryResult {
   });
 
   representedLeagueIds.forEach((leagueId) => addCount(leagueCounts, leagueId, iconCount));
+  if (manager?.leagueId !== undefined && manager.leagueId !== '') addCount(leagueCounts, manager.leagueId, 1);
+  if (manager?.nationId !== undefined && manager.nationId !== '') addCount(nationCounts, manager.nationId, 1);
 
   validSlots.forEach(({ player }) => {
     if (player.isIcon || player.isHero) {

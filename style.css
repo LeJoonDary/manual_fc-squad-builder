@@ -172,6 +172,13 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .pitch::before { top: 0; width: 27%; height: 12%; border-top: 0; }
 .pitch::after { top: 42%; width: 130px; height: 130px; border-radius: 50%; }
 .formation-label { position: absolute; top: 48%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,.6); font-size: 1.4rem; font-weight: 900; }
+.manager-slot { position: absolute; top: 14px; left: 14px; z-index: 4; display: grid; width: 132px; min-height: 78px; align-content: center; gap: 5px; border: 1px dashed rgba(255,255,255,.68); border-radius: 12px; padding: 9px; background: rgba(2,18,24,.72); color: #fff; text-align: left; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,.24); }
+.manager-slot:hover, .manager-slot:focus-visible { border-color: #c8ff52; background: rgba(7,34,35,.9); outline: none; }
+.manager-empty { display: flex; align-items: center; justify-content: center; gap: 6px; color: #e4edfa; font-size: .7rem; font-weight: 850; }
+.manager-empty b { color: #c8ff52; font-size: 1.15rem; }
+.manager-slot.is-configured { border-style: solid; border-color: rgba(200,255,82,.72); background: linear-gradient(145deg, rgba(31,66,62,.95), rgba(7,28,37,.95)); }
+.manager-slot strong { overflow: hidden; color: #c8ff52; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.manager-affiliation { overflow: hidden; color: #dce8f5; font-size: .58rem; text-overflow: ellipsis; white-space: nowrap; }
 .slot { position: absolute; z-index: 1; width: 104px; height: 116px; transform: translateX(-50%); border: 2px dashed rgba(255,255,255,.7); border-radius: 14px; background: rgba(4,30,27,.54); color: white; cursor: pointer; }
 .slot > span { font-weight: 800; }
 .slot.occupied { display: grid; place-content: center; gap: 4px; border-style: solid; border-color: #ffd43b; background: linear-gradient(145deg, #273d86, #0a1645); box-shadow: 0 8px 18px rgba(0,0,0,.3); overflow: hidden; cursor: grab; transition: opacity .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
@@ -228,6 +235,17 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .modal-header h2 { margin: 0; font-size: 1.35rem; }
 .modal-close { width: 38px; height: 38px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; font-size: 1.8rem; line-height: 1; cursor: pointer; }
 .modal-description { margin: 0; padding: 0 24px 16px; color: #b9c7da; }
+.manager-modal-panel { width: min(100%, 460px); }
+.manager-form { display: grid; gap: 15px; padding: 8px 24px 24px; }
+.manager-form label { display: grid; gap: 7px; color: #b9c7da; font-size: .72rem; font-weight: 800; }
+.manager-form label small { color: #71829d; font-weight: 600; }
+.manager-form input, .manager-form select { width: 100%; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; padding: 11px 12px; background: #0b172c; color: #f7fbff; font: inherit; outline: none; }
+.manager-form input:focus, .manager-form select:focus { border-color: #63e6be; box-shadow: 0 0 0 3px rgba(99,230,190,.1); }
+.manager-form-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 5px; }
+.manager-form-actions button { border: 0; border-radius: 9px; padding: 10px 14px; font-weight: 850; cursor: pointer; }
+.remove-manager { background: rgba(201,42,42,.2); color: #ffb4b4; }
+.remove-manager[hidden] { display: none; }
+.save-manager { margin-left: auto; background: #63e6be; color: #07231c; }
 .modal-player-search { position: relative; margin: 0 18px 14px; }
 .modal-player-search input { width: 100%; border: 1px solid rgba(255,255,255,.18); border-radius: 11px; padding: 12px 42px 12px 14px; background: #0b172c; color: #f7fbff; font: inherit; outline: none; transition: border-color .15s, box-shadow .15s; }
 .modal-player-search input::placeholder { color: #71829d; }
