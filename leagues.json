@@ -1,0 +1,308 @@
+[
+    {
+        "id": 53,
+        "name": "La Liga",
+        "short_name": "LAL",
+        "level": 1
+    },
+    {
+        "id": 19,
+        "name": "Bundesliga",
+        "short_name": "BL1",
+        "level": 1
+    },
+    {
+        "id": 16,
+        "name": "Ligue 1",
+        "short_name": "FL1",
+        "level": 1
+    },
+    {
+        "id": 31,
+        "name": "Serie A",
+        "short_name": "SA",
+        "level": 1
+    },
+    {
+        "id": 13,
+        "name": "Premier League",
+        "short_name": "EPL",
+        "level": 1
+    },
+    {
+        "id": 350,
+        "name": "Pro League",
+        "short_name": "KSA",
+        "level": 1
+    },
+    {
+        "id": 39,
+        "name": "Major League Soccer",
+        "short_name": "MLS",
+        "level": 1
+    },
+    {
+        "id": 68,
+        "name": "Süper Lig",
+        "short_name": "TSL",
+        "level": 1
+    },
+    {
+        "id": 317,
+        "name": "Hrvatska nogometna liga",
+        "short_name": "HNL",
+        "level": 1
+    },
+    {
+        "id": 353,
+        "name": "Liga Profesional de Fútbol",
+        "short_name": "LPF",
+        "level": 1
+    },
+    {
+        "id": 308,
+        "name": "Primeira Liga",
+        "short_name": "NOS",
+        "level": 1
+    },
+    {
+        "id": 10,
+        "name": "Eredivisie",
+        "short_name": "ERE",
+        "level": 1
+    },
+    {
+        "id": 50,
+        "name": "Premiership",
+        "short_name": "SPL",
+        "level": 1
+    },
+    {
+        "id": 319,
+        "name": "První liga",
+        "short_name": "CZL",
+        "level": 1
+    },
+    {
+        "id": 14,
+        "name": "Championship",
+        "short_name": "CHA",
+        "level": 2
+    },
+    {
+        "id": 330,
+        "name": "Liga I",
+        "short_name": "ROU",
+        "level": 1
+    },
+    {
+        "id": 17,
+        "name": "Ligue 2",
+        "short_name": "FL2",
+        "level": 2
+    },
+    {
+        "id": 63,
+        "name": "Super League",
+        "short_name": "GRC",
+        "level": 1
+    },
+    {
+        "id": 332,
+        "name": "Premier League",
+        "short_name": "RU1",
+        "level": 1
+    },
+    {
+        "id": 41,
+        "name": "Eliteserien",
+        "short_name": "ELI",
+        "level": 1
+    },
+    {
+        "id": 7,
+        "name": "Série A",
+        "short_name": "BSA",
+        "level": 1
+    },
+    {
+        "id": 336,
+        "name": "Categoría Primera A",
+        "short_name": "COL",
+        "level": 1
+    },
+    {
+        "id": 54,
+        "name": "La Liga 2",
+        "short_name": "SD",
+        "level": 2
+    },
+    {
+        "id": 2012,
+        "name": "Super League",
+        "short_name": "CHN",
+        "level": 1
+    },
+    {
+        "id": 4,
+        "name": "Pro League",
+        "short_name": "BPL",
+        "level": 1
+    },
+    {
+        "id": 32,
+        "name": "Serie B",
+        "short_name": "SB",
+        "level": 2
+    },
+    {
+        "id": 335,
+        "name": "Primera Division",
+        "short_name": "CHI",
+        "level": 1
+    },
+    {
+        "id": 20,
+        "name": "2. Bundesliga",
+        "short_name": "BL2",
+        "level": 2
+    },
+    {
+        "id": 189,
+        "name": "Super League",
+        "short_name": "SUI",
+        "level": 1
+    },
+    {
+        "id": 83,
+        "name": "K League 1",
+        "short_name": "KL1",
+        "level": 1
+    },
+    {
+        "id": 351,
+        "name": "A-League Men",
+        "short_name": "ALE",
+        "level": 1
+    },
+    {
+        "id": 56,
+        "name": "Allsvenskan",
+        "short_name": "ALL",
+        "level": 1
+    },
+    {
+        "id": 2013,
+        "name": "Pro League",
+        "short_name": "UAE",
+        "level": 1
+    },
+    {
+        "id": 337,
+        "name": "División Profesional",
+        "short_name": "BOL",
+        "level": 1
+    },
+    {
+        "id": 1,
+        "name": "Superliga",
+        "level": 1,
+        "short_name": "DNK"
+    },
+    {
+        "id": 64,
+        "name": "Nemzeti Bajnokság I",
+        "short_name": "HUN",
+        "level": 1
+    },
+    {
+        "id": 80,
+        "name": "Bundesliga",
+        "short_name": "AUT",
+        "level": 1
+    },
+    {
+        "id": 338,
+        "name": "Primera División",
+        "short_name": "URU",
+        "level": 1
+    },
+    {
+        "id": 66,
+        "name": "Ekstraklasa",
+        "short_name": "EKS",
+        "level": 1
+    },
+    {
+        "id": 2020,
+        "name": "Liga 1",
+        "short_name": "IDN",
+        "level": 1
+    },
+    {
+        "id": 60,
+        "name": "League One",
+        "short_name": "L1",
+        "level": 3
+    },
+    {
+        "id": 2018,
+        "name": "Serie A",
+        "short_name": "ECU",
+        "level": 1
+    },
+    {
+        "id": 61,
+        "name": "League Two",
+        "short_name": "L2",
+        "level": 4
+    },
+    {
+        "id": 2019,
+        "name": "Primera Division",
+        "short_name": "PER",
+        "level": 1
+    },
+    {
+        "id": 318,
+        "name": "1. Division",
+        "short_name": "DEN2",
+        "level": 1
+    },
+    {
+        "id": 322,
+        "name": "Veikkausliiga",
+        "short_name": "VEI",
+        "level": 1
+    },
+    {
+        "id": 2017,
+        "name": "División de Fútbol Profesional",
+        "short_name": "PAR",
+        "level": 1
+    },
+    {
+        "id": 313,
+        "name": "Premyer Liqa",
+        "short_name": "AZE",
+        "level": 1
+    },
+    {
+        "id": 2076,
+        "name": "3. Liga",
+        "short_name": "BL3",
+        "level": 3
+    },
+    {
+        "id": 2149,
+        "name": "Super League",
+        "short_name": "IND",
+        "level": 1
+    },
+    {
+        "id": 65,
+        "name": "Premier Division",
+        "short_name": "IRL",
+        "level": 1
+    }
+]

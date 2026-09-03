@@ -7,12 +7,27 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "seed:clubs": "npx tsx prisma/seeds/seed-clubs.ts",
+    "seed:nations": "npx tsx prisma/seeds/seed-nations.ts",
+    "seed:players": "npx tsx prisma/seeds/seed-players.ts"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.57.4"
+    "@prisma/client": "^5.22.0",
+    "@supabase/supabase-js": "^2.57.4",
+    "axios": "^1.20.0",
+    "csv-parse": "^7.0.2",
+    "dotenv": "^17.4.2",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
+    "@types/sharp": "^0.31.1",
+    "prisma": "^5.22.0",
+    "supabase": "^2.116.0",
+    "tsx": "^4.19.2",
     "vite": "^7.1.7",
     "vitest": "^3.2.4"
   }

@@ -1,0 +1,17 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // 사용하는 DB 타입 (postgresql, mysql, sqlite 등)
+  url      = env("DATABASE_URL")
+}
+
+model Club {
+  id        Int      @id
+  name      String
+  shortName String   @map("short_name")
+  leagueId  Int      @map("league_id")
+
+  @@map("clubs")
+}
