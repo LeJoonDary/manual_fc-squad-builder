@@ -1,3 +1,7 @@
+import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
+import { fetchPlaystyleOptions, matchesPlaystyleFilters } from './utils/playstyleFilters.js';
+import { PLAYER_CARD_SELECT, fetchPlayerCards } from './utils/playerCards.js';
+import { matchesPlayerName } from './utils/playerSearch.js';
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
@@ -92,10 +96,6 @@ const playerFilters = {
 };
 const filterAccordionState = { ovr: true, positions: true, price: true, 'sm-wf': true, playstyles: true, roles: false, affiliation: true, rarity: true, stats: true, miscellaneous: true };
 const OVR_COLUMN = 'overall';
-const PLAYSTYLE_NAMES = [
-  'Quick Step', 'Finesse Shot', 'Power Shot', 'Incisive Pass', 'Whipped Pass', 'Rapid', 'Technical',
-  'Anticipate', 'Intercept', 'Bruiser', 'Aerial', 'Long Ball Pass', 'Trivela', 'Block', 'Far Throw',
-];
 const ROLE_DATA = [
   { pos: 'ST', roles: ['Advanced Forward', 'False 9', 'Poacher', 'Target Forward'] },
   { pos: 'LW', roles: ['Inside Forward', 'Wide Playmaker', 'Winger'] },
@@ -122,100 +122,10 @@ let selectedPlayer = null;
 let dragOriginPosition = null;
 let suppressSlotClick = false;
 const squad = {};
-let affiliationCatalog = [];
-const MOCK_CHEMISTRY_CARDS = [
-  { id: 'mock-icon-beckham', name: 'David Beckham', version: 'Icon', overall: 92, position: 'RM', altPositions: ['CM'], nation: 'England', nationId: 1, league: 'Icons', leagueId: 900, club: 'Icons', clubId: 900, isIcon: true, isMock: true },
-  { id: 'mock-icon-zidane', name: 'Zinedine Zidane', version: 'Icon', overall: 94, position: 'CAM', altPositions: ['CM'], nation: 'France', nationId: 2, league: 'Icons', leagueId: 900, club: 'Icons', clubId: 900, isIcon: true, isMock: true },
-  { id: 'mock-hero-crouch', name: 'Peter Crouch', version: 'Hero', overall: 88, position: 'ST', altPositions: [], nation: 'England', nationId: 1, league: 'Premier League', leagueId: 100, club: 'Heroes', clubId: 901, isHero: true, isMock: true },
-  { id: 'mock-hero-morientes', name: 'Fernando Morientes', version: 'Hero', overall: 89, position: 'ST', altPositions: [], nation: 'Spain', nationId: 3, league: 'LALIGA', leagueId: 101, club: 'Heroes', clubId: 901, isHero: true, isMock: true },
-];
-
-// card_versions 자체에서 사용하는 선택 구문입니다. 역할 관계를 여기 포함해 포지션별/전체
-// 조회가 모두 같은 card_roles 데이터를 받도록 합니다.
-const CARD_VERSION_SELECT = `
-  id,
-  version,
-  overall,
-  sm,
-  wf,
-  price,
-  club,
-  league,
-  image_url,
-  preferred_foot,
-  accele_type,
-  body_type,
-  players!inner (
-    name,
-    nation,
-    height,
-    weight,
-    age,
-    gender
-  ),
-  player_stats (
-    pac,
-    sho,
-    pas,
-    dri,
-    def,
-    phy
-  ),
-  card_playstyles (
-    is_plus,
-    playstyles ( name )
-  ),
-  card_roles (
-    role_level,
-    roles ( position, role_name )
-  )
-`;
-
-const PLAYER_CARD_SELECT = `
-  is_primary,
-  positions!inner ( name ),
-  card_versions!inner (${CARD_VERSION_SELECT})
-`;
-
-const PLAYER_BROWSER_SELECT = `
-  *,
-  players!inner (*),
-  player_stats (*),
-  card_playstyles (
-    is_plus,
-    playstyles ( name )
-  ),
-  card_roles (
-    role_level,
-    roles ( position, role_name )
-  ),
-  card_positions!inner (
-    is_primary,
-    positions!inner ( name )
-  )
-`;
-
-// 상세 모달은 card_roles와 roles를 명시적으로 중첩 조인해 역할 정보를 단건 조회합니다.
-const PLAYER_DETAIL_SELECT = `
-  *,
-  players!inner (*),
-  player_stats (*),
-  card_playstyles (
-    is_plus,
-    playstyles ( name )
-  ),
-  card_roles (
-    role_level,
-    roles (
-      position,
-      role_name
-    )
-  ),
-  card_positions!inner (
-    is_primary,
-    positions!inner ( name )
-  )
-`;
+let affiliationCatalog = { nations: [], leagues: [], clubs: [] };
+const PLAYER_BROWSER_SELECT = PLAYER_CARD_SELECT;
+const PLAYER_DETAIL_SELECT = PLAYER_CARD_SELECT;
+let modalRequest = 0;
 
 document.querySelectorAll('.slot').forEach((slot) => {
   slot.addEventListener('click', () => {
@@ -298,7 +208,7 @@ document.querySelectorAll('[data-rating-filter]').forEach((button) => {
   });
 });
 
-renderPlaystyleFilterButtons();
+loadPlaystyleFilterOptions();
 renderRoleFilterRows();
 setupFilterCommandBar();
 void loadAffiliationFilterOptions();
@@ -686,9 +596,6 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
     if (playerFilters.maxWeight !== '') query = query.lte('players.weight', Number(playerFilters.maxWeight));
     if (playerFilters.minAge !== '') query = query.gte('players.age', Number(playerFilters.minAge));
     if (playerFilters.maxAge !== '') query = query.lte('players.age', Number(playerFilters.maxAge));
-    if (playerFilters.nation) query = query.eq('players.nation', playerFilters.nation);
-    if (playerFilters.league) query = query.eq('league', playerFilters.league);
-    if (playerFilters.club) query = query.eq('club', playerFilters.club);
 
     const selectedRoles = Array.isArray(playerFilters.selectedRoles) ? playerFilters.selectedRoles : [];
     if (selectedRoles.length) {
@@ -708,12 +615,14 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
 
     const cardsById = new Map();
     const safeCards = Array.isArray(data) ? data : [];
-    safeCards.map(normalizeBrowserPlayerCard).filter(Boolean).forEach((card) => {
+    safeCards.map(normalizeBrowserPlayerCard).filter(Boolean)
+      .filter(card => (!playerFilters.nation || String(card.nation_id) === playerFilters.nation)
+        && (!playerFilters.league || String(card.league_id) === playerFilters.league)
+        && (!playerFilters.club || String(card.club_id) === playerFilters.club)).forEach((card) => {
       if (!cardsById.has(String(card.id))) cardsById.set(String(card.id), card);
     });
-    const normalizedSearchTerm = normalizeText(playerFilters.name);
     const cards = [...cardsById.values()]
-      .filter((card) => normalizeText(card.name).includes(normalizedSearchTerm))
+      .filter((card) => matchesPlayerName(card, playerFilters.name))
       .filter((card) => matchesPositions(card, [...playerFilters.positions], playerFilters.onlyPrimary, playerFilters.hasAllPositions))
       .filter((card) => matchesPlaystyles(card))
       .filter((card) => matchesRoles(card))
@@ -728,9 +637,24 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
   }
 }
 
-function renderPlaystyleFilterButtons() {
+async function loadPlaystyleFilterOptions() {
+  playstyleFilterGrid.textContent = '플레이스타일을 불러오는 중…';
+  try {
+    renderPlaystyleFilterButtons(await fetchPlaystyleOptions(supabase));
+  } catch (error) {
+    console.error('Playstyle master lookup failed:', error);
+    playstyleFilterGrid.textContent = '플레이스타일을 불러오지 못했습니다. ';
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.textContent = '다시 시도';
+    retry.addEventListener('click', loadPlaystyleFilterOptions);
+    playstyleFilterGrid.append(retry);
+  }
+}
+
+function renderPlaystyleFilterButtons(options) {
   playstyleFilterGrid.replaceChildren();
-  PLAYSTYLE_NAMES.forEach((name) => {
+  options.forEach(({ id, name }) => {
     const item = document.createElement('div');
     item.className = 'playstyle-filter-item';
     const label = document.createElement('p');
@@ -742,19 +666,20 @@ function renderPlaystyleFilterButtons() {
       button.className = level === 'plus' ? 'playstyle-filter-button is-plus' : 'playstyle-filter-button';
       button.textContent = level === 'plus' ? 'Plus' : 'Normal';
       button.setAttribute('aria-pressed', 'false');
-      button.addEventListener('click', () => togglePlaystyleFilter(name, level, button));
+      button.setAttribute('aria-label', name + ' ' + button.textContent);
+      button.addEventListener('click', () => togglePlaystyleFilter(id, level, button));
       item.append(button);
     });
     playstyleFilterGrid.append(item);
   });
 }
 
-function togglePlaystyleFilter(name, level, button) {
+function togglePlaystyleFilter(id, level, button) {
   const selectedIndex = playerFilters.selectedPlayStyles.findIndex(
-    (playstyle) => playstyle.name === name && playstyle.level === level,
+    (playstyle) => playstyle.id === id && playstyle.level === level,
   );
   if (selectedIndex >= 0) playerFilters.selectedPlayStyles.splice(selectedIndex, 1);
-  else playerFilters.selectedPlayStyles.push({ name, level });
+  else playerFilters.selectedPlayStyles.push({ id, level });
   const isSelected = selectedIndex < 0;
   button.classList.toggle('is-selected', isSelected);
   button.setAttribute('aria-pressed', String(isSelected));
@@ -762,26 +687,7 @@ function togglePlaystyleFilter(name, level, button) {
 }
 
 function matchesPlaystyles(card) {
-  const playstyles = (card.playstyles ?? []).map((playstyle) => ({
-    name: playstyle.name,
-    level: playstyle.isPlus ? 'plus' : 'normal',
-  }));
-  const normalCount = playstyles.filter((playstyle) => playstyle.level === 'normal').length;
-  const plusCount = playstyles.filter((playstyle) => playstyle.level === 'plus').length;
-  const { selectedPlayStyles } = playerFilters;
-
-  if (selectedPlayStyles.length) {
-    const matchesSelection = (selection) => playstyles.some(
-      (playstyle) => playstyle.name === selection.name && playstyle.level === selection.level,
-    );
-    const matchesSelectedPlaystyles = playerFilters.requireAllPlaystyles
-      ? selectedPlayStyles.every(matchesSelection)
-      : selectedPlayStyles.some(matchesSelection);
-    if (!matchesSelectedPlaystyles) return false;
-  }
-
-  return matchesCountRange(normalCount, playerFilters.minPlaystyles, playerFilters.maxPlaystyles)
-    && matchesCountRange(plusCount, playerFilters.minPlaystylesPlus, playerFilters.maxPlaystylesPlus);
+  return matchesPlaystyleFilters(card.raw?.card_playstyles ?? [], playerFilters);
 }
 
 function matchesCountRange(count, min, max) {
@@ -815,9 +721,9 @@ function getRarityCategory(version) {
 }
 
 function matchesIdentityAndStats(card) {
-  if (playerFilters.nation && card.nation !== playerFilters.nation) return false;
-  if (playerFilters.league && card.league !== playerFilters.league) return false;
-  if (playerFilters.club && card.club !== playerFilters.club) return false;
+  if (playerFilters.nation && String(card.nation_id) !== playerFilters.nation) return false;
+  if (playerFilters.league && String(card.league_id) !== playerFilters.league) return false;
+  if (playerFilters.club && String(card.club_id) !== playerFilters.club) return false;
   if (playerFilters.rarities.size && !playerFilters.rarities.has(getRarityCategory(card.version))) return false;
   return STAT_KEYS.every((stat) => matchesCountRange(card[stat], playerFilters.stats[stat].min, playerFilters.stats[stat].max));
 }
@@ -828,52 +734,40 @@ function replaceSelectOptions(select, placeholder, values, selectedValue = '') {
   select.value = values.includes(selectedValue) ? selectedValue : '';
 }
 
+function replaceMasterOptions(select, placeholder, rows, selectedValue) {
+  select.replaceChildren(new Option(placeholder, ''), ...rows.map(row => {
+    const duplicate = rows.some(other => other.id !== row.id && other.name === row.name);
+    return new Option(duplicate ? `${row.name} (${row.short_name || row.id})` : row.name, String(row.id));
+  }));
+  select.value = rows.some(row => String(row.id) === selectedValue) ? selectedValue : '';
+  renderSearchableSelect(select, rows);
+}
+
 function renderClubOptions() {
-  const selectedLeague = leagueFilter.value;
-  const clubs = [...new Set(affiliationCatalog
-    .filter((item) => !selectedLeague || item.league === selectedLeague)
-    .map((item) => item.club).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  replaceSelectOptions(clubFilter, '전체 클럽', clubs, playerFilters.club);
+  replaceMasterOptions(clubFilter, '전체 클럽', clubsForLeague(affiliationCatalog.clubs, leagueFilter.value), playerFilters.club);
   playerFilters.club = clubFilter.value;
 }
 
 async function loadAffiliationFilterOptions() {
-  const fallbackAffiliations = [
-    { league: 'Premier League', nation: 'England' }, { league: 'LALIGA EA SPORTS', nation: 'Spain' },
-    { league: 'Ligue 1', nation: 'France' }, { league: 'Bundesliga', nation: 'Germany' },
-    { league: 'Serie A', nation: 'Italy' }, { league: 'Icons', nation: 'Brazil' },
-  ];
-  if (!supabase) {
-    affiliationCatalog = fallbackAffiliations;
-    renderAffiliationOptions();
-    return;
-  }
   try {
-    const { data, error } = await supabase
-      .from('card_versions')
-      .select('club, league, players!inner(nation)')
-      .limit(1000);
-    if (error) throw error;
-    affiliationCatalog = [...fallbackAffiliations, ...(Array.isArray(data) ? data : []).map((item) => ({
-      club: item?.club ?? '',
-      league: item?.league ?? '',
-      nation: unwrapRelation(item?.players)?.nation ?? '',
-    }))];
+    affiliationCatalog = await fetchAffiliations(supabase);
     renderAffiliationOptions();
   } catch (error) {
-    console.error('Affiliation filter options error:', error);
-    affiliationCatalog = fallbackAffiliations;
-    renderAffiliationOptions();
+    console.error('Affiliation master lookup failed:', error);
+    const message = document.createElement('button');
+    message.type = 'button';
+    message.textContent = '소속 목록 불러오기 실패 · 다시 시도';
+    message.addEventListener('click', () => { message.remove(); loadAffiliationFilterOptions(); });
+    nationFilter.parentElement.append(message);
   }
 }
 
 function renderAffiliationOptions() {
-  const uniqueSorted = (key) => [...new Set(affiliationCatalog.map((item) => item[key]).filter(Boolean))]
-    .sort((a, b) => a.localeCompare(b));
-  replaceSelectOptions(nationFilter, '전체 국가', uniqueSorted('nation'), playerFilters.nation);
-  replaceSelectOptions(leagueFilter, '전체 리그', uniqueSorted('league'), playerFilters.league);
-  replaceSelectOptions(managerNationSelect, '국가를 선택하세요', uniqueSorted('nation'), managerState?.nation ?? '');
-  replaceSelectOptions(managerLeagueSelect, '리그를 선택하세요', uniqueSorted('league'), managerState?.league ?? '');
+  replaceMasterOptions(nationFilter, '전체 국가', affiliationCatalog.nations, playerFilters.nation);
+  replaceMasterOptions(leagueFilter, '전체 리그', affiliationCatalog.leagues, playerFilters.league);
+  renderSearchableSelect(nationFilter, affiliationCatalog.nations);
+  replaceSelectOptions(managerNationSelect, '국가를 선택하세요', affiliationCatalog.nations.map(row => row.name), managerState?.nation ?? '');
+  replaceSelectOptions(managerLeagueSelect, '리그를 선택하세요', affiliationCatalog.leagues.map(row => row.name), managerState?.league ?? '');
   renderClubOptions();
 }
 
@@ -1093,7 +987,9 @@ function clearAllFilters() {
   hasAllSelectedRoles.checked = false;
   [minHeightInput, maxHeightInput, minWeightInput, maxWeightInput, minAgeInput, maxAgeInput].forEach((input) => { input.value = ''; });
   nationFilter.value = '';
+  renderSearchableSelect(nationFilter, affiliationCatalog.nations);
   leagueFilter.value = '';
+  renderSearchableSelect(leagueFilter, affiliationCatalog.leagues);
   renderClubOptions();
   statFilterInputs.forEach((input) => { input.value = ''; });
   document.querySelectorAll('[data-position-filter]').forEach((button) => {
@@ -1115,17 +1011,6 @@ function clearAllFilters() {
   searchPlayers();
 }
 
-const normalizeText = (str) => {
-  if (!str) return '';
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/ø/g, 'o').replace(/Ø/g, 'O')
-    .replace(/æ/g, 'ae').replace(/Æ/g, 'AE')
-    .replace(/ß/g, 'ss')
-    .toLowerCase();
-};
-
 function normalizeBrowserPlayerCard(cardVersion) {
   const positionRows = asArray(cardVersion.card_positions);
   const primaryRow = positionRows.find((row) => row.is_primary) ?? positionRows[0] ?? {};
@@ -1140,6 +1025,7 @@ function normalizeBrowserPlayerCard(cardVersion) {
   return {
     ...card,
     primary_position: primaryPosition,
+    alt_positions: positionRows.filter(row => row !== primaryRow).map(row => unwrapRelation(row.positions)?.name).filter(Boolean),
     secondary_positions: [...new Set(
       positionRows
         .filter((row) => row !== primaryRow)
@@ -1381,36 +1267,30 @@ async function openPlayerModal(slot) {
   modalDescription.textContent = `${position} 포지션 카드를 불러오는 중…`;
   renderMessage('선수 목록을 불러오는 중입니다…');
 
-  const selectedCardIds = getSelectedCardIds(position);
-  const availableMocks = MOCK_CHEMISTRY_CARDS.filter((card) => !selectedCardIds.has(String(card.id)));
-
-  if (!supabase) {
-    modalDescription.textContent = '케미스트리 테스트용 Icon / Hero 샘플 카드입니다.';
-    renderPlayerList(availableMocks);
-    return;
+  const requestId = ++modalRequest;
+  try {
+    const rows = await fetchPlayerCards(supabase);
+    if (requestId !== modalRequest || modal.hidden) return;
+    const selectedCardIds = getSelectedCardIds(position);
+    const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean);
+    const matchesSlot = card => [card.position, ...(card.alt_positions ?? [])]
+      .some(value => normalizePosition(value) === normalizePosition(position));
+    // 주/보조 포지션이 일치하는 카드만 검색 목록에 전달합니다.
+    const positionedCards = cards.filter(matchesSlot);
+    const availableCards = positionedCards.filter(card => !selectedCardIds.has(String(card.id)))
+      .sort((a, b) => b.overall - a.overall);
+    modalDescription.textContent = normalizePosition(position) + ' 가능 카드 ' + positionedCards.length + '개 · 선택 가능 ' + availableCards.length + '개 · 주/보조 포지션 포함';
+    if (!availableCards.length) {
+      renderMessage(positionedCards.length ? '해당 포지션의 모든 카드가 다른 슬롯에 배치되어 있습니다.' : '해당 포지션을 수행할 수 있는 카드가 없습니다.');
+      return;
+    }
+    renderPlayerList(availableCards);
+  } catch (error) {
+    if (requestId !== modalRequest || modal.hidden) return;
+    console.error('Player card lookup failed:', error);
+    modalDescription.textContent = '선수 목록을 불러오지 못했습니다.';
+    renderMessage('DB 연결 오류: ' + error.message + ' 창을 다시 열어 재시도해 주세요.', true);
   }
-
-  const { cards, usedFallback, error } = await fetchCardsForPosition(position);
-  if (error) {
-    modalDescription.textContent = 'DB 선수 목록을 불러오지 못해 케미스트리 샘플 카드만 표시합니다.';
-    renderPlayerList(availableMocks);
-    return;
-  }
-
-  const availableCards = [
-    ...availableMocks,
-    ...cards.filter((card) => !selectedCardIds.has(String(card.id))),
-  ];
-  if (!availableCards.length) {
-    modalDescription.textContent = `${position}에 배치할 수 있는 카드가 없습니다.`;
-    renderMessage('조회된 모든 카드가 이미 다른 스쿼드 슬롯에 배치되어 있습니다.');
-    return;
-  }
-
-  modalDescription.textContent = usedFallback
-    ? `Icon / Hero 샘플과 대체 DB 카드 ${availableCards.length}개를 표시합니다.`
-    : `Icon / Hero 샘플을 포함해 ${position} 포지션 카드 ${availableCards.length}개를 선택할 수 있습니다.`;
-  renderPlayerList(availableCards);
 }
 
 function getSelectedCardIds(currentSlotKey) {
@@ -1419,25 +1299,6 @@ function getSelectedCardIds(currentSlotKey) {
       .filter(([slotKey, item]) => slotKey !== currentSlotKey && item?.card_id !== undefined && item.card_id !== null)
       .map(([, item]) => String(item.card_id)),
   );
-}
-
-async function fetchCardsForPosition(selectedSlot) {
-  const targetPosition = normalizePosition(selectedSlot);
-  // 모든 포지션 관계를 먼저 받아 카드별로 합쳐야, 주 포지션에서 고른 카드도
-  // 드래그 이후 보조 포지션 정보를 잃지 않습니다.
-  const { data: fallbackRows, error: fallbackError } = await supabase
-    .from('card_positions')
-    .select(PLAYER_CARD_SELECT)
-    .limit(500);
-
-  if (fallbackError) return { cards: [], usedFallback: true, error: fallbackError };
-
-  const allCards = normalizePlayerCardRows(fallbackRows ?? []);
-  const positionedCards = allCards.filter((card) => [card.position, ...(card.alt_positions ?? [])]
-    .some((position) => normalizePosition(position) === targetPosition));
-  return positionedCards.length
-    ? { cards: positionedCards, usedFallback: false, error: null }
-    : { cards: allCards, usedFallback: true, error: null };
 }
 
 function normalizePosition(slot) {
@@ -1460,11 +1321,15 @@ function normalizePlayerCard(row) {
     sm: cardVersion.sm,
     wf: cardVersion.wf,
     price: cardVersion.price,
-    club: cardVersion.club,
-    league: cardVersion.league,
+    club: unwrapRelation(cardVersion.clubs)?.name,
+    club_id: cardVersion.club_id,
+    league: unwrapRelation(cardVersion.leagues)?.name,
+    league_id: cardVersion.league_id,
     image_url: cardVersion.image_url,
     name: player.name,
-    nation: player.nation,
+    nation: unwrapRelation(player.nations)?.name,
+    nation_id: player.nation_id,
+    long_name: player.long_name,
     height: player.height,
     weight: player.weight,
     age: player.age,
@@ -1660,10 +1525,9 @@ function updateModalPlayerSearch() {
 }
 
 function renderFilteredPlayerList() {
-  const searchTerm = normalizeText(modalPlayerSearchInput.value.trim());
+  const searchTerm = modalPlayerSearchInput.value.trim();
   const filteredCards = searchTerm
-    ? modalPlayerCards.filter((card) => [card.name, card.shortName, getCardName(card)]
-      .some((name) => normalizeText(name).includes(searchTerm)))
+    ? modalPlayerCards.filter((card) => matchesPlayerName(card, searchTerm))
     : modalPlayerCards;
 
   if (searchTerm && !filteredCards.length) {
@@ -1676,7 +1540,6 @@ function renderFilteredPlayerList() {
   filteredCards.forEach((card) => {
     const button = document.createElement('button');
     button.className = 'player-option';
-    button.classList.toggle('is-mock-card', Boolean(card.isMock));
     button.type = 'button';
     button.addEventListener('click', () => {
       placeCard(activeSlot, card);
@@ -1699,12 +1562,6 @@ function renderFilteredPlayerList() {
     details.className = 'player-option-details';
     const name = document.createElement('strong');
     name.textContent = getCardName(card);
-    if (card.isMock) {
-      const mockBadge = document.createElement('span');
-      mockBadge.className = `mock-card-badge ${card.isIcon ? 'is-icon' : 'is-hero'}`;
-      mockBadge.textContent = card.isIcon ? 'ICON · CHEM TEST' : 'HERO · CHEM TEST';
-      details.append(mockBadge);
-    }
     const meta = document.createElement('small');
     meta.textContent = [getCardRating(card), getCardPosition(card), card.nation, card.club]
       .filter(Boolean)
@@ -1739,6 +1596,7 @@ function renderMessage(message, isError = false) {
 
 function closeModal() {
   modal.hidden = true;
+  modalRequest += 1;
   activeSlot = null;
   modalPlayerCards = [];
 }

@@ -296,10 +296,6 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .player-list { display: grid; gap: 10px; padding: 0 18px 18px; }
 .player-option { display: flex; align-items: center; gap: 14px; width: 100%; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px; background: #172744; color: #f7fbff; text-align: left; cursor: pointer; transition: transform .15s, border-color .15s, background .15s; }
 .player-option:hover, .player-option:focus-visible { transform: translateY(-1px); border-color: #63e6be; background: #1c3155; outline: none; }
-.player-option.is-mock-card { border-color: rgba(255,212,59,.38); background: linear-gradient(135deg,rgba(255,212,59,.09),#172744 45%); }
-.mock-card-badge { justify-self: start; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 3px 7px; color: #fff; font-size: .52rem; font-weight: 950; letter-spacing: .06em; }
-.mock-card-badge.is-icon { border-color: rgba(255,212,59,.5); color: #ffe68b; background: rgba(255,212,59,.1); }
-.mock-card-badge.is-hero { border-color: rgba(99,230,190,.48); color: #9cf3d3; background: rgba(99,230,190,.08); }
 .player-thumbnail { width: 52px; height: 52px; flex: none; border-radius: 8px; object-fit: cover; background: #0c1730; }
 .player-option-details { display: grid; gap: 4px; min-width: 0; }
 .player-option-details strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -602,3 +598,18 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
     max-width: none;
   }
 }
+.nation-picker { position: relative; width: 100%; color: #f7fbff; }
+.nation-picker summary, .nation-options button { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; font: inherit; color: inherit; }
+.nation-picker summary { border: 1px solid #41516b; border-radius: 8px; background: #0b172c; list-style: none; }
+.nation-picker summary::after { content: '⌄'; margin-left: auto; }
+.nation-picker img { width: 26px; height: 18px; object-fit: contain; flex: 0 0 26px; }
+.nation-options { max-height: 260px; overflow-y: auto; background: #0b172c; border: 1px solid #41516b; border-radius: 8px; margin-top: 4px; }
+.nation-options button { width: 100%; border: 0; background: transparent; text-align: left; }
+.nation-options button:hover, .nation-options button:focus-visible, .nation-options button[aria-pressed="true"] { background: #254366; }
+#nation-filter[hidden], #league-filter[hidden], #club-filter[hidden] { display: none; }
+.searchable-select-panel { margin-top: 4px; border: 1px solid #41516b; border-radius: 8px; background: #0b172c; overflow: hidden; }
+.searchable-select-panel > input { box-sizing: border-box; width: 100%; min-width: 0; padding: 10px; border: 0; border-bottom: 1px solid #41516b; background: #15243c; color: #f7fbff; font: inherit; }
+.searchable-select-panel > input:focus { outline: 2px solid #63e6be; outline-offset: -2px; }
+.searchable-select-panel .nation-options { margin: 0; border: 0; border-radius: 0; }
+.nation-options p { padding: 10px; color: #9fb0c9; }
+.affiliation-select-grid { align-items: start; }
