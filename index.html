@@ -283,14 +283,11 @@
                   <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Stats</span>
                 </button>
                 <div id="stats-filter-options" class="filter-accordion-content">
-                  <div class="stats-filter-grid">
-                    <div class="stat-range-row" data-stat="pac"><strong>PAC</strong><label>Min<input id="min-pac" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-pac" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
-                    <div class="stat-range-row" data-stat="sho"><strong>SHO</strong><label>Min<input id="min-sho" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-sho" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
-                    <div class="stat-range-row" data-stat="pas"><strong>PAS</strong><label>Min<input id="min-pas" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-pas" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
-                    <div class="stat-range-row" data-stat="dri"><strong>DRI</strong><label>Min<input id="min-dri" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-dri" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
-                    <div class="stat-range-row" data-stat="def"><strong>DEF</strong><label>Min<input id="min-def" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-def" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
-                    <div class="stat-range-row" data-stat="phy"><strong>PHY</strong><label>Min<input id="min-phy" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label><span>–</span><label>Max<input id="max-phy" type="number" inputmode="numeric" min="0" max="99" placeholder="Any" /></label></div>
-                  </div>
+                  <form id="detailed-stats-form">
+                    <div class="stats-filter-grid"></div>
+                    <p id="stats-validation" role="alert"></p>
+                    <div class="stats-actions"><button type="submit">Filter (적용)</button><button type="button" id="clear-stats">Clear all (초기화)</button></div>
+                  </form>
                 </div>
               </section>
               <section class="filter-accordion" data-filter-section="miscellaneous" data-filter-panel="physical" hidden>
@@ -409,14 +406,12 @@
           <button id="player-detail-close" class="modal-close" type="button" aria-label="선수 상세 정보 닫기" data-close-detail-modal>×</button>
         </header>
         <div class="player-detail-body">
+          <div class="player-detail-left">
           <section class="player-detail-section" aria-labelledby="bio-card-specs-title">
             <h2 id="bio-card-specs-title">Bio &amp; Card Specs</h2>
             <div id="player-detail-bio" class="detail-spec-grid"></div>
           </section>
-          <section class="player-detail-section" aria-labelledby="player-stats-title">
-            <h2 id="player-stats-title">Stats</h2>
-            <div id="player-detail-stats" class="detail-stats-grid"></div>
-          </section>
+
           <section class="player-detail-section" aria-labelledby="player-roles-title">
             <h2 id="player-roles-title">Roles</h2>
             <div id="player-detail-roles" class="detail-badges"></div>
@@ -424,6 +419,11 @@
           <section class="player-detail-section" aria-labelledby="player-playstyles-title">
             <h2 id="player-playstyles-title">PlayStyles</h2>
             <div id="player-detail-playstyles" class="detail-badges"></div>
+          </section>
+          </div>
+          <section class="player-detail-section" aria-labelledby="player-stats-title">
+            <h2 id="player-stats-title">Sub-stats</h2>
+            <div id="player-detail-stats" class="detail-substats-grid"></div>
           </section>
         </div>
       </section>

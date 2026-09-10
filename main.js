@@ -1,3 +1,6 @@
+import { renderDetailStatGroups } from './utils/detailStats.js';
+import { applyPhysicalQuery, matchesPhysicalTypes } from './utils/physicalFilters.js';
+import { STAT_KEYS, defaultStats, activeStats, applyStatQuery, renderStatInputs } from './utils/statFilters.js';
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
 import { fetchPlaystyleOptions, matchesPlaystyleFilters } from './utils/playstyleFilters.js';
 import { PLAYER_CARD_SELECT, fetchPlayerCards } from './utils/playerCards.js';
@@ -76,11 +79,7 @@ const maxAgeInput = document.querySelector('#max-age');
 const nationFilter = document.querySelector('#nation-filter');
 const leagueFilter = document.querySelector('#league-filter');
 const clubFilter = document.querySelector('#club-filter');
-const STAT_KEYS = ['pac', 'sho', 'pas', 'dri', 'def', 'phy'];
-const statFilterInputs = STAT_KEYS.flatMap((stat) => [
-  document.querySelector(`#min-${stat}`), document.querySelector(`#max-${stat}`),
-]);
-
+renderStatInputs(document.querySelector('.stats-filter-grid'));
 // Vanilla DOM 구조에서 <FilterBar /> 마운트와 동일한 역할을 합니다.
 // 검색 헤더 바로 아래, 선수 그리드 바로 위에 기존 필터 DOM을 배치합니다.
 if (filterBarMount && filterBar) filterBarMount.replaceWith(filterBar);
@@ -92,7 +91,7 @@ const playerFilters = {
   acceleTypes: new Set(), preferredFoot: '', gender: '', bodyTypes: new Set(),
   minHeight: '', maxHeight: '', minWeight: '', maxWeight: '', minAge: '', maxAge: '',
   nation: '', league: '', club: '', rarities: new Set(),
-  stats: Object.fromEntries(STAT_KEYS.map((stat) => [stat, { min: '', max: '' }])),
+  stats: defaultStats(),
 };
 const filterAccordionState = { ovr: true, positions: true, price: true, 'sm-wf': true, playstyles: true, roles: false, affiliation: true, rarity: true, stats: true, miscellaneous: true };
 const OVR_COLUMN = 'overall';
@@ -234,14 +233,34 @@ document.querySelectorAll('[data-rarity-filter]').forEach((button) => {
   });
 });
 
-STAT_KEYS.forEach((stat) => {
-  ['min', 'max'].forEach((bound) => {
-    document.querySelector(`#${bound}-${stat}`).addEventListener('input', (event) => {
-      playerFilters.stats[stat][bound] = event.target.value;
-      schedulePlayerSearch();
-    });
-  });
+function resetStatInputs() {
+  playerFilters.stats = defaultStats();
+  for (const key of STAT_KEYS) for (const bound of ['min', 'max']) document.querySelector('#' + bound + '-' + key).value = playerFilters.stats[key][bound];
+  document.querySelector('#stats-validation').textContent = '';
+}
+document.querySelector('#detailed-stats-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const values = defaultStats();
+  for (const key of STAT_KEYS) {
+    for (const bound of ['min', 'max']) {
+      const input = document.querySelector('#' + bound + '-' + key);
+      values[key][bound] = input.value === '' ? '' : Number(input.value);
+    }
+    if (values[key].min !== '' && values[key].max !== '' && values[key].min > values[key].max) {
+      document.querySelector('#stats-validation').textContent = key + ': Min은 Max보다 클 수 없습니다.';
+      return;
+    }
+  }
+  playerFilters.stats = values;
+  document.querySelector('#stats-validation').textContent = '';
+  searchPlayers();
+  const statsPanel = document.querySelector('[data-filter-section="stats"]');
+  statsPanel.classList.remove('is-command-open');
+  const statsTrigger = statsPanel.querySelector('[data-filter-accordion]');
+  statsTrigger.setAttribute('aria-expanded', 'false');
+  statsTrigger.focus();
 });
+document.querySelector('#clear-stats').addEventListener('click', () => { resetStatInputs(); searchPlayers(); });
 
 hasAllSelectedRoles.addEventListener('change', () => {
   void handleHasAllRolesChange();
@@ -549,7 +568,7 @@ function updateCommandSummaries() {
     playstyles: playerFilters.selectedPlayStyles.length ? `${playerFilters.selectedPlayStyles.length}` : '',
     affiliation: [playerFilters.nation, playerFilters.league, playerFilters.club].filter(Boolean).length || '',
     rarity: playerFilters.rarities.size || '',
-    stats: STAT_KEYS.filter((stat) => playerFilters.stats[stat].min !== '' || playerFilters.stats[stat].max !== '').length || '',
+    stats: activeStats(playerFilters.stats).length || '',
     miscellaneous: [
       playerFilters.acceleTypes.size, playerFilters.bodyTypes.size, playerFilters.preferredFoot, playerFilters.gender,
       playerFilters.minHeight, playerFilters.maxHeight, playerFilters.minWeight, playerFilters.maxWeight,
@@ -577,8 +596,10 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
     setPlayerGridLoading();
     let query = supabase
       .from('card_versions')
-      .select(PLAYER_BROWSER_SELECT)
+      .select(activeStats(playerFilters.stats).length ? PLAYER_BROWSER_SELECT.replace('player_stats (*)', 'player_stats!inner (*)') : PLAYER_BROWSER_SELECT)
       .limit(500);
+
+    query = applyStatQuery(query, playerFilters.stats);
 
     if (playerFilters.minOvr !== '') query = query.gte(OVR_COLUMN, Number(playerFilters.minOvr));
     if (playerFilters.maxOvr !== '') query = query.lte(OVR_COLUMN, Number(playerFilters.maxOvr));
@@ -586,10 +607,9 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
     if (playerFilters.maxPrice !== '') query = query.lte('price', Number(playerFilters.maxPrice));
     if (playerFilters.minSm !== null) query = query.gte('sm', playerFilters.minSm);
     if (playerFilters.minWf !== null) query = query.gte('wf', playerFilters.minWf);
-    if (playerFilters.acceleTypes.size) query = query.in('accele_type', [...playerFilters.acceleTypes]);
+    query = applyPhysicalQuery(query, playerFilters.acceleTypes, playerFilters.bodyTypes);
     if (playerFilters.preferredFoot) query = query.eq('preferred_foot', playerFilters.preferredFoot);
     if (playerFilters.gender) query = query.eq('players.gender', playerFilters.gender);
-    if (playerFilters.bodyTypes.size) query = query.in('body_type', [...playerFilters.bodyTypes]);
     if (playerFilters.minHeight !== '') query = query.gte('players.height', Number(playerFilters.minHeight));
     if (playerFilters.maxHeight !== '') query = query.lte('players.height', Number(playerFilters.maxHeight));
     if (playerFilters.minWeight !== '') query = query.gte('players.weight', Number(playerFilters.minWeight));
@@ -703,10 +723,9 @@ function matchesCountRange(count, min, max) {
 }
 
 function matchesMiscellaneous(card) {
-  if (playerFilters.acceleTypes.size && !playerFilters.acceleTypes.has(card.accele_type)) return false;
+  if (!matchesPhysicalTypes(card, playerFilters.acceleTypes, playerFilters.bodyTypes)) return false;
   if (playerFilters.preferredFoot && card.preferred_foot !== playerFilters.preferredFoot) return false;
   if (playerFilters.gender && card.gender !== playerFilters.gender) return false;
-  if (playerFilters.bodyTypes.size && !playerFilters.bodyTypes.has(card.body_type)) return false;
   return matchesCountRange(card.height, playerFilters.minHeight, playerFilters.maxHeight)
     && matchesCountRange(card.weight, playerFilters.minWeight, playerFilters.maxWeight)
     && matchesCountRange(card.age, playerFilters.minAge, playerFilters.maxAge);
@@ -725,7 +744,7 @@ function matchesIdentityAndStats(card) {
   if (playerFilters.league && String(card.league_id) !== playerFilters.league) return false;
   if (playerFilters.club && String(card.club_id) !== playerFilters.club) return false;
   if (playerFilters.rarities.size && !playerFilters.rarities.has(getRarityCategory(card.version))) return false;
-  return STAT_KEYS.every((stat) => matchesCountRange(card[stat], playerFilters.stats[stat].min, playerFilters.stats[stat].max));
+  return true; // Detailed stats are filtered by the inner player_stats join.
 }
 
 function replaceSelectOptions(select, placeholder, values, selectedValue = '') {
@@ -970,7 +989,7 @@ function clearAllFilters() {
   playerFilters.league = '';
   playerFilters.club = '';
   playerFilters.rarities.clear();
-  STAT_KEYS.forEach((stat) => { playerFilters.stats[stat] = { min: '', max: '' }; });
+  resetStatInputs();
 
   playerNameSearch.value = '';
   minOvrInput.value = '';
@@ -991,7 +1010,7 @@ function clearAllFilters() {
   leagueFilter.value = '';
   renderSearchableSelect(leagueFilter, affiliationCatalog.leagues);
   renderClubOptions();
-  statFilterInputs.forEach((input) => { input.value = ''; });
+
   document.querySelectorAll('[data-position-filter]').forEach((button) => {
     button.classList.remove('is-selected');
     button.setAttribute('aria-pressed', 'false');
@@ -1222,7 +1241,22 @@ function renderDetailRoles(card) {
 }
 
 function renderDetailSpecs(card) {
+  const player = unwrapRelation(card.raw?.players);
+  const nation = unwrapRelation(player?.nations);
+  const nationTile = createDetailValue('Nation', nation?.name ?? card.nation ?? '-');
+  const nationValue = nationTile.querySelector('strong');
+  nationValue.classList.add('detail-nation-value');
+  if (typeof nation?.flag_url === 'string' && nation.flag_url.trim()) {
+    const flag = document.createElement('img');
+    flag.src = nation.flag_url;
+    flag.alt = '';
+    flag.addEventListener('error', () => flag.remove());
+    nationValue.prepend(flag);
+  }
   const specs = [
+    ['League', card.league ?? '-'],
+    ['Club', card.club ?? '-'],
+    ['Card Version', card.version ?? '-'],
     ['Height', card.height === undefined || card.height === null ? '-' : `${card.height}cm`],
     ['Weight', card.weight === undefined || card.weight === null ? '-' : `${card.weight}kg`],
     ['Age', card.age === undefined || card.age === null ? '-' : `${card.age}세`],
@@ -1233,15 +1267,11 @@ function renderDetailSpecs(card) {
     ['Accele Type', card.accele_type ?? '-'],
     ['Body Type', card.body_type ?? '-'],
   ];
-  playerDetailBio.replaceChildren(...specs.map(([label, value]) => createDetailValue(label, value)));
+  playerDetailBio.replaceChildren(nationTile, ...specs.map(([label, value]) => createDetailValue(label, value)));
 }
 
 function renderDetailStats(card) {
-  const stats = [
-    ['PAC', card.pac], ['SHO', card.sho], ['PAS', card.pas],
-    ['DRI', card.dri], ['DEF', card.def], ['PHY', card.phy],
-  ];
-  playerDetailStats.replaceChildren(...stats.map(([label, value]) => createDetailValue(label, value ?? '-')));
+  renderDetailStatGroups(playerDetailStats, card);
 }
 
 function createDetailValue(label, value) {
