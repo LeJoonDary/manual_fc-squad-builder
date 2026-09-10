@@ -1,0 +1,24 @@
+{
+  "executed": true,
+  "startedAt": "2026-09-09T17:51:48.007Z",
+  "planned": {
+    "card_positions": 0,
+    "card_playstyles": 0,
+    "card_roles": 0,
+    "player_stats": 0,
+    "card_versions": 0,
+    "players": 0
+  },
+  "deleted": {
+    "card_positions": 0,
+    "card_playstyles": 0,
+    "card_roles": 0,
+    "player_stats": 0,
+    "card_versions": 0,
+    "players": 0
+  },
+  "verified": true,
+  "players": [],
+  "cards": [],
+  "totalDeleted": 0
+}
