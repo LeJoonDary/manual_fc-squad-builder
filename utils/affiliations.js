@@ -33,16 +33,18 @@ export async function fetchAffiliations(db) {
 }
 
 export function renderSearchableSelect(select, rows) {
-  const kind = select.id.replace('-filter', '');
+  const pickerId = select.id.replace('-filter', '') + '-picker';
+  const kind = select.id.replace('-filter', '').replace('manager-', '');
   const label = { nation: '국가', league: '리그', club: '클럽' }[kind];
-  let picker = document.getElementById(kind + '-picker');
+  let picker = document.getElementById(pickerId);
   if (!picker) {
     picker = document.createElement('details');
-    picker.id = kind + '-picker';
+    picker.id = pickerId;
     picker.className = 'nation-picker';
     select.after(picker);
     select.hidden = true;
     picker.addEventListener('keydown', event => {
+      if (event.key === 'Enter' && event.target.matches('input')) event.preventDefault();
       if (event.key === 'Escape') { event.stopPropagation(); picker.open = false; picker.querySelector('summary').focus(); }
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         const controls = [...picker.querySelectorAll('input, .nation-options button')];

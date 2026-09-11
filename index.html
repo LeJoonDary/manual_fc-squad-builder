@@ -27,16 +27,21 @@
           <p class="eyebrow">SQUAD BUILDER</p>
           <h1>4-3-3 스쿼드</h1>
         </div>
+        <details id="formation-picker" class="formation-picker">
+          <summary aria-label="포메이션 선택">포메이션 <strong id="formation-current">4-3-3</strong><span aria-hidden="true">⌄</span></summary>
+          <div id="formation-menu" class="formation-menu" role="group" aria-label="포메이션 목록"></div>
+        </details>
         </header>
 
         <p id="status" class="status" aria-live="polite">포지션 슬롯을 선택해 선수를 배치하세요.</p>
 
         <div class="squad-workspace">
+          <div class="pitch-scroll" tabindex="0" aria-label="포메이션 그라운드 — 좁은 화면에서는 좌우로 스크롤">
           <section class="pitch" aria-label="4-3-3 포메이션">
-            <div class="formation-label">4-3-3</div>
             <button id="manager-slot" class="manager-slot" type="button" aria-haspopup="dialog">
               <span class="manager-empty"><b>＋</b> 감독 추가</span>
             </button>
+            <div class="formation-label">4-3-3</div>
             <button class="slot forward left" data-position="LW" type="button"><span>LW</span></button>
             <button class="slot forward center" data-position="ST" type="button"><span>ST</span></button>
             <button class="slot forward right" data-position="RW" type="button"><span>RW</span></button>
@@ -49,6 +54,7 @@
             <button class="slot defense right" data-position="RB" type="button"><span>RB</span></button>
             <button class="slot goalkeeper" data-position="GK" type="button"><span>GK</span></button>
           </section>
+          </div>
 
           <aside class="chemistry-panel" aria-label="케미스트리 상세 현황">
             <header class="chemistry-panel-header">
@@ -367,9 +373,8 @@
           <button class="modal-close" type="button" aria-label="감독 설정 창 닫기" data-close-manager-modal>×</button>
         </header>
         <form id="manager-form" class="manager-form">
-          <label><span>감독 이름 <small>(선택)</small></span><input id="manager-name" type="text" placeholder="감독 이름" autocomplete="off" /></label>
-          <label><span>리그 선택</span><select id="manager-league" required><option value="">리그를 선택하세요</option></select></label>
-          <label><span>국가 선택</span><select id="manager-nation" required><option value="">국가를 선택하세요</option></select></label>
+          <div class="manager-field"><label for="manager-league">리그 선택</label><select id="manager-league"><option value="">리그를 선택하세요</option></select></div>
+          <div class="manager-field"><label for="manager-nation">국가 선택</label><select id="manager-nation"><option value="">국가를 선택하세요</option></select></div>
           <div class="manager-form-actions">
             <button id="remove-manager" class="remove-manager" type="button">감독 해제</button>
             <button class="save-manager" type="submit">설정 저장</button>

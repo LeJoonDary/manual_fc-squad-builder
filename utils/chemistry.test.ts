@@ -19,6 +19,51 @@ function slot(position: string, player: PlayerCard | null): SquadSlot {
 }
 
 describe('calculateChemistry', () => {
+  it.each(['ICON', 'SPECIAL_ICON', 'HERO', 'SPECIAL_HERO', 'NORMAL', 'SPECIAL'])(
+    'uses normalized foreign keys and %s contributions', (card_type) => {
+      const special = adaptChemistryPlayerCard({
+        id: 'special', position: 'ST', card_type, club_id: 10, league_id: 20,
+        nation_id: 999, players: { nation_id: 30, club_id: 999, league_id: 999 },
+        isIcon: true, isHero: true,
+      });
+      const normal = adaptChemistryPlayerCard({
+        id: 'normal', position: 'ST', card_type: 'NORMAL', club_id: 11, league_id: 21,
+        players: { nation_id: 30 },
+      });
+      const result = calculateChemistry([slot('ST', special), slot('ST', normal)]);
+      const icon = card_type.includes('ICON');
+      const hero = card_type.includes('HERO');
+      expect(result.groupCounts.nation).toEqual({ 'nation:id:30': icon ? 3 : 2 });
+      expect(result.groupCounts.club).toEqual(icon || hero
+        ? { 'club:id:11': 1 } : { 'club:id:10': 1, 'club:id:11': 1 });
+      expect(result.groupCounts.league).toEqual(icon
+        ? { 'league:id:21': 2 }
+        : { 'league:id:20': hero ? 2 : 1, 'league:id:21': 1 });
+    },
+  );
+
+  it('never groups null affiliations or invents an Icon league', () => {
+    const players = ['ICON', 'SPECIAL_ICON', 'NORMAL', 'SPECIAL'].map((card_type, id) =>
+      adaptChemistryPlayerCard({ id, position: 'ST', card_type,
+        club_id: null, league_id: null, nation_id: null, club: 'Unknown Club' }));
+    const result = calculateChemistry(players.map(player => slot('ST', player)));
+    expect(result.groupCounts).toEqual({ club: {}, league: {}, nation: {} });
+    expect(result.playerChemMap).toEqual({ 0: 3, 1: 3, 2: 0, 3: 0 });
+  });
+
+  it('keeps same-name affiliations separate by ID and boosts all represented leagues', () => {
+    const players = [1, 2].map(id => adaptChemistryPlayerCard({
+      id, position: 'ST', club_id: id, league_id: id, nation_id: id,
+      club: 'Same name', league: 'Same name', nation: 'Same name',
+    }));
+    const icon = adaptChemistryPlayerCard({ id: 'icon', position: 'ST', card_type: 'ICON' });
+    const result = calculateChemistry([...players, icon].map(player => slot('ST', player)));
+    expect(result.groupCounts.league).toEqual({ 'league:id:1': 2, 'league:id:2': 2 });
+    expect(result.groupCounts.club).toEqual({ 'club:id:1': 1, 'club:id:2': 1 });
+    expect(calculateChemistry([...players.map(player => slot('ST', player)), slot('GK', icon)])
+      .groupCounts.league).toEqual({ 'league:id:1': 1, 'league:id:2': 1 });
+  });
+
   it('adds one league and nation count from the manager', () => {
     const france = 'nation:name:france';
     const premierLeague = 'league:name:premier league';
@@ -53,13 +98,14 @@ describe('calculateChemistry', () => {
     ]);
 
     expect(result.playerChemMap['1']).toBe(3);
+    expect(result.groupCounts.nation['7']).toBe(5);
     expect(result.playerChemMap['2']).toBe(2);
     expect(result.playerChemMap['3']).toBe(2);
     expect(result.playerChemMap['4']).toBe(2);
     expect(result.totalChemistry).toBe(9);
   });
 
-  it('gives Mbappé one nation chemistry with Zidane across mock and DB key shapes', () => {
+  it('gives Mbappé one nation chemistry with Zidane across camelCase and DB key shapes', () => {
     const zidane = adaptChemistryPlayerCard({
       id: 'zidane',
       name: 'Zinedine Zidane',
@@ -77,7 +123,7 @@ describe('calculateChemistry', () => {
       player_name: 'Kylian Mbappé',
       primary_position: 'ST',
       nation: 'France',
-      nation_id: 'different-db-id',
+      nation_id: 2,
       league: 'LALIGA',
       league_id: 101,
       club: 'Real Madrid',

@@ -8,6 +8,7 @@ import { matchesPlayerName } from './utils/playerSearch.js';
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
+import { FORMATIONS, reassignFormation } from './utils/formations.js';
 import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts';
 import { calculateBudgetStatus } from './utils/budget.ts';
 
@@ -22,7 +23,6 @@ const clearSquadButton = document.querySelector('#clear-squad');
 const managerSlot = document.querySelector('#manager-slot');
 const managerModal = document.querySelector('#manager-modal');
 const managerForm = document.querySelector('#manager-form');
-const managerNameInput = document.querySelector('#manager-name');
 const managerLeagueSelect = document.querySelector('#manager-league');
 const managerNationSelect = document.querySelector('#manager-nation');
 const removeManagerButton = document.querySelector('#remove-manager');
@@ -126,7 +126,7 @@ const PLAYER_BROWSER_SELECT = PLAYER_CARD_SELECT;
 const PLAYER_DETAIL_SELECT = PLAYER_CARD_SELECT;
 let modalRequest = 0;
 
-document.querySelectorAll('.slot').forEach((slot) => {
+function bindSquadSlot(slot) {
   slot.addEventListener('click', () => {
     if (!suppressSlotClick && !isSquadSlotLocked(squad[slot.dataset.position])) openPlayerModal(slot);
   });
@@ -136,6 +136,66 @@ document.querySelectorAll('.slot').forEach((slot) => {
   slot.addEventListener('dragleave', handleSlotDragLeave);
   slot.addEventListener('drop', handleSlotDrop);
   slot.addEventListener('dragend', handleSlotDragEnd);
+}
+document.querySelectorAll('.slot').forEach(bindSquadSlot);
+
+const formationPicker = document.querySelector('#formation-picker');
+const formationMenu = document.querySelector('#formation-menu');
+let currentFormation = '4-3-3';
+function applyFormation(formation) {
+  closeModal();
+  const nextSquad = reassignFormation(squad, formation.slots);
+  Object.keys(squad).forEach(key => delete squad[key]);
+  const pitch = document.querySelector('.pitch');
+  pitch.querySelectorAll('.slot').forEach(slot => slot.remove());
+  pitch.style.setProperty('--formation-height', `${formation.height}px`);
+  formation.slots.forEach(({ position, x, y }) => {
+    const slot = document.createElement('button');
+    slot.type = 'button';
+    slot.className = 'slot';
+    slot.dataset.position = position;
+    slot.style.left = `${x}%`;
+    slot.style.top = `${y}%`;
+    slot.setAttribute('aria-label', `${position} 선수 선택`);
+    bindSquadSlot(slot);
+    pitch.append(slot);
+    const entry = nextSquad[position];
+    if (entry) {
+      placeCard(slot, entry.card, false, entry);
+      squad[position].isLocked = entry.isLocked;
+      updateSlotLockUI(slot);
+    } else resetSlot(slot, false);
+  });
+  currentFormation = formation.name;
+  document.querySelector('#formation-current').textContent = currentFormation;
+  document.querySelector('.formation-label').textContent = currentFormation;
+  document.querySelector('#squad-builder-page h1').textContent = `${currentFormation} 스쿼드`;
+  pitch.setAttribute('aria-label', `${currentFormation} 포메이션`);
+  formationMenu.querySelectorAll('button').forEach(button =>
+    button.setAttribute('aria-pressed', String(button.textContent === currentFormation)));
+  formationPicker.open = false;
+  dragOriginPosition = null;
+  updateSquadChemistry();
+  status.textContent = `${currentFormation} 포메이션으로 변경했습니다. 선수의 새 포지션과 케미스트리를 확인하세요.`;
+  formationPicker.querySelector('summary').focus();
+}
+FORMATIONS.forEach(formation => {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = formation.name;
+  button.setAttribute('aria-pressed', String(formation.name === currentFormation));
+  button.addEventListener('click', () => applyFormation(formation));
+  formationMenu.append(button);
+});
+formationPicker.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    formationPicker.open = false;
+    formationPicker.querySelector('summary').focus();
+    event.stopPropagation();
+  }
+});
+document.addEventListener('pointerdown', event => {
+  if (!formationPicker.contains(event.target)) formationPicker.open = false;
 });
 
 clearSquadButton.addEventListener('click', clearUnlockedPlayers);
@@ -785,8 +845,10 @@ function renderAffiliationOptions() {
   replaceMasterOptions(nationFilter, '전체 국가', affiliationCatalog.nations, playerFilters.nation);
   replaceMasterOptions(leagueFilter, '전체 리그', affiliationCatalog.leagues, playerFilters.league);
   renderSearchableSelect(nationFilter, affiliationCatalog.nations);
-  replaceSelectOptions(managerNationSelect, '국가를 선택하세요', affiliationCatalog.nations.map(row => row.name), managerState?.nation ?? '');
-  replaceSelectOptions(managerLeagueSelect, '리그를 선택하세요', affiliationCatalog.leagues.map(row => row.name), managerState?.league ?? '');
+  replaceMasterOptions(managerNationSelect, '국가를 선택하세요', affiliationCatalog.nations, managerState?.nationId ?? '');
+  replaceMasterOptions(managerLeagueSelect, '리그를 선택하세요', affiliationCatalog.leagues, managerState?.leagueId ?? '');
+  renderSearchableSelect(managerNationSelect, affiliationCatalog.nations);
+  renderSearchableSelect(managerLeagueSelect, affiliationCatalog.leagues);
   renderClubOptions();
 }
 
@@ -1347,17 +1409,21 @@ function normalizePlayerCard(row) {
   return {
     id: cardVersion.id,
     version: cardVersion.version,
+    card_type: cardVersion.card_type,
     overall: cardVersion.overall,
     sm: cardVersion.sm,
     wf: cardVersion.wf,
     price: cardVersion.price,
     club: unwrapRelation(cardVersion.clubs)?.name,
+    club_short_name: unwrapRelation(cardVersion.clubs)?.short_name,
     club_id: cardVersion.club_id,
     league: unwrapRelation(cardVersion.leagues)?.name,
+    league_short_name: unwrapRelation(cardVersion.leagues)?.short_name,
     league_id: cardVersion.league_id,
     image_url: cardVersion.image_url,
     name: player.name,
     nation: unwrapRelation(player.nations)?.name,
+    nation_flag_url: unwrapRelation(player.nations)?.flag_url,
     nation_id: player.nation_id,
     long_name: player.long_name,
     height: player.height,
@@ -1696,7 +1762,25 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   content.className = 'slot-card-content';
   const affiliations = document.createElement('small');
   affiliations.className = 'slot-affiliations';
-  affiliations.textContent = [card.nation, card.league, card.club].filter(Boolean).join(' / ') || '소속 정보 없음';
+  const nation = document.createElement('span');
+  nation.className = 'slot-nation';
+  if (card.nation_flag_url?.trim()) {
+    const flag = document.createElement('img');
+    flag.src = card.nation_flag_url;
+    flag.alt = card.nation || '국기';
+    flag.title = card.nation || '국기';
+    flag.addEventListener('error', () => flag.remove(), { once: true });
+    nation.append(flag);
+  }
+  for (const key of ['league', 'club']) {
+    const label = document.createElement('span');
+    label.className = `slot-${key}`;
+    label.textContent = card[`${key}_short_name`]?.trim() || '—';
+    label.title = card[key] || `${key === 'league' ? '리그' : '클럽'} 정보 없음`;
+    affiliations.append(label);
+    if (key === 'league') affiliations.append(nation);
+  }
+  slot.append(affiliations);
   const nameElement = document.createElement('strong');
   nameElement.textContent = name;
   const rarityElement = document.createElement('span');
@@ -1705,7 +1789,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   const skillFoot = document.createElement('span');
   skillFoot.className = 'slot-skill-foot-line';
   skillFoot.textContent = `SM ${card.sm ?? '-'}★ / WF ${card.wf ?? '-'}★`;
-  content.append(affiliations, nameElement, rarityElement, skillFoot);
+  content.append(nameElement, rarityElement, skillFoot);
   slot.append(content);
   const priceBadge = document.createElement('div');
   priceBadge.className = 'card-price-badge';
@@ -1793,28 +1877,36 @@ function clearUnlockedPlayers() {
 }
 
 function openManagerModal() {
-  managerNameInput.value = managerState?.name ?? '';
-  managerLeagueSelect.value = managerState?.league ?? '';
-  managerNationSelect.value = managerState?.nation ?? '';
+  managerLeagueSelect.value = managerState?.leagueId ?? '';
+  managerNationSelect.value = managerState?.nationId ?? '';
+  renderSearchableSelect(managerLeagueSelect, affiliationCatalog.leagues);
+  renderSearchableSelect(managerNationSelect, affiliationCatalog.nations);
   removeManagerButton.hidden = !managerState;
   managerModal.hidden = false;
-  requestAnimationFrame(() => (managerState ? managerNameInput : managerLeagueSelect).focus());
+  requestAnimationFrame(() => document.querySelector('#manager-league-picker summary').focus());
 }
 
 function closeManagerModal() {
+  managerModal.querySelectorAll('details').forEach(picker => { picker.open = false; });
   managerModal.hidden = true;
+  managerSlot.focus();
 }
 
 function saveManager(event) {
   event.preventDefault();
-  const league = managerLeagueSelect.value;
-  const nation = managerNationSelect.value;
-  if (!league || !nation) return;
-  managerState = { name: managerNameInput.value.trim(), league, nation };
+  const league = affiliationCatalog.leagues.find(row => String(row.id) === managerLeagueSelect.value);
+  const nation = affiliationCatalog.nations.find(row => String(row.id) === managerNationSelect.value);
+  if (!league || !nation) {
+    const picker = document.getElementById(!league ? 'manager-league-picker' : 'manager-nation-picker');
+    picker.open = true;
+    picker.querySelector('input').focus();
+    return;
+  }
+  managerState = { league: league.name, nation: nation.name, leagueId: String(league.id), nationId: String(nation.id) };
   renderManagerSlot();
   closeManagerModal();
   updateSquadChemistry();
-  status.textContent = `${managerState.name || '감독'} 설정을 저장했습니다.`;
+  status.textContent = '감독 설정을 저장했습니다.';
 }
 
 function removeManager() {
@@ -1830,12 +1922,10 @@ function getManagerChemistryBonus() {
   const adapted = adaptChemistryPlayerCard({
     id: 'manager', name: managerState.name || 'Manager', nation: managerState.nation,
     league: managerState.league, club: 'Manager', position: '',
+    nation_id: managerState.nationId,
+    league_id: managerState.leagueId,
   });
   return { leagueId: adapted.leagueId, nationId: adapted.nationId };
-}
-
-function getNationFlag(nation) {
-  return ({ England: '🏴', France: '🇫🇷', Spain: '🇪🇸', Germany: '🇩🇪', Italy: '🇮🇹', Brazil: '🇧🇷' })[nation] ?? '⚑';
 }
 
 function renderManagerSlot() {
@@ -1852,8 +1942,19 @@ function renderManagerSlot() {
   league.className = 'manager-affiliation';
   league.textContent = `◉ ${managerState.league}`;
   const nation = document.createElement('span');
-  nation.className = 'manager-affiliation';
-  nation.textContent = `${getNationFlag(managerState.nation)} ${managerState.nation}`;
+  nation.className = 'manager-affiliation manager-nation';
+  const nationRecord = affiliationCatalog.nations.find(row => String(row.id) === managerState.nationId);
+  if (nationRecord?.flag_url?.trim()) {
+    const flag = document.createElement('img');
+    flag.src = nationRecord.flag_url;
+    flag.alt = '';
+    flag.addEventListener('error', () => flag.remove(), { once: true });
+    nation.append(flag);
+  }
+  const nationName = document.createElement('span');
+  nationName.textContent = managerState.nation;
+  nation.title = managerState.nation;
+  nation.append(nationName);
   managerSlot.append(title, league, nation);
 }
 
@@ -2062,57 +2163,30 @@ function getChemistryEntityLogo(card, key) {
 }
 
 function getChemistryGroupRows(group) {
-  const counts = new Map();
-  const names = new Map();
+  const result = calculateChemistry(getChemistrySquad(), getManagerChemistryBonus());
   const cards = new Map();
-
-  function add(key, amount, name, card) {
-    counts.set(key, (counts.get(key) ?? 0) + amount);
-    if (!names.has(key)) names.set(key, name);
-    if (!cards.has(key)) cards.set(key, card);
+  const names = new Map();
+  [...document.querySelectorAll('.slot')].forEach((slot) => {
+    const card = squad[slot.dataset.position]?.card;
+    if (!card || !isCardInSlotPosition(card, slot.dataset.position)) return;
+    const player = toChemistryPlayerCard(card);
+    if (group.key === 'club' && (player.isIcon || player.isHero)) return;
+    if (group.key === 'league' && player.isIcon) return;
+    const key = String(player[group.key + 'Id']);
+    cards.set(key, card);
+    names.set(key, getChemistryEntityName(card, group.key));
+  });
+  const manager = getManagerChemistryBonus();
+  if (manager && group.key !== 'club') {
+    const key = manager[group.key + 'Id'];
+    if (key) names.set(String(key), managerState[group.key]);
   }
-
-  const inPositionCards = [...document.querySelectorAll('.slot')]
-    .map((slot) => ({ slot, card: squad[slot.dataset.position]?.card }))
-    .filter(({ slot, card }) => card && isCardInSlotPosition(card, slot.dataset.position));
-
-  if (group.key === 'league') {
-    const iconCount = inPositionCards.filter(({ card }) => card.isIcon).length;
-    const represented = new Map();
-    inPositionCards.forEach(({ card }) => {
-      const player = toChemistryPlayerCard(card);
-      if (card.isIcon) return;
-      const name = getChemistryEntityName(card, 'league');
-      const key = getChemistryEntityKey(card, 'league', player.leagueId);
-      represented.set(key, name);
-      add(key, card.isHero ? 2 : 1, name, card);
-    });
-    represented.forEach((name, key) => add(key, iconCount, name, cards.get(key)));
-    if (iconCount) {
-      counts.set('league:icon-bonus', iconCount);
-      names.set('league:icon-bonus', 'Icons');
-    }
-  } else {
-    inPositionCards.forEach(({ card }) => {
-      const player = toChemistryPlayerCard(card);
-      if (group.key === 'club') {
-        if (!card.isIcon && !card.isHero) {
-          add(getChemistryEntityKey(card, 'club', player.clubId), 1, getChemistryEntityName(card, 'club'), card);
-        }
-      } else {
-        add(getChemistryEntityKey(card, 'nation', player.nationId), card.isIcon ? 2 : 1, getChemistryEntityName(card, 'nation'), card);
-      }
-    });
-  }
-
-  if (managerState && (group.key === 'league' || group.key === 'nation')) {
-    const name = managerState[group.key];
-    const key = getChemistryEntityKey({ [group.key]: name }, group.key, name);
-    add(key, 1, name, null);
-  }
-
-  return [...counts.entries()]
-    .map(([id, count]) => ({ id, count, name: names.get(id), logo: getChemistryEntityLogo(cards.get(id), group.key), isIconBonus: id === 'league:icon-bonus', level: group.thresholds.filter((threshold) => count >= threshold).length }))
+  return Object.entries(result.groupCounts[group.key])
+    .map(([id, count]) => ({
+      id, count, name: names.get(id) ?? id,
+      logo: getChemistryEntityLogo(cards.get(id), group.key),
+      level: group.thresholds.filter((threshold) => count >= threshold).length,
+    }))
     .sort((a, b) => b.level - a.level || b.count - a.count || a.name.localeCompare(b.name, 'ko'));
 }
 

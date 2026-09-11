@@ -37,6 +37,7 @@ function normalizeEntityId(id: EntityId): string {
 }
 
 function addCount(counts: CountMap, id: EntityId, amount: number): void {
+  if (id == null || String(id).trim() === '') return;
   const key = normalizeEntityId(id);
   counts.set(key, (counts.get(key) ?? 0) + amount);
 }
@@ -55,20 +56,26 @@ function canonicalAffiliationKey(
   nameFields: string[],
   idFields: string[],
 ): string {
+  const id = firstValue(card, idFields);
+  if (id !== undefined) return `${kind}:id:${normalizeEntityId(String(id))}`;
+  if (idFields.some((field) => card[field] === null)) return '';
   const name = firstValue(card, nameFields);
   if (typeof name === 'string' && name.trim()) {
     return `${kind}:name:${name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US')}`;
   }
-  const id = firstValue(card, idFields);
-  return `${kind}:id:${String(id ?? 'unknown').normalize('NFKC').trim().toLocaleLowerCase('en-US')}`;
+  return '';
 }
 
 /**
  * Converts UI, mock, and database card shapes into one chemistry-card shape.
- * Display names are the canonical affiliation key when available so records
- * with nationId/nation_id differences still join the same chemistry group.
+ * Database IDs identify affiliations; names support legacy cards without IDs.
  */
 export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): PlayerCard {
+  const relation = (value: unknown): Record<string, unknown> =>
+    (Array.isArray(value) ? value[0] : value) as Record<string, unknown> ?? {};
+  const player = relation(rawCard.players);
+  if (Object.keys(player).length) rawCard = { ...rawCard, nation_id: player.nation_id ?? null };
+  const cardType = String(rawCard.card_type ?? rawCard.cardType ?? '').trim().toUpperCase();
   const altPositions = [...new Set(['altPositions', 'alt_positions', 'secondary_positions']
     .flatMap((field) => {
       const source = rawCard[field];
@@ -95,8 +102,8 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
     nationId: canonicalAffiliationKey(rawCard, 'nation', ['nation', 'nationName', 'nation_name', 'nationality'], ['nationId', 'nation_id']),
     leagueId: canonicalAffiliationKey(rawCard, 'league', ['league', 'leagueName', 'league_name'], ['leagueId', 'league_id']),
     clubId: canonicalAffiliationKey(rawCard, 'club', ['club', 'clubName', 'club_name', 'team'], ['clubId', 'club_id']),
-    isIcon: Boolean(firstValue(rawCard, ['isIcon', 'is_icon'])),
-    isHero: Boolean(firstValue(rawCard, ['isHero', 'is_hero'])),
+    isIcon: cardType ? ['ICON', 'SPECIAL_ICON'].includes(cardType) : Boolean(firstValue(rawCard, ['isIcon', 'is_icon'])),
+    isHero: cardType ? ['HERO', 'SPECIAL_HERO'].includes(cardType) : Boolean(firstValue(rawCard, ['isHero', 'is_hero'])),
   };
 }
 
@@ -121,7 +128,8 @@ export function calculateChemistry(squad: SquadSlot[], manager: ChemistryManager
   // A league only participates when at least one correctly positioned card
   // from that league is present. Each Icon subsequently boosts every one.
   const representedLeagueIds = new Map(
-    validSlots.map(({ player }) => [normalizeEntityId(player.leagueId), player.leagueId]),
+    validSlots.filter(({ player }) => !player.isIcon && player.leagueId != null && player.leagueId !== '')
+      .map(({ player }) => [normalizeEntityId(player.leagueId), player.leagueId]),
   );
   const iconCount = validSlots.filter(({ player }) => player.isIcon).length;
 
