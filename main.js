@@ -4,7 +4,7 @@ import { STAT_KEYS, defaultStats, activeStats, applyStatQuery, renderStatInputs 
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
 import { fetchPlaystyleOptions, matchesPlaystyleFilters } from './utils/playstyleFilters.js';
 import { PLAYER_CARD_SELECT, fetchPlayerCards } from './utils/playerCards.js';
-import { matchesPlayerName } from './utils/playerSearch.js';
+import { matchesPlayerName, scoreSearchResults, scoreModalPlayers, getValueScoreGrade } from './utils/playerSearch.js';
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
@@ -657,7 +657,7 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
     let query = supabase
       .from('card_versions')
       .select(activeStats(playerFilters.stats).length ? PLAYER_BROWSER_SELECT.replace('player_stats (*)', 'player_stats!inner (*)') : PLAYER_BROWSER_SELECT)
-      .limit(500);
+      .order('id');
 
     query = applyStatQuery(query, playerFilters.stats);
 
@@ -686,11 +686,17 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
       query = query.in('id', matchedCardIds.length ? matchedCardIds : [-1]);
     }
 
-    const { data, error } = await query;
-    if (requestId !== playerSearchRequest) return;
-    if (error) {
-      renderPlayerGridMessage(error.message, true, scrollPositions);
-      return;
+    const data = [];
+    for (let offset = 0; ; ) {
+      const { data: page, error } = await query.range(offset, offset + 499);
+      if (requestId !== playerSearchRequest) return;
+      if (error) {
+        renderPlayerGridMessage(error.message, true, scrollPositions);
+        return;
+      }
+      if (!page?.length) break;
+      data.push(...page);
+      offset += page.length;
     }
 
     const cardsById = new Map();
@@ -707,9 +713,8 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
       .filter((card) => matchesPlaystyles(card))
       .filter((card) => matchesRoles(card))
       .filter((card) => matchesMiscellaneous(card))
-      .filter((card) => matchesIdentityAndStats(card))
-      .sort((left, right) => Number(getCardRating(right)) - Number(getCardRating(left)));
-    renderPlayerGrid(cards, scrollPositions);
+      .filter((card) => matchesIdentityAndStats(card));
+    renderPlayerGrid(scoreSearchResults(cards, [...playerFilters.positions], playerFilters.onlyPrimary), scrollPositions);
   } catch (error) {
     if (requestId !== playerSearchRequest) return;
     console.error('Player filter error:', error);
@@ -1126,6 +1131,16 @@ function matchesPositions(card, selectedPositions, onlyPrimary, hasAll) {
   return selectedPositions.some((position) => allPositions.includes(position));
 }
 
+function createValueScoreBadge(valueScore) {
+  const grade = getValueScoreGrade(valueScore);
+  const tone = { '가성비 좋음': 'good', '가성비 보통': 'average', '가성비 좋지 않음': 'poor' }[grade];
+  const badge = document.createElement('small');
+  badge.className = `value-score-badge value-score-${tone}`;
+  badge.textContent = grade;
+  badge.setAttribute('aria-label', `가성비 등급: ${grade}`);
+  return badge;
+}
+
 function renderPlayerGrid(cards, scrollPositions = null) {
   playerGrid.classList.remove('is-loading');
   playerGrid.replaceChildren();
@@ -1168,6 +1183,14 @@ function renderPlayerGrid(cards, scrollPositions = null) {
     const meta = document.createElement('p');
     meta.textContent = [getCardPosition(card), card.nation, card.club].filter(Boolean).join(' · ') || '카드 정보';
     content.append(rating, name, meta);
+    const score = document.createElement('div');
+    score.className = 'browser-player-meta-score';
+    score.textContent = card.meta_score === null ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
+    score.title = card.score_position ? `${card.score_position} 기준 · 3백 미적용` : '이 포지션의 가중치가 아직 없습니다.';
+    content.append(score);
+    const value = createValueScoreBadge(card.value_score);
+    value.classList.add('browser-player-value-score');
+    content.append(value);
     article.append(content);
     playerGrid.append(article);
   });
@@ -1369,14 +1392,13 @@ async function openPlayerModal(slot) {
       .some(value => normalizePosition(value) === normalizePosition(position));
     // 주/보조 포지션이 일치하는 카드만 검색 목록에 전달합니다.
     const positionedCards = cards.filter(matchesSlot);
-    const availableCards = positionedCards.filter(card => !selectedCardIds.has(String(card.id)))
-      .sort((a, b) => b.overall - a.overall);
+    const availableCards = positionedCards.filter(card => !selectedCardIds.has(String(card.id)));
     modalDescription.textContent = normalizePosition(position) + ' 가능 카드 ' + positionedCards.length + '개 · 선택 가능 ' + availableCards.length + '개 · 주/보조 포지션 포함';
     if (!availableCards.length) {
       renderMessage(positionedCards.length ? '해당 포지션의 모든 카드가 다른 슬롯에 배치되어 있습니다.' : '해당 포지션을 수행할 수 있는 카드가 없습니다.');
       return;
     }
-    renderPlayerList(availableCards);
+    renderPlayerList(availableCards, normalizePosition(position));
   } catch (error) {
     if (requestId !== modalRequest || modal.hidden) return;
     console.error('Player card lookup failed:', error);
@@ -1610,8 +1632,8 @@ function getRoles(player) {
   return [...normalized.values()];
 }
 
-function renderPlayerList(cards) {
-  modalPlayerCards = cards;
+function renderPlayerList(cards, targetPosition) {
+  modalPlayerCards = scoreModalPlayers(cards, targetPosition);
   renderFilteredPlayerList();
 }
 
@@ -1663,6 +1685,17 @@ function renderFilteredPlayerList() {
       .filter(Boolean)
       .join(' · ') || '카드 정보';
     details.append(name, meta);
+
+    const scoreBadges = document.createElement('span');
+    scoreBadges.className = 'player-option-score-badges';
+    const metaBadge = document.createElement('span');
+    metaBadge.className = 'player-option-meta-score';
+    metaBadge.textContent = card.meta_score === null
+      ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
+    metaBadge.title = `${card.score_position} 슬롯 기준 · 3백 미적용`;
+    const valueBadge = createValueScoreBadge(card.value_score);
+    scoreBadges.append(metaBadge, valueBadge);
+    details.append(scoreBadges);
 
     const stats = getCardStats(card, true);
     if (stats.length) {

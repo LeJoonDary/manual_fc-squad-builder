@@ -47,6 +47,8 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .browser-player-card:hover, .browser-player-card:focus-visible { transform: translateY(-2px); border-color: #63e6be; background: #1c3155; outline: none; }
 .browser-player-image { width: 62px; height: 70px; border-radius: 8px; object-fit: cover; background: #0c1730; }
 .browser-player-content { min-width: 0; }
+.browser-player-meta-score { margin-top: 5px; color: #63e6be; font-size: .75rem; font-weight: 700; }
+.browser-player-value-score { display: block; margin-top: 2px; color: #9fb0c9; font-size: .65rem; overflow-wrap: anywhere; }
 .browser-player-rating { color: #ffd43b; font-size: 1.1rem; font-weight: 900; }
 .browser-player-content h3 { overflow: hidden; margin: 2px 0; color: #f7fbff; font-size: .9rem; text-overflow: ellipsis; white-space: nowrap; }
 .browser-player-content p { overflow: hidden; margin: 0; color: #9fb0c9; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -320,8 +322,14 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .player-option:hover, .player-option:focus-visible { transform: translateY(-1px); border-color: #63e6be; background: #1c3155; outline: none; }
 .player-thumbnail { width: 52px; height: 52px; flex: none; border-radius: 8px; object-fit: cover; background: #0c1730; }
 .player-option-details { display: grid; gap: 4px; min-width: 0; }
+.player-option-score-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: .75rem; }
+.player-option-meta-score { color: #63e6be; font-weight: 700; }
 .player-option-details strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .player-option-details small { color: #b9c7da; }
+.value-score-badge { display: inline-block; width: fit-content; padding: 2px 6px; border-radius: 4px; font-size: .65rem; font-weight: 700; }
+.value-score-badge.value-score-good { color: #63e6be; background: rgba(99,230,190,.12); }
+.value-score-badge.value-score-average { color: #cbd5e1; background: rgba(203,213,225,.1); }
+.value-score-badge.value-score-poor { color: #ff9b9b; background: rgba(255,107,107,.12); }
 .player-option-physical-info { color: #9cf3d3 !important; font-size: .68rem; line-height: 1.35; }
 .player-option-stats { color: #ffd43b; font-size: .7rem; font-weight: 800; letter-spacing: .02em; }
 .playstyle-badges, .slot-playstyles, .skill-foot-badges, .slot-skill-foot-badges, .role-badges, .slot-role-badges { display: flex; flex-wrap: wrap; gap: 4px; }
