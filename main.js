@@ -11,6 +11,8 @@ import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleS
 import { FORMATIONS, reassignFormation } from './utils/formations.js';
 import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts';
 import { calculateBudgetStatus } from './utils/budget.ts';
+import { mountAutoBuildSettings } from './components/AutoBuildSettings.jsx';
+import { autoBuildManagerState } from './utils/autoBuildUi.js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -142,6 +144,56 @@ document.querySelectorAll('.slot').forEach(bindSquadSlot);
 const formationPicker = document.querySelector('#formation-picker');
 const formationMenu = document.querySelector('#formation-menu');
 let currentFormation = '4-3-3';
+const updateAutoBuildFormation = mountAutoBuildSettings(
+  document.querySelector('#auto-build-settings'), currentFormation, () => targetBudget,
+  { supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad: () => structuredClone(squad), resetTargetBudget },
+);
+function resetTargetBudget() {
+  targetBudgetInput.value = '';
+  updateTargetBudget({ target: targetBudgetInput });
+}
+function getSquadSnapshot() {
+  return JSON.stringify({ formation: currentFormation, budget: targetBudget, squad, manager: managerState });
+}
+
+function applyAutoBuildResult(result, request) {
+  if (request.snapshot !== getSquadSnapshot() || request.formation !== currentFormation || request.totalBudget !== targetBudget) {
+    throw new Error('구성 중 포메이션, 예산 또는 스쿼드가 변경되었습니다. 현재 설정으로 다시 실행해 주세요.');
+  }
+  const slots = [...document.querySelectorAll('.pitch .slot')];
+  // Validate and normalize every entry before changing the current squad.
+  if (!result.success || result.squad.length !== 11 || new Set(result.squad.map(p => p.slotPosition)).size !== 11) {
+    throw new Error('완성된 11명 스쿼드를 확인할 수 없습니다. 다시 시도해 주세요.');
+  }
+  const placements = result.squad.map(player => {
+    const slot = slots.find(item => item.dataset.position === player.slotPosition);
+    const previous = squad[player.slotPosition];
+    if (previous?.isLocked && String(previous.card_id) !== String(player.id)) {
+      throw new Error('잠긴 선수는 교체할 수 없습니다. 다시 실행해 주세요.');
+    }
+    const retained = Object.values(squad).find(entry => entry && String(entry.card_id) === String(player.id));
+    const card = retained?.card ?? normalizeBrowserPlayerCard(player.card);
+    if (!slot || !card || (!previous?.isLocked && !isCardInSlotPosition(card, player.slotPosition))) {
+      throw new Error('선수의 포지션 정보를 확인할 수 없습니다. 다시 시도해 주세요.');
+    }
+    return { slot, card, isOwned: player.isOwned === true, isLocked: previous?.isLocked === true };
+  });
+  const nextManager = autoBuildManagerState(result.manager, affiliationCatalog, placements.map(item => item.card));
+  closeModal();
+  managerModal.hidden = true;
+  dragOriginPosition = null;
+  clearSlotDragFeedback();
+  Object.keys(squad).forEach(key => delete squad[key]);
+  placements.forEach(({ slot, card, isOwned, isLocked }) => {
+    placeCard(slot, card, false, { isOwned });
+    squad[slot.dataset.position].isLocked = isLocked;
+    updateSlotLockUI(slot);
+  });
+  managerState = nextManager;
+  renderManagerSlot();
+  updateSquadChemistry();
+  status.textContent = '자동 완성된 선수 11명과 감독 설정을 적용했습니다.';
+}
 function applyFormation(formation) {
   closeModal();
   const nextSquad = reassignFormation(squad, formation.slots);
@@ -167,6 +219,7 @@ function applyFormation(formation) {
     } else resetSlot(slot, false);
   });
   currentFormation = formation.name;
+  updateAutoBuildFormation(currentFormation);
   document.querySelector('#formation-current').textContent = currentFormation;
   document.querySelector('.formation-label').textContent = currentFormation;
   document.querySelector('#squad-builder-page h1').textContent = `${currentFormation} 스쿼드`;
