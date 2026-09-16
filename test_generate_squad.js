@@ -6,7 +6,7 @@ import { createSquadCandidateRows } from './scripts/mocks/squadCandidates.js';
 
 const db = createCandidateMockDb(createSquadCandidateRows());
 const budget = 1000000;
-const candidates = await fetchCandidatePlayers(budget, { FW: 40, MF: 35, DF: 25 }, '4-3-3', false, db);
+const candidates = await fetchCandidatePlayers(budget, { FW: 400000, MF: 350000, DF: 250000 }, '4-3-3', false, db);
 const started = performance.now();
 const result = await generateOptimalSquad('4-3-3', groupCandidatePlayers(candidates), budget, 33, true);
 assert.ok(result.success);

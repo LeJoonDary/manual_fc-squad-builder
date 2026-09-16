@@ -162,7 +162,7 @@ function applyAutoBuildResult(result, request) {
   }
   const slots = [...document.querySelectorAll('.pitch .slot')];
   // Validate and normalize every entry before changing the current squad.
-  if (!result.success || result.squad.length !== 11 || new Set(result.squad.map(p => p.slotPosition)).size !== 11) {
+  if ((!result.success && result.status !== 'fallback') || result.squad.length !== 11 || new Set(result.squad.map(p => p.slotPosition)).size !== 11) {
     throw new Error('완성된 11명 스쿼드를 확인할 수 없습니다. 다시 시도해 주세요.');
   }
   const placements = result.squad.map(player => {
@@ -192,7 +192,7 @@ function applyAutoBuildResult(result, request) {
   managerState = nextManager;
   renderManagerSlot();
   updateSquadChemistry();
-  status.textContent = '자동 완성된 선수 11명과 감독 설정을 적용했습니다.';
+  status.textContent = result.status === 'fallback' ? '저가 선수 11명으로 채웠습니다. 총비용과 케미스트리를 확인해 주세요.' : '자동 완성된 선수 11명과 감독 설정을 적용했습니다.';
 }
 function applyFormation(formation) {
   closeModal();
@@ -1890,6 +1890,7 @@ function handleTogglePlayerLock(event, slot) {
   if (!entry?.card) return;
 
   const isLocked = toggleSquadSlotLock(entry);
+  window.dispatchEvent(new Event('auto-build-context-change'));
   updateSlotLockUI(slot);
   status.textContent = `${getCardName(entry.card)} 선수를 ${isLocked ? '고정했습니다.' : '고정 해제했습니다.'}`;
 }
@@ -2187,6 +2188,7 @@ function updateTargetBudget(event) {
 }
 
 function updateBudgetUI(totalCost) {
+  window.dispatchEvent(new Event('auto-build-context-change'));
   const budget = calculateBudgetStatus(totalCost, targetBudget);
   const formatter = new Intl.NumberFormat('en-US');
   budgetProgress.className = `budget-progress is-${budget.level}`;

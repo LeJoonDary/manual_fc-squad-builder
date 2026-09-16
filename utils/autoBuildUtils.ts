@@ -5,9 +5,10 @@ import { adaptChemistryPlayerCard, isPositionMatched, normalizeChemistryPosition
 import { calculate_base_score } from './metaScore.js';
 import { FORMATIONS } from './formations.js';
 import { PLAYER_CARD_SELECT } from './playerCards.js';
-import { calculateSquadTotalCost } from './squadCost.ts';
+import { getCardCoinPrice, calculateSquadTotalCost } from './squadCost.ts';
 
 export interface AutoBuildOptions {
+  budgetAllocations?: BudgetAllocations;
   currentSquad?: Record<string, { card: Record<string, any>; isOwned?: boolean; isLocked?: boolean } | null>;
   /** Combined Icon/Hero maximum. null/undefined means unlimited (11). */
   maxSpecialCards?: number | null;
@@ -26,7 +27,7 @@ function isSpecialCard(card: Record<string, any>): boolean {
 }
 
 export type BudgetGroup = 'FW' | 'MF' | 'DF';
-export type BudgetRatios = Record<BudgetGroup, number>;
+export type BudgetAllocations = Record<BudgetGroup, number>;
 const CANDIDATE_LIMITS = { FW: 20, MF: 20, DF: 30 };
 
 export function getPositionBudgetGroup(position: string, isThreeBack: boolean): BudgetGroup {
@@ -38,25 +39,35 @@ export function getPositionBudgetGroup(position: string, isThreeBack: boolean): 
   throw new Error(`지원하지 않는 포지션: ${position}`);
 }
 
-/** The same plan drives server-side pruning and the terminal summary. Zero means no spend. */
-export function getCandidateBudgetPlan(totalBudget: number, budgetRatios: BudgetRatios, formation: string, isThreeBack: boolean) {
-  const groups: BudgetGroup[] = ['FW', 'MF', 'DF'];
+/** Locked purchases consume the total budget, never the allocations for open slots. */
+export function getRemainingAutoBuildBudget(totalBudget: number, formation: string, options: AutoBuildOptions = {}) {
   if (!Number.isFinite(totalBudget) || totalBudget < 0) throw new RangeError('총예산은 0 이상의 유한한 숫자여야 합니다.');
-  if (groups.some(group => !Number.isFinite(budgetRatios[group]) || budgetRatios[group] < 0 || budgetRatios[group] > 100)
-    || Math.abs(groups.reduce((sum, group) => sum + budgetRatios[group], 0) - 100) > 1e-6) {
-    throw new RangeError('예산 비율은 각각 0~100이며 합계가 100이어야 합니다.');
-  }
   const layout = FORMATIONS.find(item => item.name === formation);
   if (!layout) throw new Error(`지원하지 않는 포메이션: ${formation}`);
-  if (isThreeBack !== formation.startsWith('3')) throw new Error('포메이션과 isThreeBack 값이 일치하지 않습니다.');
+  const lockedCost = layout.slots.reduce((sum, slot) => {
+    const entry = options.currentSquad?.[slot.position];
+    return sum + (entry?.isLocked && !entry.isOwned ? getCardCoinPrice(rawEntryCard(entry)) : 0);
+  }, 0);
+  return { lockedCost, remainingTotalBudget: totalBudget - lockedCost, distributableBudget: Math.max(0, totalBudget - lockedCost) };
+}
 
+export function getCandidateBudgetPlan(totalBudget: number, budgetAllocations: BudgetAllocations, formation: string, isThreeBack: boolean, options: AutoBuildOptions = {}) {
+  const groups: BudgetGroup[] = ['FW', 'MF', 'DF'];
+  const { remainingTotalBudget, distributableBudget } = getRemainingAutoBuildBudget(totalBudget, formation, options);
+  if (groups.some(group => !Number.isFinite(budgetAllocations[group]) || budgetAllocations[group] < 0)
+    || groups.reduce((sum, group) => sum + budgetAllocations[group], 0) > distributableBudget) {
+    throw new RangeError('포지션별 예산은 0 이상이며 합계가 총 잔여 예산을 넘을 수 없습니다.');
+  }
+  const layout = FORMATIONS.find(item => item.name === formation)!;
+  if (isThreeBack !== formation.startsWith('3')) throw new Error('포메이션과 isThreeBack 값이 일치하지 않습니다.');
   return groups.map(group => {
-    const slots = layout.slots.filter(slot => getPositionBudgetGroup(slot.position, isThreeBack) === group);
-    const positions = [...new Set<string>(slots.map(slot => normalizeChemistryPosition(slot.position)))];
-    const targetBudget = totalBudget * budgetRatios[group] / 100;
-    const averageBudget = slots.length ? targetBudget / slots.length : 0;
-    return { group, positions, slotCount: slots.length, targetBudget, averageBudget,
-      priceCap: Math.floor(Math.min(targetBudget, averageBudget * 2.5)), limit: CANDIDATE_LIMITS[group] };
+    const remaining = layout.slots.filter(slot => getPositionBudgetGroup(slot.position, isThreeBack) === group
+      && !options.currentSquad?.[slot.position]?.isLocked);
+    const positions = [...new Set<string>(remaining.map(slot => normalizeChemistryPosition(slot.position)))];
+    const targetBudget = budgetAllocations[group];
+    return { group, positions, slotCount: remaining.length, targetBudget, remainingBudget: targetBudget, remainingTotalBudget,
+      averageBudget: remaining.length ? targetBudget / remaining.length : 0,
+      priceCap: Math.floor(targetBudget), limit: CANDIDATE_LIMITS[group] };
   });
 }
 
@@ -69,15 +80,15 @@ export type CandidatePlayer = Record<string, unknown> & {
  * Returns raw UI-compatible card_versions rows, retaining full card_positions and relations.
  * candidateGroups records which group's price/position constraints the card passed.
  * Overall is the persisted ranking metric; metaScore is currently computed client-side.
- * Price 0 is allowed; null/negative prices are excluded. An empty/failed query never
- * falls back to an unbounded fetch. This is pruning, not a guarantee of a complete squad.
+ * Price 0 is allowed; null/negative prices are excluded. Exhausted budgets use a
+ * row-limited cheapest-card fallback. This is not a guarantee of a feasible squad.
  */
 export async function fetchCandidatePlayers(
-  totalBudget: number, budgetRatios: BudgetRatios, formation: string,
+  totalBudget: number, budgetAllocations: BudgetAllocations, formation: string,
   isThreeBack: boolean, supabase: SupabaseClient,
   options: AutoBuildOptions = {},
 ): Promise<CandidatePlayer[]> {
-  const plan = getCandidateBudgetPlan(totalBudget, budgetRatios, formation, isThreeBack);
+  const plan = getCandidateBudgetPlan(totalBudget, budgetAllocations, formation, isThreeBack, options);
   const maxSpecial = specialLimit(options);
   const entries = Object.entries(options.currentSquad ?? {}).filter(([, entry]) => entry?.card);
   const locked = entries.filter(([, entry]) => entry!.isLocked);
@@ -87,19 +98,25 @@ export async function fetchCandidatePlayers(
   // A separate inner-join alias filters parents without truncating the full position list.
   const select = `${PLAYER_CARD_SELECT}, candidate_positions:card_positions!inner(positions!inner(name))`;
   const results = await Promise.all(plan.map(async item => {
-    const fixed = locked.filter(([position]) => getPositionBudgetGroup(position, isThreeBack) === item.group);
-    const remainingSlots = item.slotCount - fixed.length;
-    if (remainingSlots <= 0) return { group: item.group, rows: [] };
-    const remainingBudget = Math.max(0, item.targetBudget - calculateSquadTotalCost(Object.fromEntries(fixed)));
-    const priceCap = Math.floor(Math.min(remainingBudget, remainingBudget / remainingSlots * 2.5));
-    let query = supabase.from('card_versions').select(select)
-      .in('candidate_positions.positions.name', item.positions)
-      .gte('price', 0).lte('price', priceCap);
-    if (lockedSpecial >= maxSpecial) query = query.or('card_type.is.null,card_type.not.in.(ICON,SPECIAL_ICON,HERO,SPECIAL_HERO)');
-    const { data, error } = await query
-      .order('overall', { ascending: false, nullsFirst: false })
-      .order('id', { ascending: true }).limit(item.limit);
-    if (error) throw new Error(`${item.group} 후보 조회 실패: ${error.message}`, { cause: error });
+    if (item.slotCount <= 0) return { group: item.group, rows: [] };
+    const queryRows = async (cap: number | null, limit: number, cheapest = false, positions = item.positions) => {
+      let query = supabase.from('card_versions').select(select)
+        .in('candidate_positions.positions.name', positions).gte('price', 0);
+      if (cap !== null) query = query.lte('price', cap);
+      if (lockedSpecial >= maxSpecial) query = query.or('card_type.is.null,card_type.not.in.(ICON,SPECIAL_ICON,HERO,SPECIAL_HERO)');
+      if (cheapest) query = query.order('price', { ascending: true });
+      const { data, error } = await query.order('overall', { ascending: false, nullsFirst: false })
+        .order('id', { ascending: true }).limit(limit);
+      if (error) throw new Error(item.group + ' 후보 조회 실패: ' + error.message, { cause: error });
+      return data ?? [];
+    };
+    const exhausted = item.priceCap <= 0;
+    let data = await queryRows(exhausted ? 10000 : item.priceCap, exhausted ? 20 : item.limit);
+    // Keep cheap alternatives for every open position, even when the high-OVR
+    // top-N is full. Allocations are soft guides; rare positions must not starve.
+    const reserves = await Promise.all(item.positions.map(position => queryRows(null, 20, true, [position])));
+    data = [...new Map([...data, ...reserves.flat()].map(row => [row.id, row])).values()]
+      .sort((a, b) => (b.overall ?? 0) - (a.overall ?? 0));
     return { group: item.group, rows: data ?? [] };
   }));
   const candidates = new Map<string, CandidatePlayer>();
@@ -201,7 +218,7 @@ export interface GeneratedSquad {
   totalChemistry: number;
   teamMetaScore: number;
   success: boolean;
-  status: 'success' | 'incomplete' | 'constraints_unmet';
+  status: 'success' | 'incomplete' | 'fallback';
   iterations: number;
   searchLimitReached: boolean;
 }
@@ -271,6 +288,8 @@ export async function generateOptimalSquad(
   const threeBack = formation.startsWith('3');
   const maxSpecial = specialLimit(options);
   const existing = options.currentSquad ?? {};
+  // Only the total budget is a hard spending constraint in the solver.
+  const { remainingTotalBudget } = getRemainingAutoBuildBudget(totalBudget, formation, options);
   const ownedIds = new Set(Object.values(existing).filter(entry => entry?.isOwned).map(entry => String(rawEntryCard(entry!).id)));
   const fixedPlayers = new Map<number, GeneratedPlayer>();
   layout.slots.forEach(({ position }, index) => {
@@ -324,7 +343,7 @@ export async function generateOptimalSquad(
             && !usedPlayers.has(p.playerKey) && !usedCards.has(p.id)).map(p => p.price);
           reserve += prices.length ? Math.min(...prices) : Infinity;
         }
-        if (cost + card.price + reserve > totalBudget) continue;
+        if (cost - fixedCost + card.price + reserve > remainingTotalBudget) continue;
       }
       selected[index] = card;
       usedPlayers.add(card.playerKey); usedCards.add(card.id);
@@ -335,7 +354,10 @@ export async function generateOptimalSquad(
     return false;
   }
   let complete = await build(0, fixedCost, true, 350);
-  if (!complete) complete = await build(0, fixedCost, false, 500);
+  if (!complete) {
+    pools.forEach(pool => pool.sort((a, b) => a.price - b.price || b.metaScore - a.metaScore));
+    complete = await build(0, fixedCost, false, 800);
+  }
 
   function evaluate(squad: GeneratedPlayer[]) {
     const chemistry = calculateSquadChemistry(squad, considerManager);
@@ -388,6 +410,6 @@ export async function generateOptimalSquad(
   }
   const success = complete && current.totalCost <= totalBudget && current.totalChemistry >= minChemistry;
   const { playerChemMap: _map, ...result } = current;
-  return { ...result, success, status: success ? 'success' : complete ? 'constraints_unmet' : 'incomplete',
+  return { ...result, success, status: success ? 'success' : complete ? 'fallback' : 'incomplete',
     iterations, searchLimitReached: iterations >= maxIterations };
 }

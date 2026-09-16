@@ -51,7 +51,9 @@ describe('generateOptimalSquad', () => {
     expect(empty.squad).toEqual([]);
     const impossible = await generateOptimalSquad('4-3-3', groups(), 1, 33, false);
     expect(impossible.success).toBe(false);
-    expect(impossible.status).toBe('constraints_unmet');
+    expect(impossible.status).toBe('fallback');
+    expect(impossible.squad).toHaveLength(11);
+    expect(impossible.totalCost).toBe(330000);
     expect(impossible.iterations).toBeLessThanOrEqual(1500);
   });
 

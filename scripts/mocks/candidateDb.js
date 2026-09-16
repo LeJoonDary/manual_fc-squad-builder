@@ -16,7 +16,7 @@ export function createCandidateMockDb(rows, error = null) {
         async limit(value) {
           call.limit = value;
           const data = rows.filter(row => (!call.or || !['ICON', 'SPECIAL_ICON', 'HERO', 'SPECIAL_HERO'].includes(row.card_type))
-            && row.price != null && row.price >= call.min && row.price <= call.max
+            && row.price != null && row.price >= call.min && (call.max === undefined || row.price <= call.max)
             && row.card_positions.some(item => call.positions.includes(item.positions.name)))
             .sort((a, b) => {
               for (const order of call.orders) {

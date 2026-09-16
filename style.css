@@ -732,3 +732,7 @@ body.is-squad-active { height: auto; overflow: auto; }
   #squad-builder-page .page-heading { flex-wrap: wrap; gap: 12px; }
   .formation-menu { right: auto; left: 0; }
 }
+
+.auto-build-range input[type="number"], .auto-build-range input[inputmode="numeric"] { height: 36px; padding: 6px 10px; border: 1px solid #40516a; border-radius: 6px; background: #101b2b; color: #dce8f5; cursor: text; font-variant-numeric: tabular-nums; }
+
+.auto-build-feedback.is-warning { color: #ffd38a; }
