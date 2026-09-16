@@ -146,7 +146,7 @@ const formationMenu = document.querySelector('#formation-menu');
 let currentFormation = '4-3-3';
 const updateAutoBuildFormation = mountAutoBuildSettings(
   document.querySelector('#auto-build-settings'), currentFormation, () => targetBudget,
-  { supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad: () => structuredClone(squad), resetTargetBudget },
+  { budgetSection: document.querySelector('.budget-summary'), supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad: () => structuredClone(squad), resetTargetBudget },
 );
 function resetTargetBudget() {
   targetBudgetInput.value = '';

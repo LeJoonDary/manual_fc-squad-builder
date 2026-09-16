@@ -2,7 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { fetchCandidatePlayers, generateOptimalSquad, getCandidateBudgetPlan, getRemainingAutoBuildBudget } from '../utils/autoBuildUtils.ts';
 
-export function AutoBuildSettings({ formation, getTargetBudget, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {} }) {
+export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {} }) {
+  const budgetHost = useRef(null);
+  useEffect(() => {
+    // Retain the existing input node and its budget/progress event listeners.
+    if (budgetSection && budgetHost.current) {
+      budgetHost.current.append(budgetSection);
+      budgetSection.hidden = false;
+    }
+  }, [budgetSection]);
   const [isAutoBuilding, setIsAutoBuilding] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const buildingRef = useRef(false);
@@ -13,7 +21,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, supabase, getSqu
     window.addEventListener('auto-build-context-change', refresh);
     return () => window.removeEventListener('auto-build-context-change', refresh);
   }, []);
-  const { lockedCost, distributableBudget } = getRemainingAutoBuildBudget(
+  const { lockedCost, distributableBudget, unlimited } = getRemainingAutoBuildBudget(
     Math.max(0, Number(getTargetBudget()) || 0), formation, { currentSquad: getCurrentSquad() });
   const initialAllocations = () => {
     const amount = Math.floor(distributableBudget / 3);
@@ -49,7 +57,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, supabase, getSqu
     setIsAutoBuilding(true);
     setFeedback(null);
     try {
-      const totalBudget = getTargetBudget();
+      const totalBudget = Number(getTargetBudget() ?? 0);
       const currentSquad = getCurrentSquad();
       if (!Number.isFinite(totalBudget) || totalBudget < 0) {
         throw new Error('자동 완성을 실행하려면 0 이상의 총예산을 입력해 주세요.');
@@ -63,7 +71,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, supabase, getSqu
         throw new Error('조건을 만족하는 스쿼드를 찾지 못했습니다. 예산을 늘리거나 케미스트리 조건을 낮춰주세요.');
       }
       applyAutoBuildResult(result, { snapshot, formation, totalBudget });
-      setFeedback(result.status === 'fallback' ? { type: 'warning', text: `저가 선수로 빈자리를 채웠습니다. 총비용 ${result.totalCost.toLocaleString('en-US')} C · ${result.totalCost > totalBudget ? `예산 ${(result.totalCost - totalBudget).toLocaleString('en-US')} C 초과` : '총예산 이내'} · 케미스트리 ${result.totalChemistry}/33 (목표 ${minChemistry})` } : { type: 'success', text: `스쿼드 구성을 완료했습니다. 총비용 ${result.totalCost.toLocaleString('en-US')} C · 케미스트리 ${result.totalChemistry}/33` });
+      setFeedback(result.status === 'fallback' ? { type: 'warning', text: `조건에 가장 가까운 스쿼드를 구성했습니다. 총비용 ${result.totalCost.toLocaleString('en-US')} C · ${totalBudget === 0 ? '예산 무제한' : result.totalCost > totalBudget ? `예산 ${(result.totalCost - totalBudget).toLocaleString('en-US')} C 초과` : '총예산 이내'} · 케미스트리 ${result.totalChemistry}/33 (목표 ${minChemistry})` } : { type: 'success', text: `스쿼드 구성을 완료했습니다. 총비용 ${result.totalCost.toLocaleString('en-US')} C · 케미스트리 ${result.totalChemistry}/33` });
     } catch (error) {
       setFeedback({ type: 'error', text: error instanceof Error ? error.message : '자동 완성 중 오류가 발생했습니다. 다시 시도해 주세요.' });
     } finally {
@@ -95,23 +103,23 @@ export function AutoBuildSettings({ formation, getTargetBudget, supabase, getSqu
           <span className="auto-build-chevron" aria-hidden="true">{isAutoBuildSettingsOpen ? '∧' : '∨'}</span>
         </button>
       </h2>
-      {isAutoBuildSettingsOpen && (
-        <div id="auto-build-details" className="auto-build-details">
+        <div id="auto-build-details" className="auto-build-details" hidden={!isAutoBuildSettingsOpen}>
+          <div ref={budgetHost} />
           <div className="auto-build-total">락 선수 비용 {lockedCost.toLocaleString('en-US')} C<br />
-            총 잔여 예산 {distributableBudget.toLocaleString('en-US')} C · 배분 {allocatedTotal.toLocaleString('en-US')} C</div>
-          <fieldset className="auto-build-ratios" aria-describedby="auto-build-position-help" disabled={isAutoBuilding}>
+            {unlimited ? '예산 무제한 · 가격 제한 없이 목표 케미스트리 우선 탐색' : `총 잔여 예산 ${distributableBudget.toLocaleString('en-US')} C · 배분 ${allocatedTotal.toLocaleString('en-US')} C`}</div>
+          <fieldset className="auto-build-ratios" aria-describedby="auto-build-position-help" disabled={isAutoBuilding || unlimited}>
             <legend>포지션별 예산 배분</legend>
             {Object.entries({ FW: '공격 (FW)', MF: '미드필드 (MF)', DF: '수비 (DF + GK)' }).map(([group, label]) => (
               <div className="auto-build-range" key={group}>
-                <label htmlFor={`budget-allocation-${group}`}>{label}</label>
-                <output htmlFor={`budget-ratio-${group}`}>{percentage(budgetAllocations[group]).toFixed(1)}%</output>
+                <label htmlFor={`budget-allocation-${group}`} title={label}>{group === 'DF' ? 'DF + GK' : group}</label>
+                <output htmlFor={`budget-ratio-${group}`}>{unlimited ? '무제한' : `${percentage(budgetAllocations[group]).toFixed(1)}%`}</output>
                 <input id={`budget-ratio-${group}`} type="range" min="0" step="any"
                   aria-label={`${label} 예산 비율`} aria-valuetext={`${percentage(budgetAllocations[group]).toFixed(1)}%`}
                   max={percentage(maximumAmount(group))} value={percentage(budgetAllocations[group])}
                   disabled={isAutoBuilding || distributableBudget === 0}
                   onChange={event => updateAllocation(group, Math.min(maximumAmount(group), Math.round(Number(event.target.value) / 100 * distributableBudget)))} />
                 <input id={`budget-allocation-${group}`} type="text" inputMode="numeric"
-                  aria-label={`${label} 예산 코인`} value={budgetAllocations[group].toLocaleString('en-US')}
+                  aria-label={`${label} 예산 코인`} value={unlimited ? '' : budgetAllocations[group].toLocaleString('en-US')} placeholder="무제한"
                   onChange={event => {
                     const text = event.target.value.replace(/,/g, '').trim();
                     if (!/^\d*$/.test(text)) return;
@@ -153,12 +161,13 @@ export function AutoBuildSettings({ formation, getTargetBudget, supabase, getSqu
                 onChange={event => setSpecialCount(Math.max(1, Math.min(11, Math.round(Number(event.target.value) || 1))))} />명
             </label>}
           </div>
-          <button type="button" className="auto-build-reset" disabled={isAutoBuilding} onClick={resetSettings}>설정 초기화</button>
         </div>
-      )}
-      <button type="button" className="auto-build-button" disabled={isAutoBuilding} aria-busy={isAutoBuilding} onClick={handleAutoBuild}>
-        {isAutoBuilding ? <><span className="auto-build-spinner" aria-hidden="true" /> 스쿼드 구성 중...</> : '🚀 스쿼드 자동 완성'}
-      </button>
+      <div className={`auto-build-actions${isAutoBuildSettingsOpen ? ' is-expanded' : ''}`}>
+        {isAutoBuildSettingsOpen && <button type="button" className="auto-build-reset" disabled={isAutoBuilding} onClick={resetSettings}>설정 초기화</button>}
+        <button type="button" className="auto-build-button" disabled={isAutoBuilding} aria-busy={isAutoBuilding} onClick={handleAutoBuild}>
+          {isAutoBuilding ? <><span className="auto-build-spinner" aria-hidden="true" /> 스쿼드 구성 중...</> : '🚀 스쿼드 자동 완성'}
+        </button>
+      </div>
       {feedback && <p className={`auto-build-feedback is-${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'}>{feedback.text}</p>}
     </section>
   );

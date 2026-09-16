@@ -23,14 +23,14 @@ describe('candidate pruning', () => {
     expect(db.calls[2].max).toBe(1000000);
   });
 
-  it('fetches 20 cheapest candidates when no minimum-price cards exist, then ranks by OVR', async () => {
+  it.each([0, null, undefined])('fetches top candidates without a price cap for an unset budget (%s)', async budget => {
     const rows = Array.from({ length: 30 }, (_, i) => mockCandidate(i, ['ST', 'CM', 'CB'], 11000 + i * 100, 70 + i));
     const db = createCandidateMockDb(rows);
-    const candidates = await fetchCandidatePlayers(0, { FW: 0, MF: 0, DF: 0 }, '4-3-3', false, client(db));
-    expect(candidates).toHaveLength(20);
-    expect(candidates[0].id).toBe(19);
-    expect(candidates.every(card => Number(card.price) <= 12900)).toBe(true);
-    expect(db.calls.every(call => call.limit === 20)).toBe(true);
+    const candidates = await fetchCandidatePlayers(budget, { FW: 0, MF: 0, DF: 0 }, '4-3-3', false, client(db));
+    expect(candidates).toHaveLength(30);
+    expect(candidates[0].id).toBe(29);
+    expect(candidates.some(card => Number(card.price) > 12900)).toBe(true);
+    expect(db.calls.every(call => call.max === undefined)).toBe(true);
   });
 
   it('does not query a group whose slots are all locked', async () => {

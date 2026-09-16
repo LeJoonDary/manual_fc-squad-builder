@@ -63,13 +63,13 @@ describe('auto build pitch integration', () => {
     expect(leftWing.classList.contains('is-locked')).toBe(true);
     const cheap = await generateOptimalSquad('4-3-3', groupCandidatePlayers(rows), 0, 33, false,
       { currentSquad: bridge.services.getCurrentSquad() });
-    expect(cheap.status).toBe('fallback');
+    expect(cheap.status).toBe('success');
     bridge.services.applyAutoBuildResult(cheap, {
       snapshot: bridge.services.getSquadSnapshot(), formation: '4-3-3', totalBudget: 0,
     });
     expect(document.querySelectorAll('.pitch .slot.occupied')).toHaveLength(11);
     expect(leftWing.classList.contains('is-locked')).toBe(true);
     expect(leftWing.classList.contains('is-owned')).toBe(true);
-    expect(document.querySelector('#total-cost').value).toBe('300,000');
+    expect(document.querySelector('#total-cost').value).toBe('900,000');
   });
 });

@@ -10,6 +10,26 @@ function groups(rows = createSquadCandidateRows()): CandidateGroups {
 }
 
 describe('generateOptimalSquad', () => {
+  it.each([0, null, undefined])('prioritizes quality and 33 chemistry without a budget (%s)', async budget => {
+    const result = await generateOptimalSquad('4-3-3', groups(), budget, 33, false);
+    expect(result.success).toBe(true);
+    expect(result.totalChemistry).toBe(33);
+    expect(result.totalCost).toBe(990000);
+  });
+
+  it('clusters slightly more expensive cheap cards instead of selecting isolated price minima', async () => {
+    const base = createSquadCandidateRows().filter(row => (row.id - 1) % 3 === 0);
+    const isolated = base.map((row, i) => ({ ...row, price: 1000, club_id: 100 + i, league_id: 100 + i,
+      players: { ...row.players, nation_id: 100 + i } }));
+    const linked = base.map(row => ({ ...row, id: row.id + 1000, player_id: row.id + 1000, price: 1100 }));
+    const result = await generateOptimalSquad('4-3-3', groups([...isolated, ...linked]), 100, 33, false);
+    expect(result.status).toBe('fallback');
+    expect(result.totalChemistry).toBe(33);
+    expect(result.totalCost).toBeLessThanOrEqual(12100);
+    expect(result.squad).toHaveLength(11);
+    expect(new Set(result.squad.map(p => p.playerKey)).size).toBe(11);
+    expect(result.iterations).toBeLessThanOrEqual(1500);
+  });
   it('builds all exact slots using meta rather than OVR, honors budget, and preserves inputs', async () => {
     const candidates = groups();
     const snapshot = structuredClone(candidates);

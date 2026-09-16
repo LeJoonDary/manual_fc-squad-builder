@@ -23,6 +23,28 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 
 describe('Auto Build UI workflow', () => {
+  it('keeps the budget input and its listeners inside the accordion across toggles', async () => {
+    const budgetSection = document.createElement('section');
+    budgetSection.innerHTML = '<input aria-label="예산 상한" />';
+    const input = budgetSection.querySelector('input');
+    const onInput = vi.fn();
+    input.addEventListener('input', onInput);
+    await act(async () => root.render(<AutoBuildSettings {...props} budgetSection={budgetSection} getTargetBudget={() => null} />));
+    const details = container.querySelector('#auto-build-details');
+    expect(details.hidden).toBe(true);
+    await act(async () => container.querySelector('.auto-build-heading').click());
+    expect(details.hidden).toBe(false);
+    expect(details.firstElementChild.contains(input)).toBe(true);
+    expect(container.querySelector('.auto-build-total').textContent).toContain('예산 무제한');
+    expect(container.querySelector('.auto-build-ratios').disabled).toBe(true);
+    input.value = '123';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(onInput).toHaveBeenCalledOnce();
+    await act(async () => container.querySelector('.auto-build-heading').click());
+    await act(async () => container.querySelector('.auto-build-heading').click());
+    expect(details.querySelector('input')).toBe(input);
+    expect(input.value).toBe('123');
+  });
   it('synchronizes sliders and comma-formatted coin inputs within the remaining budget', async () => {
     await act(async () => container.querySelector('.auto-build-heading').click());
     const change = async (id, value) => act(async () => {
@@ -124,7 +146,7 @@ describe('Auto Build UI workflow', () => {
     expect(container.querySelector('[role="status"]').textContent).toContain('완료');
   });
 
-  it('queries cheap candidates even at zero budget', async () => {
+  it('uses unlimited mode at zero budget', async () => {
     await act(async () => root.render(<AutoBuildSettings {...props} getTargetBudget={() => 0} />));
     await act(async () => button().click());
     expect(fetchCandidatePlayers.mock.calls[0][1]).toEqual({ FW: 0, MF: 0, DF: 0 });

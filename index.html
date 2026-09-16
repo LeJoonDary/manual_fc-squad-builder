@@ -58,7 +58,19 @@
 
           <aside class="chemistry-panel" aria-label="케미스트리 상세 현황">
             <header class="chemistry-panel-header">
-              <section class="budget-summary" aria-labelledby="budget-title">
+              <div class="squad-summary-bar">
+                <div class="total-cost-summary">
+                  <p>TOTAL COST</p><h2>총 비용</h2>
+                  <strong><output id="total-cost">0</output><small> C</small></strong>
+                </div>
+                <div class="chemistry-total-summary">
+                  <p>TEAM CHEMISTRY</p><h2>총 팀 케미스트리</h2>
+                  <strong><output id="total-chemistry">0</output><small> / 33</small></strong>
+                </div>
+                <button id="clear-squad" class="clear-squad" type="button">Clear All</button>
+              </div>
+              <div id="auto-build-settings"></div>
+              <section class="budget-summary" hidden aria-labelledby="budget-title">
                 <div class="budget-heading">
                   <div><p>TARGET BUDGET</p><h2 id="budget-title">예산 상한</h2></div>
                   <label class="budget-input-wrap"><input id="target-budget" type="text" inputmode="numeric" placeholder="예산 입력 (C)" autocomplete="off" aria-label="예산 상한" /><span>C</span></label>
@@ -69,22 +81,6 @@
                 <div class="budget-progress-meta"><span id="budget-percentage">제한 없음</span><span id="budget-remaining"></span></div>
                 <p id="budget-warning" class="budget-warning" role="status" hidden></p>
               </section>
-              <div id="auto-build-settings"></div>
-              <div class="chemistry-panel-toolbar">
-                <div class="total-cost-summary">
-                  <p>TOTAL COST</p>
-                  <h2>총 비용</h2>
-                  <strong><output id="total-cost">0</output><small> Coins</small></strong>
-                </div>
-                <button id="clear-squad" class="clear-squad" type="button">Clear All</button>
-              </div>
-              <div class="chemistry-total-summary">
-                <div>
-                  <p>TEAM CHEMISTRY</p>
-                  <h2>총 팀 케미스트리</h2>
-                </div>
-                <strong><output id="total-chemistry">0</output><small> / 33</small></strong>
-              </div>
             </header>
             <div class="chemistry-panel-scroll" id="chemistry-breakdown" aria-live="polite"></div>
           </aside>
