@@ -2,3 +2,5 @@ node_modules/
 dist/
 .env
 supabase/.temp/
+.seed-deps/
+__pycache__/

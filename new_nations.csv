@@ -1,0 +1,165 @@
+id,name,flag_url
+1,Spain,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/1.webp
+2,France,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/2.webp
+3,Norway,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/3.webp
+4,Belgium,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/4.webp
+5,England,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/5.webp
+6,Jamaica,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/6.webp
+7,Portugal,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/7.webp
+8,Argentina,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/8.webp
+9,Italy,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/9.webp
+10,Brazil,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/10.webp
+11,Poland,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/11.webp
+12,Georgia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/12.webp
+13,Ecuador,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/13.webp
+14,Malawi,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/14.webp
+15,Slovenia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/15.webp
+16,Holland,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/16.webp
+17,Germany,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/17.webp
+18,Morocco,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/18.webp
+19,Colombia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/19.webp
+20,Japan,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/20.webp
+21,United States,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/21.webp
+22,Haiti,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/22.webp
+23,Zambia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/23.webp
+24,Egypt,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/24.webp
+25,Switzerland,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/25.webp
+26,Uruguay,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/26.webp
+27,Denmark,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/27.webp
+28,Sweden,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/28.webp
+29,Hungary,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/29.webp
+30,Scotland,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/30.webp
+31,Republic of Ireland,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/31.webp
+32,Croatia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/32.webp
+33,Turkey,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/33.webp
+34,Guinea,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/34.webp
+35,Austria,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/35.webp
+36,Australia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/36.webp
+37,Serbia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/37.webp
+38,Nigeria,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/38.webp
+39,Ghana,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/39.webp
+40,Chile,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/40.webp
+41,Côte d'Ivoire,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/41.webp
+42,Mexico,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/42.webp
+43,Cameroon,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/43.webp
+44,Canada,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/44.webp
+45,Iceland,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/45.webp
+46,Greece,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/46.webp
+47,Slovakia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/47.webp
+48,Czech Republic,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/48.webp
+49,Korea Republic,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/49.webp
+50,Russia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/50.webp
+51,Kosovo,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/51.webp
+52,Senegal,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/52.webp
+53,Burkina Faso,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/53.webp
+54,Uzbekistan,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/54.webp
+55,New Zealand,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/55.webp
+56,Armenia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/56.webp
+57,Wales,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/57.webp
+58,Paraguay,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/58.webp
+59,Algeria,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/59.webp
+60,Mali,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/60.webp
+61,Congo DR,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/61.webp
+62,Costa Rica,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/62.webp
+63,Saudi Arabia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/63.webp
+64,Mozambique,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/64.webp
+65,Bosnia and Herzegovina,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/65.webp
+66,Ukraine,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/66.webp
+67,Romania,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/67.webp
+68,Gambia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/68.webp
+69,Gabon,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/69.webp
+70,Finland,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/70.webp
+71,Albania,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/71.webp
+72,Indonesia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/72.webp
+73,Northern Ireland,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/73.webp
+74,Israel,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/74.webp
+75,Montenegro,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/75.webp
+76,Venezuela,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/76.webp
+77,Dominican Republic,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/77.webp
+78,Luxembourg,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/78.webp
+79,Angola,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/79.webp
+80,North Macedonia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/80.webp
+81,Togo,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/81.webp
+82,Trinidad and Tobago,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/82.webp
+83,Comoros,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/83.webp
+84,Iran,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/84.webp
+85,Guinea-Bissau,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/85.webp
+86,Liberia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/86.webp
+87,Jordan,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/87.webp
+88,Philippines,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/88.webp
+89,Guatemala,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/89.webp
+90,Central African Republic,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/90.webp
+91,Tunisia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/91.webp
+92,Mauritania,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/92.webp
+93,Zimbabwe,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/93.webp
+94,Cape Verde Islands,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/94.webp
+95,United Arab Emirates,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/95.webp
+96,Suriname,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/96.webp
+97,South Africa,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/97.webp
+98,Equatorial Guinea,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/98.webp
+99,Honduras,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/99.webp
+100,New Caledonia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/100.webp
+101,Bulgaria,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/101.webp
+102,Burundi,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/102.webp
+103,Panama,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/103.webp
+104,Curaçao,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/104.webp
+105,Libya,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/105.webp
+106,Peru,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/106.webp
+107,Azerbaijan,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/107.webp
+108,Pakistan,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/108.webp
+109,Sierra Leone,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/109.webp
+110,Estonia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/110.webp
+111,Lithuania,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/111.webp
+112,Cyprus,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/112.webp
+113,Malta,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/113.webp
+114,Benin,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/114.webp
+115,Latvia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/115.webp
+116,Congo,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/116.webp
+117,Niger,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/117.webp
+118,China PR,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/118.webp
+119,Bolivia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/119.webp
+120,Tanzania,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/120.webp
+121,Madagascar,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/121.webp
+122,Eritrea,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/122.webp
+123,Syria,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/123.webp
+124,El Salvador,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/124.webp
+125,Chad,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/125.webp
+126,Kenya,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/126.webp
+127,St. Kitts and Nevis,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/127.webp
+128,Chinese Taipei,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/128.webp
+129,Thailand,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/129.webp
+130,Iraq,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/130.webp
+131,Hong Kong,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/131.webp
+132,India,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/132.webp
+133,Bangladesh,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/133.webp
+134,St. Lucia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/134.webp
+135,Palestine,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/135.webp
+136,Andorra,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/136.webp
+137,Kazakhstan,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/137.webp
+138,Moldova,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/138.webp
+139,Uganda,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/139.webp
+140,Guyana,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/140.webp
+141,Lebanon,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/141.webp
+142,Faroe Islands,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/142.webp
+143,Vanuatu,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/143.webp
+144,Grenada,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/144.webp
+145,Belarus,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/145.webp
+146,Cuba,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/146.webp
+147,Bermuda,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/147.webp
+148,Liechtenstein,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/148.webp
+149,Antigua and Barbuda,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/149.webp
+150,Qatar,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/150.webp
+151,Namibia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/151.webp
+152,Sri Lanka,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/152.webp
+153,Barbados,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/153.webp
+154,Rwanda,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/154.webp
+155,Mauritius,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/155.webp
+156,Somalia,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/156.webp
+157,Montserrat,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/157.webp
+158,São Tomé e Príncipe,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/158.webp
+159,Korea DPR,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/159.webp
+160,Afghanistan,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/160.webp
+161,Puerto Rico,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/161.webp
+162,Oman,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/162.webp
+163,Gibraltar,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/163.webp
+164,Yemen,https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/164.webp
