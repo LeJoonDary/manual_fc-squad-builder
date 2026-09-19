@@ -1,0 +1,41 @@
+{
+  "status": "complete",
+  "tables": {
+    "player_stats": {
+      "prepared": 19789,
+      "uploaded": 19789,
+      "verified": 19789,
+      "database_rows": 19789
+    },
+    "card_positions": {
+      "prepared": 43328,
+      "uploaded": 43328,
+      "verified": 43328,
+      "database_rows": 43328
+    },
+    "card_playstyles": {
+      "prepared": 16630,
+      "uploaded": 16630,
+      "verified": 16630,
+      "database_rows": 16630
+    },
+    "card_roles": {
+      "prepared": 0,
+      "uploaded": 0,
+      "verified": 0
+    }
+  },
+  "write_modes": {
+    "player_stats": "primary_id",
+    "card_positions": "primary_id",
+    "card_playstyles": "primary_id"
+  },
+  "failures": [],
+  "source": "C:\\Users\\joont\\OneDrive\\바탕 화면\\fc-squad-builder\\fc27_dataset.csv",
+  "versions": {
+    "Gold": 2555,
+    "Silver": 9914,
+    "Bronze": 7320
+  },
+  "batch_size": 50
+}

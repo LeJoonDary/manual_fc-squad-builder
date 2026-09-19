@@ -1,0 +1,26 @@
+{
+  "status": "complete",
+  "updated": 19789,
+  "updated_by_gender": {
+    "Male": 17849,
+    "Female": 1940
+  },
+  "failures": [],
+  "batch_size": 50,
+  "source": "C:\\Users\\joont\\OneDrive\\바탕 화면\\fc-squad-builder\\fc27_dataset.csv",
+  "csv_players": 19789,
+  "expected_by_gender": {
+    "Female": 1940,
+    "Male": 17849
+  },
+  "rows_before": 19789,
+  "planned_updates": 19789,
+  "already_correct": 0,
+  "verified": 19789,
+  "rows_after": 19789,
+  "player_ids_unchanged": true,
+  "verified_by_gender": {
+    "Female": 1940,
+    "Male": 17849
+  }
+}

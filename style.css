@@ -42,6 +42,10 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .player-search input::placeholder, .range-inputs input::placeholder { color: #71829d; }
 .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 12px; min-height: 280px; }
 .players-grid.is-loading { opacity: .58; pointer-events: none; transition: opacity .15s ease; }
+.players-pagination { display: grid; justify-items: center; gap: 10px; padding: 24px 0; }
+.players-pagination p { margin: 0; color: #b9c7da; font-size: .85rem; text-align: center; }
+.players-pagination button { border: 1px solid #476080; border-radius: 10px; padding: 12px 28px; color: #e8f0fa; background: #152741; cursor: pointer; }
+.players-pagination button:disabled { opacity: .55; cursor: wait; }
 .browser-player-card { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 11px; align-items: center; min-height: 92px; padding: 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px; background: linear-gradient(145deg, #182b4b, #101e37); box-shadow: inset 0 1px rgba(255,255,255,.03); }
 .browser-player-card { cursor: pointer; transition: transform .15s ease, border-color .15s ease, background .15s ease; }
 .browser-player-card:hover, .browser-player-card:focus-visible { transform: translateY(-2px); border-color: #63e6be; background: #1c3155; outline: none; }

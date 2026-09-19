@@ -1,0 +1,30 @@
+{
+  "nations": {
+    "database_rows": 164,
+    "expected_rows": 164,
+    "mismatches": 0,
+    "repeat_upsert_count_unchanged": true
+  },
+  "leagues": {
+    "database_rows": 63,
+    "expected_rows": 63,
+    "mismatches": 0,
+    "repeat_upsert_count_unchanged": true
+  },
+  "clubs": {
+    "database_rows": 754,
+    "expected_rows": 754,
+    "mismatches": 0,
+    "repeat_upsert_count_unchanged": true
+  },
+  "card_versions": {
+    "database_rows": 19789,
+    "expected_rows": 19789,
+    "mismatches": 0,
+    "versions": {
+      "Gold": 2555,
+      "Silver": 9914,
+      "Bronze": 7320
+    }
+  }
+}

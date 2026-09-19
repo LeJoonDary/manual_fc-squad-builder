@@ -1,11 +1,11 @@
-"""Seed ONLY card_versions, preserving existing database card_type values.
+"""Seed reference metadata and cards, preserving database card_type values.
 
 python seed.py --dry-run
 python seed.py --fc27 fc27_dataset.csv --batch-size 50
 
 new_card_versions.csv supplies stable card IDs and foreign-key mappings.
 FC27 supplies ratings/stats; FC26 fills missing physical measurements only.
-No reads or writes to nations, leagues, clubs or players are performed.
+Reference CSV IDs are stable foreign keys; players are never modified.
 """
 from __future__ import annotations
 
@@ -18,7 +18,10 @@ import math
 import os
 from pathlib import Path
 import random
+import re
 import time
+import unicodedata
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
 TABLES = ('card_versions',)
@@ -26,6 +29,93 @@ INTEGER_FIELDS = {'id', 'player_id', 'nation_id', 'league_id', 'club_id', 'overa
                   'price', 'sm', 'wf', 'height', 'weight', 'age'}
 MISSING = {'', 'nan', 'none', 'null', 'n/a', 'na'}
 LOG = logging.getLogger('seed')
+
+# Explicit display labels take priority over the three-letter fallback.
+# Keep dataset aliases here (including men's/women's team name variants).
+LEAGUE_ABBR_MAP = {
+    'Premier League': 'EPL',
+    'Barclays WSL': 'WSL',
+    'LALIGA EA SPORTS': 'LALIGA',
+    'Serie A Enilive': 'SERI',
+    'Bundesliga': 'BUN',
+    "Ligue 1 McDonald's": 'LIG1',
+    'MLS': 'MLS',
+    'NWSL': 'NWSL',
+    'Liga F Moeve': 'LIGF',
+    'Liga Portugal': 'POR',
+    'ROSHN Saudi League': 'SPL',
+    'Trendyol Süper Lig': 'TSL',
+    'Eredivisie': 'ERE',
+    'EFL Championship': 'EFL',
+    'EFL League One': 'EFL1',
+    'EFL League Two': 'EFL2',
+    'Bundesliga 2': 'BUN2',
+    'Ligue 2 BKT': 'LIG2',
+    'Serie BKT': 'SERB',
+    'LALIGA HYPERMOTION': 'LAL2',
+    'Scottish Premiership': 'SPFL',
+    'Liga BBVA MX': 'LMX',
+    'K League 1': 'KL1',
+    'CSL': 'CSL',
+    'ISL': 'ISL',
+    'Isuzu UTE A League': 'ALM',
+}
+CLUB_ABBR_MAP = {
+    'Manchester United': 'MUN',
+    'Manchester Utd': 'MUN',
+    'Man Utd': 'MUN',
+    'Real Madrid': 'RMA',
+    'Manchester City': 'MCI',
+    'FC Bayern München': 'FCB',
+    'FC Barcelona': 'BAR',
+    'Paris SG': 'PSG',
+    'Paris Saint-Germain': 'PSG',
+    'Arsenal': 'ARS',
+    'Liverpool': 'LIV',
+    'Chelsea': 'CHE',
+    'Spurs': 'TOT',
+    'Tottenham Hotspur': 'TOT',
+    'Newcastle Utd': 'NEW',
+    'Aston Villa': 'AVL',
+    'Everton': 'EVE',
+    'West Ham': 'WHU',
+    'Brighton': 'BHA',
+    "Nott'm Forest": 'NFO',
+    'Crystal Palace': 'CRY',
+    'Brentford': 'BRE',
+    'Atlético de Madrid': 'ATM',
+    'Athletic Club': 'ATH',
+    'Real Sociedad': 'RSO',
+    'Real Betis': 'BET',
+    'Villarreal CF': 'VIL',
+    'Sevilla FC': 'SEV',
+    'Borussia Dortmund': 'BVB',
+    'Leverkusen': 'B04',
+    'RB Leipzig': 'RBL',
+    'Frankfurt': 'SGE',
+    'VfB Stuttgart': 'VFB',
+    'VfL Wolfsburg': 'WOB',
+    'Juventus': 'JUV',
+    'SSC Napoli': 'NAP',
+    'AS Roma': 'ROM',
+    'Roma': 'ROM',
+    'AC Milan': 'MIL',
+    'Inter': 'INT',
+    'Fiorentina': 'FIO',
+    'Ajax': 'AJA',
+    'FC Porto': 'FCP',
+    'SL Benfica': 'BEN',
+    'Sporting CP': 'SCP',
+    'OL': 'OL',
+    'OL Lyonnes': 'OL',
+    'Marseille': 'OM',
+    'Inter Miami CF': 'MIA',
+    'Al Nassr': 'NAS',
+    'Al Hilal': 'HIL',
+    'Galatasaray': 'GAL',
+    'Fenerbahçe': 'FEN',
+    'Beşiktaş': 'BJK',
+}
 
 
 def number(value):
@@ -165,6 +255,90 @@ def preserve_card_types(client, batch):
     return payload
 
 
+def short_name(name, abbreviations=None):
+    """Prefer a curated label; otherwise keep the original letter fallback."""
+    name = name.strip()
+    if abbreviations and name in abbreviations:
+        return abbreviations[name]
+    normalized = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode()
+    words = re.findall(r'[A-Z]+', normalized.upper())
+    if not words:
+        raise ValueError(f'Cannot abbreviate name: {name!r}')
+    return words[0][:3] if len(words) == 1 else ''.join(word[0] for word in words)[:3]
+
+
+def prepare_references(directory):
+    tables = {}
+    flag_cache = {}
+    for table in ('nations', 'leagues', 'clubs'):
+        rows = read_csv(directory / f'new_{table}.csv')
+        index_rows(rows, 'id', table)
+        ready = []
+        for row in rows:
+            item = {'id': integer(row['id']), 'name': row['name'].strip()}
+            if not item['name']:
+                raise ValueError(f'{table}: empty name')
+            if table == 'nations':
+                url = row.get('flag_url', '').strip()
+                parsed = urlparse(url)
+                if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+                    raise ValueError(f"Invalid flag URL for nation {item['id']}")
+                if item['name'] in flag_cache and flag_cache[item['name']] != url:
+                    raise ValueError(f"Conflicting flag URLs for {item['name']}")
+                flag_cache.setdefault(item['name'], url)
+                item['flag_url'] = flag_cache[item['name']]
+            else:
+                abbreviations = LEAGUE_ABBR_MAP if table == 'leagues' else CLUB_ABBR_MAP
+                item['short_name'] = short_name(item['name'], abbreviations)
+            ready.append(item)
+        tables[table] = ready
+    return tables
+
+
+def upload_references(client, tables, attempts=6, batch_size=50, sleep=time.sleep):
+    """Upsert stable CSV primary keys without replacing unrelated metadata."""
+    if not 50 <= batch_size <= 100 or not 1 <= attempts <= 6:
+        raise ValueError('Invalid reference upload batch size or attempts')
+    report = {'tables': {}, 'failures': []}
+    for table, rows in tables.items():
+        uploaded = 0
+        for start in range(0, len(rows), batch_size):
+            batch = rows[start:start + batch_size]
+            for attempt in range(1, attempts + 1):
+                try:
+                    existing = client.table(table).select('id,name').in_(
+                        'id', [row['id'] for row in batch]).execute().data
+                    names = {integer(row['id']): row['name'] for row in existing}
+                    for row in batch:
+                        if row['id'] in names and names[row['id']] != row['name']:
+                            raise ValueError(f'{table}: stable ID/name mismatch')
+                    # Existing rows only receive the requested metadata field.
+                    field = 'flag_url' if table == 'nations' else 'short_name'
+                    old = [{'id': row['id'], 'name': row['name'], field: row[field]}
+                           for row in batch if row['id'] in names]
+                    new = [row for row in batch if row['id'] not in names]
+                    # Do not insert a known name under a different ID.
+                    for row in new:
+                        matches = client.table(table).select('id').eq('name', row['name']).limit(1).execute().data
+                        if matches:
+                            raise ValueError(f'{table}: name exists under another ID')
+                    for payload in (old, new):
+                        if payload:
+                            client.table(table).upsert(payload, on_conflict='id', returning='minimal').execute()
+                    uploaded += len(batch)
+                    break
+                except Exception as error:
+                    LOG.warning('%s batch %s attempt %s/%s: %s', table,
+                                start // batch_size + 1, attempt, attempts, type(error).__name__)
+                    if attempt == attempts or not retryable(error):
+                        report['failures'].append({'table': table, 'reason': type(error).__name__, 'rows': batch})
+                        break
+                    sleep(min(2 ** attempt, 32) + random.uniform(0, 1))
+        report['tables'][table] = {'uploaded': uploaded, 'not_uploaded': len(rows) - uploaded}
+        LOG.info('%s: uploaded=%s, not_uploaded=%s', table, uploaded, len(rows) - uploaded)
+    return report
+
+
 @contextmanager
 def stable_client(url, key):
     """Own and close the HTTP/1.1 transport; never reuse stale idle sockets."""
@@ -275,11 +449,12 @@ def main():
         fc27 = resolve_source(args.fc27, ('fc27_players.csv', 'players.csv', 'fc27_dataset.csv'), args.data_dir)
         fc26 = resolve_source(args.fc26, ('fc26_players.csv', 'fc26_dataset.csv'), args.data_dir)
         tables = prepare(fc27, fc26, args.data_dir)
+        references = prepare_references(args.data_dir)
         for table, rows in tables.items():
             LOG.info('Prepared %s: %s rows', table, len(rows))
         for version in ('Gold', 'Silver', 'Bronze'):
             LOG.info('%s: %s', version, sum(r['version'] == version for r in tables['card_versions']))
-        LOG.info('Only card_versions will be written; DB card_type is preserved on upload.')
+        LOG.info('Reference metadata and card_versions will be written; DB card_type is preserved.')
         if args.dry_run:
             return 0
         from dotenv import load_dotenv
@@ -291,8 +466,12 @@ def main():
         with args.report.open('w', encoding='utf-8') as stream:
             json.dump({'status': 'started'}, stream)
         with stable_client(url, key) as client:
-            report = upload(client, tables, args.attempts, batch_size=args.batch_size,
-                            progress=not args.no_progress)
+            report = upload_references(client, references, args.attempts, batch_size=args.batch_size)
+            if not report['failures']:
+                cards_report = upload(client, tables, args.attempts, batch_size=args.batch_size,
+                                      progress=not args.no_progress)
+                report['tables'].update(cards_report['tables'])
+                report['failures'].extend(cards_report['failures'])
         args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
         if report['failures']:
             LOG.error('Partial failure. See %s; fix causes and rerun the same inputs.', args.report)

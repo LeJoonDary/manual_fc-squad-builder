@@ -4,6 +4,48 @@ import seed
 
 
 class SeedTests(unittest.TestCase):
+    def test_reference_names_and_cached_flags(self):
+        for name, expected in [('Premier League', 'PL'), ('Bundesliga', 'BUN'),
+                               ('FC Bayern München', 'FBM'), ('Paris Saint-Germain', 'PSG')]:
+            self.assertEqual(seed.short_name(name), expected)
+        tables = seed.prepare_references(seed.ROOT)
+        for table in ('leagues', 'clubs'):
+            self.assertTrue(all(__import__('re').fullmatch('[A-Z0-9]{1,6}', r['short_name'])
+                                for r in tables[table]))
+        self.assertEqual(len(tables['nations']), 164)
+        self.assertTrue(all(r['flag_url'].startswith('https://') for r in tables['nations']))
+
+    def test_curated_abbreviations_take_priority_and_keep_fallback(self):
+        for name, expected in [('Premier League', 'EPL'), ('Barclays WSL', 'WSL'),
+                               ('LALIGA EA SPORTS', 'LALIGA'), ('Serie A Enilive', 'SERI'),
+                               ('Bundesliga', 'BUN'), ("Ligue 1 McDonald's", 'LIG1')]:
+            self.assertEqual(seed.short_name(name, seed.LEAGUE_ABBR_MAP), expected)
+        for name in ('Manchester United', 'Manchester Utd', 'Man Utd'):
+            self.assertEqual(seed.short_name(name, seed.CLUB_ABBR_MAP), 'MUN')
+        self.assertEqual(seed.short_name('Real Madrid', seed.CLUB_ABBR_MAP), 'RMA')
+        self.assertEqual(seed.short_name('Manchester City', seed.CLUB_ABBR_MAP), 'MCI')
+        self.assertEqual(seed.short_name('FC Bayern München', seed.CLUB_ABBR_MAP), 'FCB')
+        self.assertEqual(seed.short_name('Example Football Club', seed.CLUB_ABBR_MAP), 'EFC')
+        self.assertEqual(seed.short_name('Premier League', seed.CLUB_ABBR_MAP), 'PL')
+        tables = seed.prepare_references(seed.ROOT)
+        for table, mapping in [('leagues', seed.LEAGUE_ABBR_MAP), ('clubs', seed.CLUB_ABBR_MAP)]:
+            for row in tables[table]:
+                self.assertEqual(row['short_name'], mapping.get(row['name'], seed.short_name(row['name'])))
+
+    def test_reference_upsert_preserves_other_fields_and_rejects_id_reuse(self):
+        client = Mock()
+        response = client.table.return_value.select.return_value.in_.return_value.execute.return_value
+        response.data = [{'id': 1, 'name': 'Premier League'}]
+        rows = {'leagues': [{'id': 1, 'name': 'Premier League', 'short_name': 'PL'}]}
+        report = seed.upload_references(client, rows)
+        self.assertFalse(report['failures'])
+        client.table.return_value.upsert.assert_called_once_with(
+            rows['leagues'], on_conflict='id', returning='minimal')
+        client.table.return_value.upsert.reset_mock()
+        response.data[0]['name'] = 'Other League'
+        self.assertTrue(seed.upload_references(client, rows)['failures'])
+        client.table.return_value.upsert.assert_not_called()
+
     def test_body_boundaries(self):
         for height, size in [(173, 'Short'), (174, 'Medium'), (184, 'Medium'), (185, 'Tall')]:
             for weight, build in [(height - 113, 'Lean'), (height - 112, 'Average'),

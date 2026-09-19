@@ -1,0 +1,28 @@
+{
+  "seed_py_unchanged": true,
+  "seed_py_sha256": "4E42E324574546FD46A6DC7F205F578213B41DFF40CAE72DC8FE145333B5AD8C",
+  "tables": {
+    "player_stats": {
+      "verified_rows": 19789,
+      "database_rows": 19789,
+      "repeat_batch_rows": 50,
+      "count_unchanged": true
+    },
+    "card_positions": {
+      "verified_rows": 43328,
+      "database_rows": 43328,
+      "repeat_batch_rows": 50,
+      "count_unchanged": true
+    },
+    "card_playstyles": {
+      "verified_rows": 16630,
+      "database_rows": 16630,
+      "repeat_batch_rows": 50,
+      "count_unchanged": true
+    },
+    "card_roles": {
+      "database_rows": 0,
+      "reason": "No role data in source; skipped"
+    }
+  }
+}

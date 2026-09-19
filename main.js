@@ -4,6 +4,7 @@ import { STAT_KEYS, defaultStats, activeStats, applyStatQuery, renderStatInputs 
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
 import { fetchPlaystyleOptions, matchesPlaystyleFilters } from './utils/playstyleFilters.js';
 import { PLAYER_CARD_SELECT, fetchPlayerCards } from './utils/playerCards.js';
+import { createPlayerPagination, fetchPlayerPage } from './utils/playerPagination.js';
 import { matchesPlayerName, scoreSearchResults, scoreModalPlayers, getValueScoreGrade } from './utils/playerSearch.js';
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
@@ -58,6 +59,11 @@ const minPriceInput = document.querySelector('#min-price');
 const maxPriceInput = document.querySelector('#max-price');
 const playerGrid = document.querySelector('#players-grid');
 const playerResultCount = document.querySelector('#players-result-count');
+const playerLoadMore = document.querySelector('#players-load-more');
+const playerPaginationStatus = document.querySelector('#players-pagination-status');
+const playerPagination = createPlayerPagination();
+let playerSearchAbort;
+playerLoadMore.addEventListener('click', () => searchPlayers(capturePlayerPanelScrollPositions(), true));
 const filterBarMount = document.querySelector('#filter-bar-mount');
 const filterBar = document.querySelector('#players-filters');
 const filtersContent = document.querySelector('#filters-content');
@@ -483,6 +489,10 @@ function setActiveTab(tabName) {
 
 function schedulePlayerSearch() {
   window.clearTimeout(playerSearchTimer);
+  ++playerSearchRequest;
+  playerSearchAbort?.abort();
+  playerPagination.reset();
+  playerLoadMore.disabled = true;
   playerSearchTimer = window.setTimeout(searchPlayers, 250);
 }
 
@@ -697,20 +707,39 @@ function updateCommandSummaries() {
   });
 }
 
-async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions()) {
+async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions(), append = false) {
+  if (append && (playerPagination.state.loading || !playerPagination.state.hasMore)) return;
+  window.clearTimeout(playerSearchTimer);
+  if (!append) {
+    playerSearchAbort?.abort();
+    playerPagination.reset();
+    playerGrid.replaceChildren();
+  }
   updateCommandSummaries();
   const requestId = ++playerSearchRequest;
+  const ticket = playerPagination.begin();
+  if (!ticket) return;
+  playerSearchAbort = new AbortController();
+  playerPaginationStatus.textContent = '';
+  playerLoadMore.hidden = false;
+  playerLoadMore.disabled = true;
+  playerLoadMore.textContent = '불러오는 중…';
+  playerGrid.setAttribute('aria-busy', 'true');
   if (!supabase) {
+    playerPagination.fail(ticket);
+    playerLoadMore.hidden = true;
+    playerGrid.setAttribute('aria-busy', 'false');
     renderPlayerGridMessage('Supabase 연결 정보를 설정한 뒤 선수 데이터를 검색할 수 있습니다.', true, scrollPositions);
     return;
   }
 
   try {
-    setPlayerGridLoading();
+    if (!append) setPlayerGridLoading();
     let query = supabase
       .from('card_versions')
       .select(activeStats(playerFilters.stats).length ? PLAYER_BROWSER_SELECT.replace('player_stats (*)', 'player_stats!inner (*)') : PLAYER_BROWSER_SELECT)
-      .order('id');
+      .order('overall', { ascending: false }).order('id')
+      .abortSignal(playerSearchAbort.signal);
 
     query = applyStatQuery(query, playerFilters.stats);
 
@@ -729,6 +758,9 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
     if (playerFilters.maxWeight !== '') query = query.lte('players.weight', Number(playerFilters.maxWeight));
     if (playerFilters.minAge !== '') query = query.gte('players.age', Number(playerFilters.minAge));
     if (playerFilters.maxAge !== '') query = query.lte('players.age', Number(playerFilters.maxAge));
+    if (playerFilters.nation) query = query.eq('players.nation_id', playerFilters.nation);
+    if (playerFilters.league) query = query.eq('league_id', playerFilters.league);
+    if (playerFilters.club) query = query.eq('club_id', playerFilters.club);
 
     const selectedRoles = Array.isArray(playerFilters.selectedRoles) ? playerFilters.selectedRoles : [];
     if (selectedRoles.length) {
@@ -739,18 +771,8 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
       query = query.in('id', matchedCardIds.length ? matchedCardIds : [-1]);
     }
 
-    const data = [];
-    for (let offset = 0; ; ) {
-      const { data: page, error } = await query.range(offset, offset + 499);
-      if (requestId !== playerSearchRequest) return;
-      if (error) {
-        renderPlayerGridMessage(error.message, true, scrollPositions);
-        return;
-      }
-      if (!page?.length) break;
-      data.push(...page);
-      offset += page.length;
-    }
+    const data = await fetchPlayerPage(query, ticket.offset);
+    if (requestId !== playerSearchRequest) return;
 
     const cardsById = new Map();
     const safeCards = Array.isArray(data) ? data : [];
@@ -767,11 +789,28 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
       .filter((card) => matchesRoles(card))
       .filter((card) => matchesMiscellaneous(card))
       .filter((card) => matchesIdentityAndStats(card));
-    renderPlayerGrid(scoreSearchResults(cards, [...playerFilters.positions], playerFilters.onlyPrimary), scrollPositions);
+    playerPagination.complete(ticket, data, scoreSearchResults(cards, [...playerFilters.positions], playerFilters.onlyPrimary));
+    renderPlayerGrid(playerPagination.state.cards, scrollPositions);
+    const { hasMore, offset } = playerPagination.state;
+    playerResultCount.textContent = `${playerPagination.state.cards.length}명 표시 · ${offset}명 확인${hasMore ? ' · 더 보기로 계속 검색' : ' · 마지막 페이지'}`;
+    if (!playerPagination.state.cards.length && hasMore) {
+      renderPlayerGridMessage('지금까지 불러온 선수 중 일치하는 결과가 없습니다. 더 보기로 다음 선수를 확인하세요.', false, scrollPositions);
+    }
+    playerLoadMore.hidden = !hasMore;
+    playerLoadMore.textContent = '더 보기 · 다음 50명';
+    playerPaginationStatus.textContent = hasMore ? '' : '마지막 선수까지 확인했습니다.';
   } catch (error) {
     if (requestId !== playerSearchRequest) return;
-    console.error('Player filter error:', error);
-    renderPlayerGridMessage('필터를 적용하는 중 문제가 발생했습니다. 조건을 다시 확인해 주세요.', true, scrollPositions);
+    console.error('Player filter error:', error?.message ?? error);
+    playerPagination.fail(ticket);
+    if (!append) renderPlayerGridMessage('선수 목록을 불러오지 못했습니다. 다시 시도해 주세요.', true, scrollPositions);
+    playerPaginationStatus.textContent = '불러오기에 실패했습니다. 다시 시도하면 같은 페이지부터 이어집니다.';
+    playerLoadMore.textContent = '다시 시도';
+  } finally {
+    if (requestId === playerSearchRequest) {
+      playerLoadMore.disabled = false;
+      playerGrid.setAttribute('aria-busy', 'false');
+    }
   }
 }
 
