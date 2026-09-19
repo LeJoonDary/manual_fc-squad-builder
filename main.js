@@ -1,10 +1,9 @@
 import { renderDetailStatGroups } from './utils/detailStats.js';
-import { applyPhysicalQuery, matchesPhysicalTypes } from './utils/physicalFilters.js';
-import { STAT_KEYS, defaultStats, activeStats, applyStatQuery, renderStatInputs } from './utils/statFilters.js';
+import { STAT_KEYS, defaultStats, activeStats, renderStatInputs } from './utils/statFilters.js';
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
-import { fetchPlaystyleOptions, matchesPlaystyleFilters } from './utils/playstyleFilters.js';
+import { fetchPlaystyleOptions } from './utils/playstyleFilters.js';
 import { PLAYER_CARD_SELECT, fetchPlayerCards } from './utils/playerCards.js';
-import { createPlayerPagination, fetchPlayerPage } from './utils/playerPagination.js';
+import { createDefaultFilters, fetchPlayers } from './utils/playerFilters.js';
 import { matchesPlayerName, scoreSearchResults, scoreModalPlayers, getValueScoreGrade } from './utils/playerSearch.js';
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
@@ -61,9 +60,8 @@ const playerGrid = document.querySelector('#players-grid');
 const playerResultCount = document.querySelector('#players-result-count');
 const playerLoadMore = document.querySelector('#players-load-more');
 const playerPaginationStatus = document.querySelector('#players-pagination-status');
-const playerPagination = createPlayerPagination();
 let playerSearchAbort;
-playerLoadMore.addEventListener('click', () => searchPlayers(capturePlayerPanelScrollPositions(), true));
+playerLoadMore.addEventListener('click', () => searchPlayers());
 const filterBarMount = document.querySelector('#filter-bar-mount');
 const filterBar = document.querySelector('#players-filters');
 const filtersContent = document.querySelector('#filters-content');
@@ -92,17 +90,8 @@ renderStatInputs(document.querySelector('.stats-filter-grid'));
 // 검색 헤더 바로 아래, 선수 그리드 바로 위에 기존 필터 DOM을 배치합니다.
 if (filterBarMount && filterBar) filterBarMount.replaceWith(filterBar);
 
-const playerFilters = {
-  name: '', minOvr: '', maxOvr: '', minPrice: '', maxPrice: '', minSm: null, minWf: null, positions: new Set(), onlyPrimary: false, hasAllPositions: false,
-  selectedPlayStyles: [], requireAllPlaystyles: false, minPlaystyles: '', maxPlaystyles: '', minPlaystylesPlus: '', maxPlaystylesPlus: '',
-  selectedRoles: [], hasAllRoles: false,
-  acceleTypes: new Set(), preferredFoot: '', gender: '', bodyTypes: new Set(),
-  minHeight: '', maxHeight: '', minWeight: '', maxWeight: '', minAge: '', maxAge: '',
-  nation: '', league: '', club: '', rarities: new Set(),
-  stats: defaultStats(),
-};
+const filters = createDefaultFilters();
 const filterAccordionState = { ovr: true, positions: true, price: true, 'sm-wf': true, playstyles: true, roles: false, affiliation: true, rarity: true, stats: true, miscellaneous: true };
-const OVR_COLUMN = 'overall';
 const ROLE_DATA = [
   { pos: 'ST', roles: ['Advanced Forward', 'False 9', 'Poacher', 'Target Forward'] },
   { pos: 'LW', roles: ['Inside Forward', 'Wide Playmaker', 'Winger'] },
@@ -130,7 +119,6 @@ let dragOriginPosition = null;
 let suppressSlotClick = false;
 const squad = {};
 let affiliationCatalog = { nations: [], leagues: [], clubs: [] };
-const PLAYER_BROWSER_SELECT = PLAYER_CARD_SELECT;
 const PLAYER_DETAIL_SELECT = PLAYER_CARD_SELECT;
 let modalRequest = 0;
 
@@ -270,7 +258,7 @@ tabButtons.forEach((button) => {
 });
 
 playerNameSearch.addEventListener('input', (event) => {
-  playerFilters.name = event.target.value.trim();
+  filters.name = event.target.value.trim();
   schedulePlayerSearch();
 });
 
@@ -286,14 +274,14 @@ modalPlayerSearchClear.addEventListener('click', () => {
 
 [minOvrInput, maxOvrInput].forEach((input) => {
   input.addEventListener('input', (event) => {
-    playerFilters[input === minOvrInput ? 'minOvr' : 'maxOvr'] = event.target.value;
+    filters[input === minOvrInput ? 'minOvr' : 'maxOvr'] = event.target.value;
     schedulePlayerSearch();
   });
 });
 
 [minPriceInput, maxPriceInput].forEach((input) => {
   input.addEventListener('input', (event) => {
-    playerFilters[input === minPriceInput ? 'minPrice' : 'maxPrice'] = event.target.value;
+    filters[input === minPriceInput ? 'minPrice' : 'maxPrice'] = event.target.value;
     schedulePlayerSearch();
   });
 });
@@ -301,14 +289,14 @@ modalPlayerSearchClear.addEventListener('click', () => {
 document.querySelectorAll('[data-position-filter]').forEach((button) => {
   button.addEventListener('click', () => {
     const position = button.dataset.positionFilter;
-    if (playerFilters.positions.has(position)) {
-      playerFilters.positions.delete(position);
-      playerFilters.selectedRoles = playerFilters.selectedRoles.filter((role) => role.position !== position);
+    if (filters.positions.has(position)) {
+      filters.positions.delete(position);
+      filters.selectedRoles = filters.selectedRoles.filter((role) => role.position !== position);
     } else {
-      playerFilters.positions.add(position);
+      filters.positions.add(position);
     }
-    button.classList.toggle('is-selected', playerFilters.positions.has(position));
-    button.setAttribute('aria-pressed', String(playerFilters.positions.has(position)));
+    button.classList.toggle('is-selected', filters.positions.has(position));
+    button.setAttribute('aria-pressed', String(filters.positions.has(position)));
     renderRoleFilterRows();
     searchPlayers();
   });
@@ -318,9 +306,9 @@ document.querySelectorAll('[data-rating-filter]').forEach((button) => {
   button.addEventListener('click', () => {
     const filterName = button.dataset.ratingFilter === 'sm' ? 'minSm' : 'minWf';
     const selectedValue = Number(button.dataset.ratingValue);
-    playerFilters[filterName] = playerFilters[filterName] === selectedValue ? null : selectedValue;
+    filters[filterName] = filters[filterName] === selectedValue ? null : selectedValue;
     document.querySelectorAll(`[data-rating-filter="${button.dataset.ratingFilter}"]`).forEach((item) => {
-      item.classList.toggle('is-selected', Number(item.dataset.ratingValue) === playerFilters[filterName]);
+      item.classList.toggle('is-selected', Number(item.dataset.ratingValue) === filters[filterName]);
     });
     searchPlayers();
   });
@@ -333,10 +321,10 @@ void loadAffiliationFilterOptions();
 
 [nationFilter, leagueFilter, clubFilter].forEach((select) => {
   select.addEventListener('change', () => {
-    playerFilters.nation = nationFilter.value;
-    playerFilters.league = leagueFilter.value;
+    filters.nation = nationFilter.value;
+    filters.league = leagueFilter.value;
     if (select === leagueFilter) renderClubOptions();
-    playerFilters.club = clubFilter.value;
+    filters.club = clubFilter.value;
     searchPlayers();
   });
 });
@@ -344,8 +332,8 @@ void loadAffiliationFilterOptions();
 document.querySelectorAll('[data-rarity-filter]').forEach((button) => {
   button.addEventListener('click', () => {
     const rarity = button.dataset.rarityFilter;
-    playerFilters.rarities.has(rarity) ? playerFilters.rarities.delete(rarity) : playerFilters.rarities.add(rarity);
-    const selected = playerFilters.rarities.has(rarity);
+    filters.rarities.has(rarity) ? filters.rarities.delete(rarity) : filters.rarities.add(rarity);
+    const selected = filters.rarities.has(rarity);
     button.classList.toggle('is-selected', selected);
     button.setAttribute('aria-pressed', String(selected));
     searchPlayers();
@@ -353,8 +341,8 @@ document.querySelectorAll('[data-rarity-filter]').forEach((button) => {
 });
 
 function resetStatInputs() {
-  playerFilters.stats = defaultStats();
-  for (const key of STAT_KEYS) for (const bound of ['min', 'max']) document.querySelector('#' + bound + '-' + key).value = playerFilters.stats[key][bound];
+  filters.stats = defaultStats();
+  for (const key of STAT_KEYS) for (const bound of ['min', 'max']) document.querySelector('#' + bound + '-' + key).value = filters.stats[key][bound];
   document.querySelector('#stats-validation').textContent = '';
 }
 document.querySelector('#detailed-stats-form').addEventListener('submit', event => {
@@ -370,7 +358,7 @@ document.querySelector('#detailed-stats-form').addEventListener('submit', event 
       return;
     }
   }
-  playerFilters.stats = values;
+  filters.stats = values;
   document.querySelector('#stats-validation').textContent = '';
   searchPlayers();
   const statsPanel = document.querySelector('[data-filter-section="stats"]');
@@ -393,14 +381,14 @@ document.querySelectorAll('[data-misc-filter]').forEach((button) => {
   button.addEventListener('click', () => {
     const { miscFilter: filterName, miscValue: value } = button.dataset;
     if (filterName === 'accele' || filterName === 'body') {
-      const filterSet = filterName === 'accele' ? playerFilters.acceleTypes : playerFilters.bodyTypes;
+      const filterSet = filterName === 'accele' ? filters.acceleTypes : filters.bodyTypes;
       filterSet.has(value) ? filterSet.delete(value) : filterSet.add(value);
       button.classList.toggle('is-selected', filterSet.has(value));
     } else {
       const stateKey = filterName === 'foot' ? 'preferredFoot' : 'gender';
-      playerFilters[stateKey] = playerFilters[stateKey] === value ? '' : value;
+      filters[stateKey] = filters[stateKey] === value ? '' : value;
       document.querySelectorAll(`[data-misc-filter="${filterName}"]`).forEach((item) => {
-        item.classList.toggle('is-selected', item.dataset.miscValue === playerFilters[stateKey]);
+        item.classList.toggle('is-selected', item.dataset.miscValue === filters[stateKey]);
       });
     }
     searchPlayers();
@@ -413,7 +401,7 @@ document.querySelectorAll('[data-misc-filter]').forEach((button) => {
   [minAgeInput, 'minAge'], [maxAgeInput, 'maxAge'],
 ].forEach(([input, filterName]) => {
   input.addEventListener('input', (event) => {
-    playerFilters[filterName] = event.target.value;
+    filters[filterName] = event.target.value;
     schedulePlayerSearch();
   });
 });
@@ -421,7 +409,7 @@ document.querySelectorAll('[data-misc-filter]').forEach((button) => {
 setupDualRangeControls();
 
 requireAllPlaystyles.addEventListener('change', () => {
-  playerFilters.requireAllPlaystyles = requireAllPlaystyles.checked;
+  filters.requireAllPlaystyles = requireAllPlaystyles.checked;
   searchPlayers();
 });
 
@@ -430,15 +418,15 @@ requireAllPlaystyles.addEventListener('change', () => {
   [minPlaystylesPlusInput, 'minPlaystylesPlus'], [maxPlaystylesPlusInput, 'maxPlaystylesPlus'],
 ].forEach(([input, filterName]) => {
   input.addEventListener('input', (event) => {
-    playerFilters[filterName] = event.target.value;
+    filters[filterName] = event.target.value;
     schedulePlayerSearch();
   });
 });
 
 [onlyPrimaryPositions, hasAllSelectedPositions].forEach((toggle) => {
   toggle.addEventListener('change', () => {
-    playerFilters.onlyPrimary = onlyPrimaryPositions.checked;
-    playerFilters.hasAllPositions = hasAllSelectedPositions.checked;
+    filters.onlyPrimary = onlyPrimaryPositions.checked;
+    filters.hasAllPositions = hasAllSelectedPositions.checked;
     searchPlayers();
   });
 });
@@ -491,9 +479,10 @@ function schedulePlayerSearch() {
   window.clearTimeout(playerSearchTimer);
   ++playerSearchRequest;
   playerSearchAbort?.abort();
-  playerPagination.reset();
   playerLoadMore.disabled = true;
-  playerSearchTimer = window.setTimeout(searchPlayers, 250);
+  playerGrid.setAttribute('aria-busy', 'true');
+  setPlayerGridLoading();
+  playerSearchTimer = window.setTimeout(searchPlayers, 300);
 }
 
 function setupDualRangeControls() {
@@ -569,10 +558,10 @@ function resetDualRangeControls() {
 
 async function handleHasAllRolesChange() {
   try {
-    playerFilters.hasAllRoles = Boolean(hasAllSelectedRoles?.checked);
+    filters.hasAllRoles = Boolean(hasAllSelectedRoles?.checked);
 
     // 선택된 롤이 없으면 AND/OR 분기를 건너뛰고 기본 검색만 실행합니다.
-    if (!Array.isArray(playerFilters.selectedRoles)) playerFilters.selectedRoles = [];
+    if (!Array.isArray(filters.selectedRoles)) filters.selectedRoles = [];
     const scrollPositions = pendingPanelScrollPositions ?? capturePlayerPanelScrollPositions();
     pendingPanelScrollPositions = null;
     await searchPlayers(scrollPositions);
@@ -681,21 +670,21 @@ function closeCommandPopovers() {
 
 function updateCommandSummaries() {
   const summaries = {
-    positions: playerFilters.positions.size
-      ? `${playerFilters.positions.size}${playerFilters.selectedRoles.length ? ` · 역할 ${playerFilters.selectedRoles.length}` : ''}` : '',
-    ovr: playerFilters.minOvr !== '' || playerFilters.maxOvr !== ''
-      ? `${playerFilters.minOvr || 'Any'}–${playerFilters.maxOvr || 'Any'}`
-      : (playerFilters.minPrice !== '' || playerFilters.maxPrice !== '' ? '가격 설정' : ''),
-    'sm-wf': playerFilters.minSm || playerFilters.minWf
-      ? `SM ${playerFilters.minSm || '–'} · WF ${playerFilters.minWf || '–'}` : '',
-    playstyles: playerFilters.selectedPlayStyles.length ? `${playerFilters.selectedPlayStyles.length}` : '',
-    affiliation: [playerFilters.nation, playerFilters.league, playerFilters.club].filter(Boolean).length || '',
-    rarity: playerFilters.rarities.size || '',
-    stats: activeStats(playerFilters.stats).length || '',
+    positions: filters.positions.size
+      ? `${filters.positions.size}${filters.selectedRoles.length ? ` · 역할 ${filters.selectedRoles.length}` : ''}` : '',
+    ovr: filters.minOvr !== '' || filters.maxOvr !== ''
+      ? `${filters.minOvr || 'Any'}–${filters.maxOvr || 'Any'}`
+      : (filters.minPrice !== '' || filters.maxPrice !== '' ? '가격 설정' : ''),
+    'sm-wf': filters.minSm || filters.minWf
+      ? `SM ${filters.minSm || '–'} · WF ${filters.minWf || '–'}` : '',
+    playstyles: filters.selectedPlayStyles.length ? `${filters.selectedPlayStyles.length}` : '',
+    affiliation: [filters.nation, filters.league, filters.club].filter(Boolean).length || '',
+    rarity: filters.rarities.size || '',
+    stats: activeStats(filters.stats).length || '',
     miscellaneous: [
-      playerFilters.acceleTypes.size, playerFilters.bodyTypes.size, playerFilters.preferredFoot, playerFilters.gender,
-      playerFilters.minHeight, playerFilters.maxHeight, playerFilters.minWeight, playerFilters.maxWeight,
-      playerFilters.minAge, playerFilters.maxAge,
+      filters.acceleTypes.size, filters.bodyTypes.size, filters.preferredFoot, filters.gender,
+      filters.minHeight, filters.maxHeight, filters.minWeight, filters.maxWeight,
+      filters.minAge, filters.maxAge,
     ].filter(Boolean).length || '',
   };
   Object.entries(summaries).forEach(([section, value]) => {
@@ -707,113 +696,39 @@ function updateCommandSummaries() {
   });
 }
 
-async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions(), append = false) {
-  if (append && (playerPagination.state.loading || !playerPagination.state.hasMore)) return;
+async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions()) {
   window.clearTimeout(playerSearchTimer);
-  if (!append) {
-    playerSearchAbort?.abort();
-    playerPagination.reset();
-    playerGrid.replaceChildren();
-  }
-  updateCommandSummaries();
+  playerSearchAbort?.abort();
   const requestId = ++playerSearchRequest;
-  const ticket = playerPagination.begin();
-  if (!ticket) return;
   playerSearchAbort = new AbortController();
   const signal = playerSearchAbort.signal;
-  playerPaginationStatus.textContent = '';
-  playerLoadMore.hidden = false;
+  updateCommandSummaries();
+  playerLoadMore.hidden = true;
   playerLoadMore.disabled = true;
-  playerLoadMore.textContent = '불러오는 중…';
+  playerPaginationStatus.textContent = '';
   playerGrid.setAttribute('aria-busy', 'true');
-  if (!supabase) {
-    playerPagination.fail(ticket);
-    playerLoadMore.hidden = true;
-    playerGrid.setAttribute('aria-busy', 'false');
-    renderPlayerGridMessage('Supabase 연결 정보를 설정한 뒤 선수 데이터를 검색할 수 있습니다.', true, scrollPositions);
-    return;
-  }
-
+  setPlayerGridLoading();
   try {
-    if (!append) setPlayerGridLoading();
-    let query = supabase
-      .from('card_versions')
-      // Page over lightweight IDs first. Joining all child rows before LIMIT
-      // can still time out even when only 50 results are returned.
-      .select(`id, players!inner (id)${activeStats(playerFilters.stats).length ? ', player_stats!inner (card_id)' : ''}`)
-      .order('overall', { ascending: false }).order('id')
-      .abortSignal(signal);
-
-    query = applyStatQuery(query, playerFilters.stats);
-
-    if (playerFilters.minOvr !== '') query = query.gte(OVR_COLUMN, Number(playerFilters.minOvr));
-    if (playerFilters.maxOvr !== '') query = query.lte(OVR_COLUMN, Number(playerFilters.maxOvr));
-    if (playerFilters.minPrice !== '') query = query.gte('price', Number(playerFilters.minPrice));
-    if (playerFilters.maxPrice !== '') query = query.lte('price', Number(playerFilters.maxPrice));
-    if (playerFilters.minSm !== null) query = query.gte('sm', playerFilters.minSm);
-    if (playerFilters.minWf !== null) query = query.gte('wf', playerFilters.minWf);
-    query = applyPhysicalQuery(query, playerFilters.acceleTypes, playerFilters.bodyTypes);
-    if (playerFilters.preferredFoot) query = query.eq('preferred_foot', playerFilters.preferredFoot);
-    if (playerFilters.gender) query = query.eq('players.gender', playerFilters.gender);
-    if (playerFilters.minHeight !== '') query = query.gte('players.height', Number(playerFilters.minHeight));
-    if (playerFilters.maxHeight !== '') query = query.lte('players.height', Number(playerFilters.maxHeight));
-    if (playerFilters.minWeight !== '') query = query.gte('players.weight', Number(playerFilters.minWeight));
-    if (playerFilters.maxWeight !== '') query = query.lte('players.weight', Number(playerFilters.maxWeight));
-    if (playerFilters.minAge !== '') query = query.gte('players.age', Number(playerFilters.minAge));
-    if (playerFilters.maxAge !== '') query = query.lte('players.age', Number(playerFilters.maxAge));
-    if (playerFilters.nation) query = query.eq('players.nation_id', playerFilters.nation);
-    if (playerFilters.league) query = query.eq('league_id', playerFilters.league);
-    if (playerFilters.club) query = query.eq('club_id', playerFilters.club);
-
-    const selectedRoles = Array.isArray(playerFilters.selectedRoles) ? playerFilters.selectedRoles : [];
-    if (selectedRoles.length) {
-      const selectedRoleIds = await getSelectedRoleIds(selectedRoles);
-      if (requestId !== playerSearchRequest) return;
-      const matchedCardIds = await getMatchedCardIds(selectedRoleIds, playerFilters.hasAllRoles);
-      if (requestId !== playerSearchRequest) return;
-      query = query.in('id', matchedCardIds.length ? matchedCardIds : [-1]);
-    }
-
-    const data = await fetchPlayerPage(query, ticket.offset, ids => supabase
-      .from('card_versions').select(PLAYER_BROWSER_SELECT).in('id', ids)
-      .limit(50).abortSignal(signal));
+    const rows = await fetchPlayers(supabase, filters, signal);
     if (requestId !== playerSearchRequest) return;
-
-    const cardsById = new Map();
-    const safeCards = Array.isArray(data) ? data : [];
-    safeCards.map(normalizeBrowserPlayerCard).filter(Boolean)
-      .filter(card => (!playerFilters.nation || String(card.nation_id) === playerFilters.nation)
-        && (!playerFilters.league || String(card.league_id) === playerFilters.league)
-        && (!playerFilters.club || String(card.club_id) === playerFilters.club)).forEach((card) => {
-      if (!cardsById.has(String(card.id))) cardsById.set(String(card.id), card);
-    });
-    const cards = [...cardsById.values()]
-      .filter((card) => matchesPlayerName(card, playerFilters.name))
-      .filter((card) => matchesPositions(card, [...playerFilters.positions], playerFilters.onlyPrimary, playerFilters.hasAllPositions))
-      .filter((card) => matchesPlaystyles(card))
-      .filter((card) => matchesRoles(card))
-      .filter((card) => matchesMiscellaneous(card))
-      .filter((card) => matchesIdentityAndStats(card));
-    playerPagination.complete(ticket, data, scoreSearchResults(cards, [...playerFilters.positions], playerFilters.onlyPrimary));
-    renderPlayerGrid(playerPagination.state.cards, scrollPositions);
-    const { hasMore, offset } = playerPagination.state;
-    playerResultCount.textContent = `${playerPagination.state.cards.length}명 표시 · ${offset}명 확인${hasMore ? ' · 더 보기로 계속 검색' : ' · 마지막 페이지'}`;
-    if (!playerPagination.state.cards.length && hasMore) {
-      renderPlayerGridMessage('지금까지 불러온 선수 중 일치하는 결과가 없습니다. 더 보기로 다음 선수를 확인하세요.', false, scrollPositions);
-    }
-    playerLoadMore.hidden = !hasMore;
-    playerLoadMore.textContent = '더 보기 · 다음 50명';
-    playerPaginationStatus.textContent = hasMore ? '' : '마지막 선수까지 확인했습니다.';
+    const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean);
+    const scored = scoreSearchResults(cards, [...filters.positions], filters.onlyPrimary);
+    // Score annotations must not replace the database's overall-descending order.
+    const byId = new Map(scored.map(card => [String(card.id), card]));
+    renderPlayerGrid(cards.map(card => byId.get(String(card.id))), scrollPositions);
+    playerResultCount.textContent = cards.length + '명 표시 · 전체 DB 검색';
+    playerPaginationStatus.textContent = '모든 조건을 만족하는 카드 중 오버롤 상위 50개까지 표시합니다.';
   } catch (error) {
-    if (requestId !== playerSearchRequest) return;
+    if (requestId !== playerSearchRequest || signal.aborted) return;
     console.error('Player filter error:', error?.message ?? error);
-    playerPagination.fail(ticket);
-    if (!append) renderPlayerGridMessage('선수 목록을 불러오지 못했습니다. 다시 시도해 주세요.', true, scrollPositions);
-    playerPaginationStatus.textContent = '불러오기에 실패했습니다. 다시 시도하면 같은 페이지부터 이어집니다.';
+    renderPlayerGridMessage('선수 목록을 불러오지 못했습니다. 다시 시도해 주세요.', true, scrollPositions);
+    playerPaginationStatus.textContent = 'DB 검색에 실패했습니다. 다시 시도해 주세요.';
+    playerLoadMore.hidden = false;
     playerLoadMore.textContent = '다시 시도';
   } finally {
     if (requestId === playerSearchRequest) {
       playerLoadMore.disabled = false;
+      playerGrid.classList.remove('is-loading');
       playerGrid.setAttribute('aria-busy', 'false');
     }
   }
@@ -857,56 +772,15 @@ function renderPlaystyleFilterButtons(options) {
 }
 
 function togglePlaystyleFilter(id, level, button) {
-  const selectedIndex = playerFilters.selectedPlayStyles.findIndex(
+  const selectedIndex = filters.selectedPlayStyles.findIndex(
     (playstyle) => playstyle.id === id && playstyle.level === level,
   );
-  if (selectedIndex >= 0) playerFilters.selectedPlayStyles.splice(selectedIndex, 1);
-  else playerFilters.selectedPlayStyles.push({ id, level });
+  if (selectedIndex >= 0) filters.selectedPlayStyles.splice(selectedIndex, 1);
+  else filters.selectedPlayStyles.push({ id, level });
   const isSelected = selectedIndex < 0;
   button.classList.toggle('is-selected', isSelected);
   button.setAttribute('aria-pressed', String(isSelected));
   searchPlayers();
-}
-
-function matchesPlaystyles(card) {
-  return matchesPlaystyleFilters(card.raw?.card_playstyles ?? [], playerFilters);
-}
-
-function matchesCountRange(count, min, max) {
-  const hasMinimum = min !== '' && min !== null && min !== undefined;
-  const hasMaximum = max !== '' && max !== null && max !== undefined;
-  if (!hasMinimum && !hasMaximum) return true;
-
-  const numericCount = Number(count);
-  if (!Number.isFinite(numericCount)) return false;
-  if (hasMinimum && numericCount < Number(min)) return false;
-  if (hasMaximum && numericCount > Number(max)) return false;
-  return true;
-}
-
-function matchesMiscellaneous(card) {
-  if (!matchesPhysicalTypes(card, playerFilters.acceleTypes, playerFilters.bodyTypes)) return false;
-  if (playerFilters.preferredFoot && card.preferred_foot !== playerFilters.preferredFoot) return false;
-  if (playerFilters.gender && card.gender !== playerFilters.gender) return false;
-  return matchesCountRange(card.height, playerFilters.minHeight, playerFilters.maxHeight)
-    && matchesCountRange(card.weight, playerFilters.minWeight, playerFilters.maxWeight)
-    && matchesCountRange(card.age, playerFilters.minAge, playerFilters.maxAge);
-}
-
-function getRarityCategory(version) {
-  const normalized = String(version ?? '').trim().toLowerCase();
-  if (/^gold(?: common| rare)?$/.test(normalized)) return 'Gold';
-  if (/^silver(?: common| rare)?$/.test(normalized)) return 'Silver';
-  if (/^bronze(?: common| rare)?$/.test(normalized)) return 'Bronze';
-  return 'Special';
-}
-
-function matchesIdentityAndStats(card) {
-  if (playerFilters.nation && String(card.nation_id) !== playerFilters.nation) return false;
-  if (playerFilters.league && String(card.league_id) !== playerFilters.league) return false;
-  if (playerFilters.club && String(card.club_id) !== playerFilters.club) return false;
-  if (playerFilters.rarities.size && !playerFilters.rarities.has(getRarityCategory(card.version))) return false;
-  return true; // Detailed stats are filtered by the inner player_stats join.
 }
 
 function replaceSelectOptions(select, placeholder, values, selectedValue = '') {
@@ -925,8 +799,8 @@ function replaceMasterOptions(select, placeholder, rows, selectedValue) {
 }
 
 function renderClubOptions() {
-  replaceMasterOptions(clubFilter, '전체 클럽', clubsForLeague(affiliationCatalog.clubs, leagueFilter.value), playerFilters.club);
-  playerFilters.club = clubFilter.value;
+  replaceMasterOptions(clubFilter, '전체 클럽', clubsForLeague(affiliationCatalog.clubs, leagueFilter.value), filters.club);
+  filters.club = clubFilter.value;
 }
 
 async function loadAffiliationFilterOptions() {
@@ -944,8 +818,8 @@ async function loadAffiliationFilterOptions() {
 }
 
 function renderAffiliationOptions() {
-  replaceMasterOptions(nationFilter, '전체 국가', affiliationCatalog.nations, playerFilters.nation);
-  replaceMasterOptions(leagueFilter, '전체 리그', affiliationCatalog.leagues, playerFilters.league);
+  replaceMasterOptions(nationFilter, '전체 국가', affiliationCatalog.nations, filters.nation);
+  replaceMasterOptions(leagueFilter, '전체 리그', affiliationCatalog.leagues, filters.league);
   renderSearchableSelect(nationFilter, affiliationCatalog.nations);
   replaceMasterOptions(managerNationSelect, '국가를 선택하세요', affiliationCatalog.nations, managerState?.nationId ?? '');
   replaceMasterOptions(managerLeagueSelect, '리그를 선택하세요', affiliationCatalog.leagues, managerState?.leagueId ?? '');
@@ -956,19 +830,19 @@ function renderAffiliationOptions() {
 
 function renderRoleFilterRows() {
   roleFilterList.replaceChildren();
-  const selectedPositions = [...playerFilters.positions];
+  const selectedPositions = [...filters.positions];
   const subfilter = roleFilterList.closest('.position-role-subfilter');
   if (subfilter) subfilter.hidden = selectedPositions.length === 0;
 
   const allChip = document.createElement('button');
   allChip.type = 'button';
   allChip.className = 'role-all-chip';
-  allChip.classList.toggle('is-selected', playerFilters.selectedRoles.length === 0);
-  allChip.setAttribute('aria-pressed', String(playerFilters.selectedRoles.length === 0));
+  allChip.classList.toggle('is-selected', filters.selectedRoles.length === 0);
+  allChip.setAttribute('aria-pressed', String(filters.selectedRoles.length === 0));
   allChip.textContent = '전체 / 지정 안 함';
   allChip.addEventListener('click', () => {
-    playerFilters.selectedRoles = [];
-    playerFilters.hasAllRoles = false;
+    filters.selectedRoles = [];
+    filters.hasAllRoles = false;
     hasAllSelectedRoles.checked = false;
     renderRoleFilterRows();
     searchPlayers();
@@ -982,7 +856,7 @@ function renderRoleFilterRows() {
     heading.textContent = pos;
     group.append(heading);
     roles.forEach((roleName) => {
-      const roleIsActive = playerFilters.selectedRoles.some(
+      const roleIsActive = filters.selectedRoles.some(
         (role) => role.position === pos && role.name === roleName,
       );
       const row = document.createElement('div');
@@ -1017,142 +891,25 @@ function renderRoleFilterRows() {
   });
 
   const requireAllSwitch = hasAllSelectedRoles.closest('.filter-switch');
-  if (requireAllSwitch) requireAllSwitch.hidden = playerFilters.selectedRoles.length === 0;
+  if (requireAllSwitch) requireAllSwitch.hidden = filters.selectedRoles.length === 0;
 }
 
 function isRoleSelected(position, name, level) {
-  return playerFilters.selectedRoles.some(
+  return filters.selectedRoles.some(
     (role) => role.position === position && role.name === name && role.level === level,
   );
 }
 
 function toggleRoleFilter(position, name, level) {
-  const roleIndex = playerFilters.selectedRoles.findIndex(
+  const roleIndex = filters.selectedRoles.findIndex(
     (role) => role.position === position && role.name === name && role.level === level,
   );
-  if (roleIndex >= 0) playerFilters.selectedRoles.splice(roleIndex, 1);
-  else playerFilters.selectedRoles.push({ position, name, level });
-}
-
-function matchesRoles(card) {
-  const selectedRoles = Array.isArray(playerFilters.selectedRoles) ? playerFilters.selectedRoles : [];
-  if (!selectedRoles.length) return true;
-
-  const matchesSelectedRole = (selectedRole) => {
-    return (card.card_roles ?? []).some((cardRole) => {
-      const role = unwrapRelation(cardRole.roles);
-      const cardRoleLevel = Number(cardRole.role_level);
-      return role?.position === selectedRole.position
-        && role?.role_name === selectedRole.name
-        && (selectedRole.level === 1 ? cardRoleLevel >= 1 : cardRoleLevel === 2);
-    });
-  };
-
-  return playerFilters.hasAllRoles
-    ? selectedRoles.every(matchesSelectedRole)
-    : selectedRoles.some(matchesSelectedRole);
-}
-
-async function getSelectedRoleIds(selectedRoles = []) {
-  if (!Array.isArray(selectedRoles) || !selectedRoles.length) return [];
-
-  try {
-    const { data, error } = await supabase
-      .from('roles')
-      .select('id, position, role_name');
-    if (error) throw error;
-
-    return selectedRoles.flatMap((selectedRole) => {
-      const role = (Array.isArray(data) ? data : []).find(
-        (item) => item?.position === selectedRole?.position && item?.role_name === selectedRole?.name,
-      );
-      return role?.id === null || role?.id === undefined
-        ? []
-        : [{ id: role.id, level: Number(selectedRole.level) === 2 ? 2 : 1 }];
-    });
-  } catch (error) {
-    console.error('Role ID lookup error:', error);
-    return [];
-  }
-}
-
-async function getMatchedCardIds(selectedRoles, hasAllRoles) {
-  if (!Array.isArray(selectedRoles) || !selectedRoles.length) return [];
-
-  try {
-    const selectedRoleIds = [...new Set(selectedRoles.map((role) => role.id))];
-    const { data, error } = await supabase
-      .from('card_roles')
-      .select('card_id, role_id, role_level')
-      .in('role_id', selectedRoleIds);
-    if (error) throw error;
-
-    const selectedKey = (roleId, level) => `${String(roleId)}:${Number(level)}`;
-    const requiredRoleKeys = new Set(selectedRoles.map((role) => selectedKey(role.id, role.level)));
-    const safeRoles = (Array.isArray(data) ? data.filter(Boolean) : []).filter((cardRole) => selectedRoles.some(
-      (role) => String(role.id) === String(cardRole.role_id)
-        && (role.level === 1 ? Number(cardRole.role_level) >= 1 : Number(cardRole.role_level) === 2),
-    ));
-    if (!hasAllRoles) {
-      return [...new Set(safeRoles.map((item) => item?.card_id).filter((cardId) => cardId !== null && cardId !== undefined))];
-    }
-
-    const cardRoleKeys = new Map();
-    safeRoles.forEach((item) => {
-      if (item?.card_id === null || item?.card_id === undefined || item?.role_id === null || item?.role_id === undefined) return;
-      const cardId = String(item.card_id);
-      if (!cardRoleKeys.has(cardId)) cardRoleKeys.set(cardId, new Set());
-      selectedRoles.forEach((role) => {
-        if (String(role.id) !== String(item.role_id)) return;
-        if (role.level === 1 ? Number(item.role_level) >= 1 : Number(item.role_level) === 2) {
-          cardRoleKeys.get(cardId).add(selectedKey(role.id, role.level));
-        }
-      });
-    });
-
-    return [...cardRoleKeys]
-      .filter(([, roleKeys]) => [...requiredRoleKeys].every((roleKey) => roleKeys.has(roleKey)))
-      .map(([cardId]) => Number(cardId))
-      .filter(Number.isFinite);
-  } catch (error) {
-    console.error('Card role filter error:', error);
-    return [];
-  }
+  if (roleIndex >= 0) filters.selectedRoles.splice(roleIndex, 1);
+  else filters.selectedRoles.push({ position, name, level });
 }
 
 function clearAllFilters() {
-  playerFilters.name = '';
-  playerFilters.minOvr = '';
-  playerFilters.maxOvr = '';
-  playerFilters.minPrice = '';
-  playerFilters.maxPrice = '';
-  playerFilters.minSm = null;
-  playerFilters.minWf = null;
-  playerFilters.positions.clear();
-  playerFilters.onlyPrimary = false;
-  playerFilters.hasAllPositions = false;
-  playerFilters.selectedPlayStyles = [];
-  playerFilters.requireAllPlaystyles = false;
-  playerFilters.minPlaystyles = '';
-  playerFilters.maxPlaystyles = '';
-  playerFilters.minPlaystylesPlus = '';
-  playerFilters.maxPlaystylesPlus = '';
-  playerFilters.selectedRoles = [];
-  playerFilters.hasAllRoles = false;
-  playerFilters.acceleTypes.clear();
-  playerFilters.preferredFoot = '';
-  playerFilters.gender = '';
-  playerFilters.bodyTypes.clear();
-  playerFilters.minHeight = '';
-  playerFilters.maxHeight = '';
-  playerFilters.minWeight = '';
-  playerFilters.maxWeight = '';
-  playerFilters.minAge = '';
-  playerFilters.maxAge = '';
-  playerFilters.nation = '';
-  playerFilters.league = '';
-  playerFilters.club = '';
-  playerFilters.rarities.clear();
+  Object.assign(filters, createDefaultFilters());
   resetStatInputs();
 
   playerNameSearch.value = '';
@@ -1218,16 +975,6 @@ function normalizeBrowserPlayerCard(cardVersion) {
   };
 }
 
-function matchesPositions(card, selectedPositions, onlyPrimary, hasAll) {
-  if (!selectedPositions.length) return true;
-
-  const primary = card.primary_position;
-  const allPositions = [primary, ...(card.secondary_positions ?? [])].filter(Boolean);
-  if (onlyPrimary) return selectedPositions.includes(primary);
-  if (hasAll) return selectedPositions.every((position) => allPositions.includes(position));
-  return selectedPositions.some((position) => allPositions.includes(position));
-}
-
 function createValueScoreBadge(valueScore) {
   const grade = getValueScoreGrade(valueScore);
   const tone = { '가성비 좋음': 'good', '가성비 보통': 'average', '가성비 좋지 않음': 'poor' }[grade];
@@ -1249,7 +996,7 @@ function renderPlayerGrid(cards, scrollPositions = null) {
 
   cards.forEach((card) => {
     const article = document.createElement('article');
-    article.className = 'browser-player-card';
+    article.className = 'browser-player-card rounded-xl overflow-hidden shadow-md border border-slate-700/50 flex flex-col w-full';
     article.tabIndex = 0;
     article.setAttribute('role', 'button');
     article.setAttribute('aria-label', `${getCardName(card)} 선수 상세 정보 보기`);
@@ -1261,7 +1008,9 @@ function renderPlayerGrid(cards, scrollPositions = null) {
       }
     });
     const content = document.createElement('div');
-    content.className = 'browser-player-content';
+    content.className = 'browser-player-content w-full bg-cover bg-center bg-no-repeat relative p-3';
+    content.style.backgroundImage = card.raw?.background_url
+      ? `url(${JSON.stringify(card.raw.background_url)})` : 'none';
     const identity = document.createElement('div');
     identity.className = 'browser-player-identity';
     const rating = document.createElement('span');
@@ -1284,30 +1033,105 @@ function renderPlayerGrid(cards, scrollPositions = null) {
       flag.addEventListener('error', () => flag.remove());
       affiliations.append(flag);
     }
-    for (const [shortName, fullName] of [[card.league_short_name, card.league], [card.club_short_name, card.club]]) {
-      if (!shortName) continue;
+    for (const key of ['league', 'club']) {
+      const shortName = card[`${key}_short_name`];
+      const fullName = card[key];
+      const entity = affiliationCatalog[`${key}s`]?.find(row => String(row.id) === String(card[`${key}_id`]));
+      const logoUrl = getChemistryEntityLogo(card, key) || entity?.logo_url;
+      if (!shortName && !fullName && !logoUrl) continue;
       const label = document.createElement('span');
-      label.textContent = shortName;
-      label.title = fullName ?? shortName;
+      label.textContent = shortName || fullName || '';
+      label.title = fullName ?? shortName ?? '';
+      if (logoUrl) {
+        const logo = document.createElement('img');
+        logo.className = 'browser-player-logo';
+        logo.src = logoUrl;
+        logo.alt = fullName || shortName || key;
+        logo.loading = 'lazy';
+        logo.addEventListener('error', () => label.replaceChildren(shortName || fullName || ''));
+        label.replaceChildren(logo);
+      }
       affiliations.append(label);
     }
-    content.append(identity, affiliations,
-      createPlaystyleBadges(card, Infinity, 'browser-player-playstyles playstyle-badges'));
     const footer = document.createElement('div');
-    footer.className = 'browser-player-footer';
-    const positionAndScore = document.createElement('div');
-    positionAndScore.className = 'browser-player-position-score';
+    footer.className = `browser-player-footer w-full p-2.5 flex flex-col font-bold ${
+      /gold/i.test(card.version ?? '') ? 'bg-[#D4A83B] text-slate-900'
+        : /silver/i.test(card.version ?? '') ? 'bg-[#979A9A] text-slate-900'
+          : /bronze/i.test(card.version ?? '') ? 'bg-[#C2845C] text-slate-900'
+            : 'bg-slate-800 text-slate-100'
+    }`;
+    const positions = document.createElement('div');
+    positions.className = 'browser-player-positions';
     const position = document.createElement('strong');
-    position.className = 'browser-player-position';
+    position.className = 'browser-player-position bg-slate-950/80 text-amber-300 border border-amber-400/80 font-bold';
     position.textContent = card.primary_position || getCardPosition(card) || '-';
+    position.title = '주 포지션';
+    positions.append(position);
+    for (const secondary of card.secondary_positions ?? []) {
+      const badge = document.createElement('span');
+      badge.className = 'browser-player-secondary-position bg-slate-900/60 text-slate-200 border border-slate-600/60';
+      badge.textContent = secondary;
+      badge.title = '부 포지션';
+      positions.append(badge);
+    }
     const score = document.createElement('div');
-    score.className = 'browser-player-meta-score';
+    score.className = 'browser-player-meta-score bg-slate-950/85 text-emerald-400 border border-emerald-500/50 font-extrabold px-2 py-0.5 rounded-md';
     score.textContent = card.meta_score === null ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
     score.title = card.score_position ? `${card.score_position} 기준 · 3백 미적용` : '이 포지션의 가중치가 아직 없습니다.';
-    positionAndScore.append(position, score);
-    const value = createValueScoreBadge(card.value_score);
-    value.classList.add('browser-player-value-score');
-    footer.append(positionAndScore, value);
+    affiliations.append(score);
+    content.append(identity, positions, affiliations,
+      createPlaystyleBadges(card, Infinity, 'browser-player-playstyles playstyle-badges'));
+    const foot = String(card.preferred_foot ?? '').trim();
+    const footLabel = /^(right|r|오른발)$/i.test(foot) ? 'Right'
+      : /^(left|l|왼발)$/i.test(foot) ? 'Left' : foot || '-';
+    const details = document.createElement('div');
+    details.className = 'browser-player-foot-skills flex items-center justify-between';
+    const preferredFoot = document.createElement('span');
+    preferredFoot.textContent = `Foot: ${footLabel}`;
+    const skills = document.createElement('span');
+    skills.textContent = `SM ${card.sm ?? '-'}★ / WF ${card.wf ?? '-'}★`;
+    details.append(preferredFoot, skills);
+    const stats = document.createElement('div');
+    stats.className = 'browser-player-stats grid grid-cols-6 gap-1 text-center';
+    const rawStats = unwrapRelation(card.raw?.player_stats) ?? {};
+    const rawPlayer = unwrapRelation(card.raw?.players) ?? {};
+    // Read display aliases without changing the shared card data mapping.
+    const statValue = (...keys) => {
+      for (const key of keys) {
+        const value = card[key] ?? rawStats[key] ?? rawPlayer[key];
+        if (value !== undefined && value !== null && value !== '') return value;
+      }
+      return '-';
+    };
+    const isGoalkeeper = String(card.primary_position || card.position || '').trim().toUpperCase() === 'GK';
+    const displayedStats = isGoalkeeper ? [
+      ['DIV', statValue('goalkeeping_diving', 'gk_diving', 'pace', 'pac')],
+      ['HAN', statValue('goalkeeping_handling', 'gk_handling', 'shooting', 'sho')],
+      ['KIC', statValue('goalkeeping_kicking', 'gk_kicking', 'passing', 'pas')],
+      ['REF', statValue('goalkeeping_reflexes', 'gk_reflexes', 'dribbling', 'dri')],
+      ['SPD', statValue('defending', 'def', 'movement_sprint_speed', 'sprint_speed')],
+      ['POS', statValue('goalkeeping_positioning', 'gk_positioning', 'physicality', 'phy')],
+    ] : [
+      ['PAC', statValue('pace', 'pac')],
+      ['SHO', statValue('shooting', 'sho')],
+      ['PAS', statValue('passing', 'pas')],
+      ['DRI', statValue('dribbling', 'dri')],
+      ['DEF', statValue('defending', 'def')],
+      ['PHY', statValue('physicality', 'phy')],
+    ];
+    for (const [label, value] of displayedStats) {
+      const item = document.createElement('div');
+      item.className = 'browser-player-stat';
+      const title = document.createElement('span');
+      title.className = 'browser-player-stat-label text-xs font-bold text-slate-800/90';
+      title.textContent = label;
+      const detail = document.createElement('strong');
+      detail.className = 'browser-player-stat-value text-base font-black text-slate-950';
+      detail.textContent = value;
+      item.append(title, detail);
+      stats.append(item);
+    }
+    footer.append(details, stats);
     article.append(content, footer);
     playerGrid.append(article);
   });
