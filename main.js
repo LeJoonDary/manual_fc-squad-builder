@@ -720,6 +720,7 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
   const ticket = playerPagination.begin();
   if (!ticket) return;
   playerSearchAbort = new AbortController();
+  const signal = playerSearchAbort.signal;
   playerPaginationStatus.textContent = '';
   playerLoadMore.hidden = false;
   playerLoadMore.disabled = true;
@@ -737,9 +738,11 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
     if (!append) setPlayerGridLoading();
     let query = supabase
       .from('card_versions')
-      .select(activeStats(playerFilters.stats).length ? PLAYER_BROWSER_SELECT.replace('player_stats (*)', 'player_stats!inner (*)') : PLAYER_BROWSER_SELECT)
+      // Page over lightweight IDs first. Joining all child rows before LIMIT
+      // can still time out even when only 50 results are returned.
+      .select(`id, players!inner (id)${activeStats(playerFilters.stats).length ? ', player_stats!inner (card_id)' : ''}`)
       .order('overall', { ascending: false }).order('id')
-      .abortSignal(playerSearchAbort.signal);
+      .abortSignal(signal);
 
     query = applyStatQuery(query, playerFilters.stats);
 
@@ -771,7 +774,9 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
       query = query.in('id', matchedCardIds.length ? matchedCardIds : [-1]);
     }
 
-    const data = await fetchPlayerPage(query, ticket.offset);
+    const data = await fetchPlayerPage(query, ticket.offset, ids => supabase
+      .from('card_versions').select(PLAYER_BROWSER_SELECT).in('id', ids)
+      .limit(50).abortSignal(signal));
     if (requestId !== playerSearchRequest) return;
 
     const cardsById = new Map();
@@ -1255,35 +1260,55 @@ function renderPlayerGrid(cards, scrollPositions = null) {
         openPlayerDetailModal(card);
       }
     });
-    const image = getCardImage(card);
-    if (image) {
-      const thumbnail = document.createElement('img');
-      thumbnail.className = 'browser-player-image';
-      thumbnail.src = image;
-      thumbnail.alt = '';
-      thumbnail.loading = 'lazy';
-      thumbnail.addEventListener('error', () => thumbnail.remove());
-      article.append(thumbnail);
-    }
     const content = document.createElement('div');
     content.className = 'browser-player-content';
+    const identity = document.createElement('div');
+    identity.className = 'browser-player-identity';
     const rating = document.createElement('span');
     rating.className = 'browser-player-rating';
     rating.textContent = getCardRating(card) || '-';
     const name = document.createElement('h3');
     name.textContent = getCardName(card);
-    const meta = document.createElement('p');
-    meta.textContent = [getCardPosition(card), card.nation, card.club].filter(Boolean).join(' · ') || '카드 정보';
-    content.append(rating, name, meta);
+    name.title = getCardName(card);
+    identity.append(rating, name);
+    const affiliations = document.createElement('div');
+    affiliations.className = 'browser-player-affiliations';
+    if (card.nation_flag_url) {
+      const flag = document.createElement('img');
+      flag.className = 'browser-player-flag';
+      flag.src = card.nation_flag_url;
+      flag.alt = card.nation ? `${card.nation} 국기` : '국기';
+      flag.title = card.nation ?? '';
+      flag.width = 24;
+      flag.loading = 'lazy';
+      flag.addEventListener('error', () => flag.remove());
+      affiliations.append(flag);
+    }
+    for (const [shortName, fullName] of [[card.league_short_name, card.league], [card.club_short_name, card.club]]) {
+      if (!shortName) continue;
+      const label = document.createElement('span');
+      label.textContent = shortName;
+      label.title = fullName ?? shortName;
+      affiliations.append(label);
+    }
+    content.append(identity, affiliations,
+      createPlaystyleBadges(card, Infinity, 'browser-player-playstyles playstyle-badges'));
+    const footer = document.createElement('div');
+    footer.className = 'browser-player-footer';
+    const positionAndScore = document.createElement('div');
+    positionAndScore.className = 'browser-player-position-score';
+    const position = document.createElement('strong');
+    position.className = 'browser-player-position';
+    position.textContent = card.primary_position || getCardPosition(card) || '-';
     const score = document.createElement('div');
     score.className = 'browser-player-meta-score';
     score.textContent = card.meta_score === null ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
     score.title = card.score_position ? `${card.score_position} 기준 · 3백 미적용` : '이 포지션의 가중치가 아직 없습니다.';
-    content.append(score);
+    positionAndScore.append(position, score);
     const value = createValueScoreBadge(card.value_score);
     value.classList.add('browser-player-value-score');
-    content.append(value);
-    article.append(content);
+    footer.append(positionAndScore, value);
+    article.append(content, footer);
     playerGrid.append(article);
   });
   restorePlayerPanelScrollPositions(scrollPositions);
@@ -1555,6 +1580,11 @@ function normalizePlayerCard(row) {
     dri: stats.dri,
     def: stats.def,
     phy: stats.phy,
+    gk_reflexes: stats.gk_reflexes,
+    gk_diving: stats.gk_diving,
+    gk_positioning: stats.gk_positioning,
+    gk_handling: stats.gk_handling,
+    reactions: stats.reactions,
     playstyles,
     raw: cardVersion,
     // card_roles는 Supabase가 배열로 반환합니다. 렌더링 시 이 원본 배열을 직접 순회합니다.

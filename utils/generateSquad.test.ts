@@ -40,7 +40,9 @@ describe('generateOptimalSquad', () => {
     expect(result.totalCost).toBe(990000);
     expect(new Set(result.squad.map(p => p.playerKey)).size).toBe(11);
     expect(calculateSquadChemistry(result.squad, true).totalChemistry).toBe(result.totalChemistry);
-    expect(result.teamMetaScore).toBeCloseTo((92 * 10 + 88) / 11);
+    // The fixture omits reactions: keeper stats contribute 88 * .9, with no height/trait bonuses.
+    expect(result.squad.find(player => player.slotPosition === 'GK')?.metaScore).toBe(79.2);
+    expect(result.teamMetaScore).toBeCloseTo((92 * 10 + 79.2) / 11);
     expect(result.iterations).toBeLessThanOrEqual(1500);
     expect(candidates).toEqual(snapshot);
   });

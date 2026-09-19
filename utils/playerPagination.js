@@ -36,8 +36,16 @@ export function createPlayerPagination() {
   };
 }
 
-export async function fetchPlayerPage(query, offset) {
+export async function fetchPlayerPage(query, offset, fetchDetails) {
   const { data, error } = await query.limit(PLAYER_PAGE_SIZE).range(offset, offset + PLAYER_PAGE_SIZE - 1);
   if (error) throw error;
-  return data ?? [];
+  const page = data ?? [];
+  if (!fetchDetails || !page.length) return page;
+  const { data: details, error: detailError } = await fetchDetails(page.map(row => row.id));
+  if (detailError) throw detailError;
+  const byId = new Map((details ?? []).map(row => [String(row.id), row]));
+  if (page.some(row => !byId.has(String(row.id)))) {
+    throw new Error('일부 선수의 상세 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
+  }
+  return page.map(row => byId.get(String(row.id)));
 }

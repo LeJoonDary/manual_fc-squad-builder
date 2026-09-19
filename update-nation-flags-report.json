@@ -1,0 +1,1327 @@
+{
+  "status": "complete",
+  "updated": 164,
+  "failures": [],
+  "api": "https://flagcdn.com/en/codes.json",
+  "rows_before": 164,
+  "cached_nations": 164,
+  "verified_image_urls": 164,
+  "mappings": [
+    {
+      "id": 1,
+      "name": "Spain",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/1.webp",
+      "code": "es",
+      "api_name": "Spain",
+      "flag_url": "https://flagcdn.com/es.svg"
+    },
+    {
+      "id": 2,
+      "name": "France",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/2.webp",
+      "code": "fr",
+      "api_name": "France",
+      "flag_url": "https://flagcdn.com/fr.svg"
+    },
+    {
+      "id": 3,
+      "name": "Norway",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/3.webp",
+      "code": "no",
+      "api_name": "Norway",
+      "flag_url": "https://flagcdn.com/no.svg"
+    },
+    {
+      "id": 4,
+      "name": "Belgium",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/4.webp",
+      "code": "be",
+      "api_name": "Belgium",
+      "flag_url": "https://flagcdn.com/be.svg"
+    },
+    {
+      "id": 5,
+      "name": "England",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/5.webp",
+      "code": "gb-eng",
+      "api_name": "England",
+      "flag_url": "https://flagcdn.com/gb-eng.svg"
+    },
+    {
+      "id": 6,
+      "name": "Jamaica",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/6.webp",
+      "code": "jm",
+      "api_name": "Jamaica",
+      "flag_url": "https://flagcdn.com/jm.svg"
+    },
+    {
+      "id": 7,
+      "name": "Portugal",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/7.webp",
+      "code": "pt",
+      "api_name": "Portugal",
+      "flag_url": "https://flagcdn.com/pt.svg"
+    },
+    {
+      "id": 8,
+      "name": "Argentina",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/8.webp",
+      "code": "ar",
+      "api_name": "Argentina",
+      "flag_url": "https://flagcdn.com/ar.svg"
+    },
+    {
+      "id": 9,
+      "name": "Italy",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/9.webp",
+      "code": "it",
+      "api_name": "Italy",
+      "flag_url": "https://flagcdn.com/it.svg"
+    },
+    {
+      "id": 10,
+      "name": "Brazil",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/10.webp",
+      "code": "br",
+      "api_name": "Brazil",
+      "flag_url": "https://flagcdn.com/br.svg"
+    },
+    {
+      "id": 11,
+      "name": "Poland",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/11.webp",
+      "code": "pl",
+      "api_name": "Poland",
+      "flag_url": "https://flagcdn.com/pl.svg"
+    },
+    {
+      "id": 12,
+      "name": "Georgia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/12.webp",
+      "code": "ge",
+      "api_name": "Georgia",
+      "flag_url": "https://flagcdn.com/ge.svg"
+    },
+    {
+      "id": 13,
+      "name": "Ecuador",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/13.webp",
+      "code": "ec",
+      "api_name": "Ecuador",
+      "flag_url": "https://flagcdn.com/ec.svg"
+    },
+    {
+      "id": 14,
+      "name": "Malawi",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/14.webp",
+      "code": "mw",
+      "api_name": "Malawi",
+      "flag_url": "https://flagcdn.com/mw.svg"
+    },
+    {
+      "id": 15,
+      "name": "Slovenia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/15.webp",
+      "code": "si",
+      "api_name": "Slovenia",
+      "flag_url": "https://flagcdn.com/si.svg"
+    },
+    {
+      "id": 16,
+      "name": "Holland",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/16.webp",
+      "code": "nl",
+      "api_name": "Netherlands",
+      "flag_url": "https://flagcdn.com/nl.svg"
+    },
+    {
+      "id": 17,
+      "name": "Germany",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/17.webp",
+      "code": "de",
+      "api_name": "Germany",
+      "flag_url": "https://flagcdn.com/de.svg"
+    },
+    {
+      "id": 18,
+      "name": "Morocco",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/18.webp",
+      "code": "ma",
+      "api_name": "Morocco",
+      "flag_url": "https://flagcdn.com/ma.svg"
+    },
+    {
+      "id": 19,
+      "name": "Colombia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/19.webp",
+      "code": "co",
+      "api_name": "Colombia",
+      "flag_url": "https://flagcdn.com/co.svg"
+    },
+    {
+      "id": 20,
+      "name": "Japan",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/20.webp",
+      "code": "jp",
+      "api_name": "Japan",
+      "flag_url": "https://flagcdn.com/jp.svg"
+    },
+    {
+      "id": 21,
+      "name": "United States",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/21.webp",
+      "code": "us",
+      "api_name": "United States",
+      "flag_url": "https://flagcdn.com/us.svg"
+    },
+    {
+      "id": 22,
+      "name": "Haiti",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/22.webp",
+      "code": "ht",
+      "api_name": "Haiti",
+      "flag_url": "https://flagcdn.com/ht.svg"
+    },
+    {
+      "id": 23,
+      "name": "Zambia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/23.webp",
+      "code": "zm",
+      "api_name": "Zambia",
+      "flag_url": "https://flagcdn.com/zm.svg"
+    },
+    {
+      "id": 24,
+      "name": "Egypt",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/24.webp",
+      "code": "eg",
+      "api_name": "Egypt",
+      "flag_url": "https://flagcdn.com/eg.svg"
+    },
+    {
+      "id": 25,
+      "name": "Switzerland",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/25.webp",
+      "code": "ch",
+      "api_name": "Switzerland",
+      "flag_url": "https://flagcdn.com/ch.svg"
+    },
+    {
+      "id": 26,
+      "name": "Uruguay",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/26.webp",
+      "code": "uy",
+      "api_name": "Uruguay",
+      "flag_url": "https://flagcdn.com/uy.svg"
+    },
+    {
+      "id": 27,
+      "name": "Denmark",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/27.webp",
+      "code": "dk",
+      "api_name": "Denmark",
+      "flag_url": "https://flagcdn.com/dk.svg"
+    },
+    {
+      "id": 28,
+      "name": "Sweden",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/28.webp",
+      "code": "se",
+      "api_name": "Sweden",
+      "flag_url": "https://flagcdn.com/se.svg"
+    },
+    {
+      "id": 29,
+      "name": "Hungary",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/29.webp",
+      "code": "hu",
+      "api_name": "Hungary",
+      "flag_url": "https://flagcdn.com/hu.svg"
+    },
+    {
+      "id": 30,
+      "name": "Scotland",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/30.webp",
+      "code": "gb-sct",
+      "api_name": "Scotland",
+      "flag_url": "https://flagcdn.com/gb-sct.svg"
+    },
+    {
+      "id": 31,
+      "name": "Republic of Ireland",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/31.webp",
+      "code": "ie",
+      "api_name": "Ireland",
+      "flag_url": "https://flagcdn.com/ie.svg"
+    },
+    {
+      "id": 32,
+      "name": "Croatia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/32.webp",
+      "code": "hr",
+      "api_name": "Croatia",
+      "flag_url": "https://flagcdn.com/hr.svg"
+    },
+    {
+      "id": 33,
+      "name": "Turkey",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/33.webp",
+      "code": "tr",
+      "api_name": "Turkey",
+      "flag_url": "https://flagcdn.com/tr.svg"
+    },
+    {
+      "id": 34,
+      "name": "Guinea",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/34.webp",
+      "code": "gn",
+      "api_name": "Guinea",
+      "flag_url": "https://flagcdn.com/gn.svg"
+    },
+    {
+      "id": 35,
+      "name": "Austria",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/35.webp",
+      "code": "at",
+      "api_name": "Austria",
+      "flag_url": "https://flagcdn.com/at.svg"
+    },
+    {
+      "id": 36,
+      "name": "Australia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/36.webp",
+      "code": "au",
+      "api_name": "Australia",
+      "flag_url": "https://flagcdn.com/au.svg"
+    },
+    {
+      "id": 37,
+      "name": "Serbia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/37.webp",
+      "code": "rs",
+      "api_name": "Serbia",
+      "flag_url": "https://flagcdn.com/rs.svg"
+    },
+    {
+      "id": 38,
+      "name": "Nigeria",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/38.webp",
+      "code": "ng",
+      "api_name": "Nigeria",
+      "flag_url": "https://flagcdn.com/ng.svg"
+    },
+    {
+      "id": 39,
+      "name": "Ghana",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/39.webp",
+      "code": "gh",
+      "api_name": "Ghana",
+      "flag_url": "https://flagcdn.com/gh.svg"
+    },
+    {
+      "id": 40,
+      "name": "Chile",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/40.webp",
+      "code": "cl",
+      "api_name": "Chile",
+      "flag_url": "https://flagcdn.com/cl.svg"
+    },
+    {
+      "id": 41,
+      "name": "Côte d'Ivoire",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/41.webp",
+      "code": "ci",
+      "api_name": "Côte d'Ivoire (Ivory Coast)",
+      "flag_url": "https://flagcdn.com/ci.svg"
+    },
+    {
+      "id": 42,
+      "name": "Mexico",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/42.webp",
+      "code": "mx",
+      "api_name": "Mexico",
+      "flag_url": "https://flagcdn.com/mx.svg"
+    },
+    {
+      "id": 43,
+      "name": "Cameroon",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/43.webp",
+      "code": "cm",
+      "api_name": "Cameroon",
+      "flag_url": "https://flagcdn.com/cm.svg"
+    },
+    {
+      "id": 44,
+      "name": "Canada",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/44.webp",
+      "code": "ca",
+      "api_name": "Canada",
+      "flag_url": "https://flagcdn.com/ca.svg"
+    },
+    {
+      "id": 45,
+      "name": "Iceland",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/45.webp",
+      "code": "is",
+      "api_name": "Iceland",
+      "flag_url": "https://flagcdn.com/is.svg"
+    },
+    {
+      "id": 46,
+      "name": "Greece",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/46.webp",
+      "code": "gr",
+      "api_name": "Greece",
+      "flag_url": "https://flagcdn.com/gr.svg"
+    },
+    {
+      "id": 47,
+      "name": "Slovakia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/47.webp",
+      "code": "sk",
+      "api_name": "Slovakia",
+      "flag_url": "https://flagcdn.com/sk.svg"
+    },
+    {
+      "id": 48,
+      "name": "Czech Republic",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/48.webp",
+      "code": "cz",
+      "api_name": "Czechia",
+      "flag_url": "https://flagcdn.com/cz.svg"
+    },
+    {
+      "id": 49,
+      "name": "Korea Republic",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/49.webp",
+      "code": "kr",
+      "api_name": "South Korea",
+      "flag_url": "https://flagcdn.com/kr.svg"
+    },
+    {
+      "id": 50,
+      "name": "Russia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/50.webp",
+      "code": "ru",
+      "api_name": "Russia",
+      "flag_url": "https://flagcdn.com/ru.svg"
+    },
+    {
+      "id": 51,
+      "name": "Kosovo",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/51.webp",
+      "code": "xk",
+      "api_name": "Kosovo",
+      "flag_url": "https://flagcdn.com/xk.svg"
+    },
+    {
+      "id": 52,
+      "name": "Senegal",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/52.webp",
+      "code": "sn",
+      "api_name": "Senegal",
+      "flag_url": "https://flagcdn.com/sn.svg"
+    },
+    {
+      "id": 53,
+      "name": "Burkina Faso",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/53.webp",
+      "code": "bf",
+      "api_name": "Burkina Faso",
+      "flag_url": "https://flagcdn.com/bf.svg"
+    },
+    {
+      "id": 54,
+      "name": "Uzbekistan",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/54.webp",
+      "code": "uz",
+      "api_name": "Uzbekistan",
+      "flag_url": "https://flagcdn.com/uz.svg"
+    },
+    {
+      "id": 55,
+      "name": "New Zealand",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/55.webp",
+      "code": "nz",
+      "api_name": "New Zealand",
+      "flag_url": "https://flagcdn.com/nz.svg"
+    },
+    {
+      "id": 56,
+      "name": "Armenia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/56.webp",
+      "code": "am",
+      "api_name": "Armenia",
+      "flag_url": "https://flagcdn.com/am.svg"
+    },
+    {
+      "id": 57,
+      "name": "Wales",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/57.webp",
+      "code": "gb-wls",
+      "api_name": "Wales",
+      "flag_url": "https://flagcdn.com/gb-wls.svg"
+    },
+    {
+      "id": 58,
+      "name": "Paraguay",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/58.webp",
+      "code": "py",
+      "api_name": "Paraguay",
+      "flag_url": "https://flagcdn.com/py.svg"
+    },
+    {
+      "id": 59,
+      "name": "Algeria",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/59.webp",
+      "code": "dz",
+      "api_name": "Algeria",
+      "flag_url": "https://flagcdn.com/dz.svg"
+    },
+    {
+      "id": 60,
+      "name": "Mali",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/60.webp",
+      "code": "ml",
+      "api_name": "Mali",
+      "flag_url": "https://flagcdn.com/ml.svg"
+    },
+    {
+      "id": 61,
+      "name": "Congo DR",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/61.webp",
+      "code": "cd",
+      "api_name": "DR Congo",
+      "flag_url": "https://flagcdn.com/cd.svg"
+    },
+    {
+      "id": 62,
+      "name": "Costa Rica",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/62.webp",
+      "code": "cr",
+      "api_name": "Costa Rica",
+      "flag_url": "https://flagcdn.com/cr.svg"
+    },
+    {
+      "id": 63,
+      "name": "Saudi Arabia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/63.webp",
+      "code": "sa",
+      "api_name": "Saudi Arabia",
+      "flag_url": "https://flagcdn.com/sa.svg"
+    },
+    {
+      "id": 64,
+      "name": "Mozambique",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/64.webp",
+      "code": "mz",
+      "api_name": "Mozambique",
+      "flag_url": "https://flagcdn.com/mz.svg"
+    },
+    {
+      "id": 65,
+      "name": "Bosnia and Herzegovina",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/65.webp",
+      "code": "ba",
+      "api_name": "Bosnia and Herzegovina",
+      "flag_url": "https://flagcdn.com/ba.svg"
+    },
+    {
+      "id": 66,
+      "name": "Ukraine",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/66.webp",
+      "code": "ua",
+      "api_name": "Ukraine",
+      "flag_url": "https://flagcdn.com/ua.svg"
+    },
+    {
+      "id": 67,
+      "name": "Romania",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/67.webp",
+      "code": "ro",
+      "api_name": "Romania",
+      "flag_url": "https://flagcdn.com/ro.svg"
+    },
+    {
+      "id": 68,
+      "name": "Gambia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/68.webp",
+      "code": "gm",
+      "api_name": "Gambia",
+      "flag_url": "https://flagcdn.com/gm.svg"
+    },
+    {
+      "id": 69,
+      "name": "Gabon",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/69.webp",
+      "code": "ga",
+      "api_name": "Gabon",
+      "flag_url": "https://flagcdn.com/ga.svg"
+    },
+    {
+      "id": 70,
+      "name": "Finland",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/70.webp",
+      "code": "fi",
+      "api_name": "Finland",
+      "flag_url": "https://flagcdn.com/fi.svg"
+    },
+    {
+      "id": 71,
+      "name": "Albania",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/71.webp",
+      "code": "al",
+      "api_name": "Albania",
+      "flag_url": "https://flagcdn.com/al.svg"
+    },
+    {
+      "id": 72,
+      "name": "Indonesia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/72.webp",
+      "code": "id",
+      "api_name": "Indonesia",
+      "flag_url": "https://flagcdn.com/id.svg"
+    },
+    {
+      "id": 73,
+      "name": "Northern Ireland",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/73.webp",
+      "code": "gb-nir",
+      "api_name": "Northern Ireland",
+      "flag_url": "https://flagcdn.com/gb-nir.svg"
+    },
+    {
+      "id": 74,
+      "name": "Israel",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/74.webp",
+      "code": "il",
+      "api_name": "Israel",
+      "flag_url": "https://flagcdn.com/il.svg"
+    },
+    {
+      "id": 75,
+      "name": "Montenegro",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/75.webp",
+      "code": "me",
+      "api_name": "Montenegro",
+      "flag_url": "https://flagcdn.com/me.svg"
+    },
+    {
+      "id": 76,
+      "name": "Venezuela",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/76.webp",
+      "code": "ve",
+      "api_name": "Venezuela",
+      "flag_url": "https://flagcdn.com/ve.svg"
+    },
+    {
+      "id": 77,
+      "name": "Dominican Republic",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/77.webp",
+      "code": "do",
+      "api_name": "Dominican Republic",
+      "flag_url": "https://flagcdn.com/do.svg"
+    },
+    {
+      "id": 78,
+      "name": "Luxembourg",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/78.webp",
+      "code": "lu",
+      "api_name": "Luxembourg",
+      "flag_url": "https://flagcdn.com/lu.svg"
+    },
+    {
+      "id": 79,
+      "name": "Angola",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/79.webp",
+      "code": "ao",
+      "api_name": "Angola",
+      "flag_url": "https://flagcdn.com/ao.svg"
+    },
+    {
+      "id": 80,
+      "name": "North Macedonia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/80.webp",
+      "code": "mk",
+      "api_name": "North Macedonia",
+      "flag_url": "https://flagcdn.com/mk.svg"
+    },
+    {
+      "id": 81,
+      "name": "Togo",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/81.webp",
+      "code": "tg",
+      "api_name": "Togo",
+      "flag_url": "https://flagcdn.com/tg.svg"
+    },
+    {
+      "id": 82,
+      "name": "Trinidad and Tobago",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/82.webp",
+      "code": "tt",
+      "api_name": "Trinidad and Tobago",
+      "flag_url": "https://flagcdn.com/tt.svg"
+    },
+    {
+      "id": 83,
+      "name": "Comoros",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/83.webp",
+      "code": "km",
+      "api_name": "Comoros",
+      "flag_url": "https://flagcdn.com/km.svg"
+    },
+    {
+      "id": 84,
+      "name": "Iran",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/84.webp",
+      "code": "ir",
+      "api_name": "Iran",
+      "flag_url": "https://flagcdn.com/ir.svg"
+    },
+    {
+      "id": 85,
+      "name": "Guinea-Bissau",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/85.webp",
+      "code": "gw",
+      "api_name": "Guinea-Bissau",
+      "flag_url": "https://flagcdn.com/gw.svg"
+    },
+    {
+      "id": 86,
+      "name": "Liberia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/86.webp",
+      "code": "lr",
+      "api_name": "Liberia",
+      "flag_url": "https://flagcdn.com/lr.svg"
+    },
+    {
+      "id": 87,
+      "name": "Jordan",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/87.webp",
+      "code": "jo",
+      "api_name": "Jordan",
+      "flag_url": "https://flagcdn.com/jo.svg"
+    },
+    {
+      "id": 88,
+      "name": "Philippines",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/88.webp",
+      "code": "ph",
+      "api_name": "Philippines",
+      "flag_url": "https://flagcdn.com/ph.svg"
+    },
+    {
+      "id": 89,
+      "name": "Guatemala",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/89.webp",
+      "code": "gt",
+      "api_name": "Guatemala",
+      "flag_url": "https://flagcdn.com/gt.svg"
+    },
+    {
+      "id": 90,
+      "name": "Central African Republic",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/90.webp",
+      "code": "cf",
+      "api_name": "Central African Republic",
+      "flag_url": "https://flagcdn.com/cf.svg"
+    },
+    {
+      "id": 91,
+      "name": "Tunisia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/91.webp",
+      "code": "tn",
+      "api_name": "Tunisia",
+      "flag_url": "https://flagcdn.com/tn.svg"
+    },
+    {
+      "id": 92,
+      "name": "Mauritania",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/92.webp",
+      "code": "mr",
+      "api_name": "Mauritania",
+      "flag_url": "https://flagcdn.com/mr.svg"
+    },
+    {
+      "id": 93,
+      "name": "Zimbabwe",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/93.webp",
+      "code": "zw",
+      "api_name": "Zimbabwe",
+      "flag_url": "https://flagcdn.com/zw.svg"
+    },
+    {
+      "id": 94,
+      "name": "Cape Verde Islands",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/94.webp",
+      "code": "cv",
+      "api_name": "Cape Verde",
+      "flag_url": "https://flagcdn.com/cv.svg"
+    },
+    {
+      "id": 95,
+      "name": "United Arab Emirates",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/95.webp",
+      "code": "ae",
+      "api_name": "United Arab Emirates",
+      "flag_url": "https://flagcdn.com/ae.svg"
+    },
+    {
+      "id": 96,
+      "name": "Suriname",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/96.webp",
+      "code": "sr",
+      "api_name": "Suriname",
+      "flag_url": "https://flagcdn.com/sr.svg"
+    },
+    {
+      "id": 97,
+      "name": "South Africa",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/97.webp",
+      "code": "za",
+      "api_name": "South Africa",
+      "flag_url": "https://flagcdn.com/za.svg"
+    },
+    {
+      "id": 98,
+      "name": "Equatorial Guinea",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/98.webp",
+      "code": "gq",
+      "api_name": "Equatorial Guinea",
+      "flag_url": "https://flagcdn.com/gq.svg"
+    },
+    {
+      "id": 99,
+      "name": "Honduras",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/99.webp",
+      "code": "hn",
+      "api_name": "Honduras",
+      "flag_url": "https://flagcdn.com/hn.svg"
+    },
+    {
+      "id": 100,
+      "name": "New Caledonia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/100.webp",
+      "code": "nc",
+      "api_name": "New Caledonia",
+      "flag_url": "https://flagcdn.com/nc.svg"
+    },
+    {
+      "id": 101,
+      "name": "Bulgaria",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/101.webp",
+      "code": "bg",
+      "api_name": "Bulgaria",
+      "flag_url": "https://flagcdn.com/bg.svg"
+    },
+    {
+      "id": 102,
+      "name": "Burundi",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/102.webp",
+      "code": "bi",
+      "api_name": "Burundi",
+      "flag_url": "https://flagcdn.com/bi.svg"
+    },
+    {
+      "id": 103,
+      "name": "Panama",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/103.webp",
+      "code": "pa",
+      "api_name": "Panama",
+      "flag_url": "https://flagcdn.com/pa.svg"
+    },
+    {
+      "id": 104,
+      "name": "Curaçao",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/104.webp",
+      "code": "cw",
+      "api_name": "Curaçao",
+      "flag_url": "https://flagcdn.com/cw.svg"
+    },
+    {
+      "id": 105,
+      "name": "Libya",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/105.webp",
+      "code": "ly",
+      "api_name": "Libya",
+      "flag_url": "https://flagcdn.com/ly.svg"
+    },
+    {
+      "id": 106,
+      "name": "Peru",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/106.webp",
+      "code": "pe",
+      "api_name": "Peru",
+      "flag_url": "https://flagcdn.com/pe.svg"
+    },
+    {
+      "id": 107,
+      "name": "Azerbaijan",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/107.webp",
+      "code": "az",
+      "api_name": "Azerbaijan",
+      "flag_url": "https://flagcdn.com/az.svg"
+    },
+    {
+      "id": 108,
+      "name": "Pakistan",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/108.webp",
+      "code": "pk",
+      "api_name": "Pakistan",
+      "flag_url": "https://flagcdn.com/pk.svg"
+    },
+    {
+      "id": 109,
+      "name": "Sierra Leone",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/109.webp",
+      "code": "sl",
+      "api_name": "Sierra Leone",
+      "flag_url": "https://flagcdn.com/sl.svg"
+    },
+    {
+      "id": 110,
+      "name": "Estonia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/110.webp",
+      "code": "ee",
+      "api_name": "Estonia",
+      "flag_url": "https://flagcdn.com/ee.svg"
+    },
+    {
+      "id": 111,
+      "name": "Lithuania",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/111.webp",
+      "code": "lt",
+      "api_name": "Lithuania",
+      "flag_url": "https://flagcdn.com/lt.svg"
+    },
+    {
+      "id": 112,
+      "name": "Cyprus",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/112.webp",
+      "code": "cy",
+      "api_name": "Cyprus",
+      "flag_url": "https://flagcdn.com/cy.svg"
+    },
+    {
+      "id": 113,
+      "name": "Malta",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/113.webp",
+      "code": "mt",
+      "api_name": "Malta",
+      "flag_url": "https://flagcdn.com/mt.svg"
+    },
+    {
+      "id": 114,
+      "name": "Benin",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/114.webp",
+      "code": "bj",
+      "api_name": "Benin",
+      "flag_url": "https://flagcdn.com/bj.svg"
+    },
+    {
+      "id": 115,
+      "name": "Latvia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/115.webp",
+      "code": "lv",
+      "api_name": "Latvia",
+      "flag_url": "https://flagcdn.com/lv.svg"
+    },
+    {
+      "id": 116,
+      "name": "Congo",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/116.webp",
+      "code": "cg",
+      "api_name": "Republic of the Congo",
+      "flag_url": "https://flagcdn.com/cg.svg"
+    },
+    {
+      "id": 117,
+      "name": "Niger",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/117.webp",
+      "code": "ne",
+      "api_name": "Niger",
+      "flag_url": "https://flagcdn.com/ne.svg"
+    },
+    {
+      "id": 118,
+      "name": "China PR",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/118.webp",
+      "code": "cn",
+      "api_name": "China",
+      "flag_url": "https://flagcdn.com/cn.svg"
+    },
+    {
+      "id": 119,
+      "name": "Bolivia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/119.webp",
+      "code": "bo",
+      "api_name": "Bolivia",
+      "flag_url": "https://flagcdn.com/bo.svg"
+    },
+    {
+      "id": 120,
+      "name": "Tanzania",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/120.webp",
+      "code": "tz",
+      "api_name": "Tanzania",
+      "flag_url": "https://flagcdn.com/tz.svg"
+    },
+    {
+      "id": 121,
+      "name": "Madagascar",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/121.webp",
+      "code": "mg",
+      "api_name": "Madagascar",
+      "flag_url": "https://flagcdn.com/mg.svg"
+    },
+    {
+      "id": 122,
+      "name": "Eritrea",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/122.webp",
+      "code": "er",
+      "api_name": "Eritrea",
+      "flag_url": "https://flagcdn.com/er.svg"
+    },
+    {
+      "id": 123,
+      "name": "Syria",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/123.webp",
+      "code": "sy",
+      "api_name": "Syria",
+      "flag_url": "https://flagcdn.com/sy.svg"
+    },
+    {
+      "id": 124,
+      "name": "El Salvador",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/124.webp",
+      "code": "sv",
+      "api_name": "El Salvador",
+      "flag_url": "https://flagcdn.com/sv.svg"
+    },
+    {
+      "id": 125,
+      "name": "Chad",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/125.webp",
+      "code": "td",
+      "api_name": "Chad",
+      "flag_url": "https://flagcdn.com/td.svg"
+    },
+    {
+      "id": 126,
+      "name": "Kenya",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/126.webp",
+      "code": "ke",
+      "api_name": "Kenya",
+      "flag_url": "https://flagcdn.com/ke.svg"
+    },
+    {
+      "id": 127,
+      "name": "St. Kitts and Nevis",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/127.webp",
+      "code": "kn",
+      "api_name": "Saint Kitts and Nevis",
+      "flag_url": "https://flagcdn.com/kn.svg"
+    },
+    {
+      "id": 128,
+      "name": "Chinese Taipei",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/128.webp",
+      "code": "tw",
+      "api_name": "Taiwan",
+      "flag_url": "https://flagcdn.com/tw.svg"
+    },
+    {
+      "id": 129,
+      "name": "Thailand",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/129.webp",
+      "code": "th",
+      "api_name": "Thailand",
+      "flag_url": "https://flagcdn.com/th.svg"
+    },
+    {
+      "id": 130,
+      "name": "Iraq",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/130.webp",
+      "code": "iq",
+      "api_name": "Iraq",
+      "flag_url": "https://flagcdn.com/iq.svg"
+    },
+    {
+      "id": 131,
+      "name": "Hong Kong",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/131.webp",
+      "code": "hk",
+      "api_name": "Hong Kong",
+      "flag_url": "https://flagcdn.com/hk.svg"
+    },
+    {
+      "id": 132,
+      "name": "India",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/132.webp",
+      "code": "in",
+      "api_name": "India",
+      "flag_url": "https://flagcdn.com/in.svg"
+    },
+    {
+      "id": 133,
+      "name": "Bangladesh",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/133.webp",
+      "code": "bd",
+      "api_name": "Bangladesh",
+      "flag_url": "https://flagcdn.com/bd.svg"
+    },
+    {
+      "id": 134,
+      "name": "St. Lucia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/134.webp",
+      "code": "lc",
+      "api_name": "Saint Lucia",
+      "flag_url": "https://flagcdn.com/lc.svg"
+    },
+    {
+      "id": 135,
+      "name": "Palestine",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/135.webp",
+      "code": "ps",
+      "api_name": "Palestine",
+      "flag_url": "https://flagcdn.com/ps.svg"
+    },
+    {
+      "id": 136,
+      "name": "Andorra",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/136.webp",
+      "code": "ad",
+      "api_name": "Andorra",
+      "flag_url": "https://flagcdn.com/ad.svg"
+    },
+    {
+      "id": 137,
+      "name": "Kazakhstan",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/137.webp",
+      "code": "kz",
+      "api_name": "Kazakhstan",
+      "flag_url": "https://flagcdn.com/kz.svg"
+    },
+    {
+      "id": 138,
+      "name": "Moldova",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/138.webp",
+      "code": "md",
+      "api_name": "Moldova",
+      "flag_url": "https://flagcdn.com/md.svg"
+    },
+    {
+      "id": 139,
+      "name": "Uganda",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/139.webp",
+      "code": "ug",
+      "api_name": "Uganda",
+      "flag_url": "https://flagcdn.com/ug.svg"
+    },
+    {
+      "id": 140,
+      "name": "Guyana",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/140.webp",
+      "code": "gy",
+      "api_name": "Guyana",
+      "flag_url": "https://flagcdn.com/gy.svg"
+    },
+    {
+      "id": 141,
+      "name": "Lebanon",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/141.webp",
+      "code": "lb",
+      "api_name": "Lebanon",
+      "flag_url": "https://flagcdn.com/lb.svg"
+    },
+    {
+      "id": 142,
+      "name": "Faroe Islands",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/142.webp",
+      "code": "fo",
+      "api_name": "Faroe Islands",
+      "flag_url": "https://flagcdn.com/fo.svg"
+    },
+    {
+      "id": 143,
+      "name": "Vanuatu",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/143.webp",
+      "code": "vu",
+      "api_name": "Vanuatu",
+      "flag_url": "https://flagcdn.com/vu.svg"
+    },
+    {
+      "id": 144,
+      "name": "Grenada",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/144.webp",
+      "code": "gd",
+      "api_name": "Grenada",
+      "flag_url": "https://flagcdn.com/gd.svg"
+    },
+    {
+      "id": 145,
+      "name": "Belarus",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/145.webp",
+      "code": "by",
+      "api_name": "Belarus",
+      "flag_url": "https://flagcdn.com/by.svg"
+    },
+    {
+      "id": 146,
+      "name": "Cuba",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/146.webp",
+      "code": "cu",
+      "api_name": "Cuba",
+      "flag_url": "https://flagcdn.com/cu.svg"
+    },
+    {
+      "id": 147,
+      "name": "Bermuda",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/147.webp",
+      "code": "bm",
+      "api_name": "Bermuda",
+      "flag_url": "https://flagcdn.com/bm.svg"
+    },
+    {
+      "id": 148,
+      "name": "Liechtenstein",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/148.webp",
+      "code": "li",
+      "api_name": "Liechtenstein",
+      "flag_url": "https://flagcdn.com/li.svg"
+    },
+    {
+      "id": 149,
+      "name": "Antigua and Barbuda",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/149.webp",
+      "code": "ag",
+      "api_name": "Antigua and Barbuda",
+      "flag_url": "https://flagcdn.com/ag.svg"
+    },
+    {
+      "id": 150,
+      "name": "Qatar",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/150.webp",
+      "code": "qa",
+      "api_name": "Qatar",
+      "flag_url": "https://flagcdn.com/qa.svg"
+    },
+    {
+      "id": 151,
+      "name": "Namibia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/151.webp",
+      "code": "na",
+      "api_name": "Namibia",
+      "flag_url": "https://flagcdn.com/na.svg"
+    },
+    {
+      "id": 152,
+      "name": "Sri Lanka",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/152.webp",
+      "code": "lk",
+      "api_name": "Sri Lanka",
+      "flag_url": "https://flagcdn.com/lk.svg"
+    },
+    {
+      "id": 153,
+      "name": "Barbados",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/153.webp",
+      "code": "bb",
+      "api_name": "Barbados",
+      "flag_url": "https://flagcdn.com/bb.svg"
+    },
+    {
+      "id": 154,
+      "name": "Rwanda",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/154.webp",
+      "code": "rw",
+      "api_name": "Rwanda",
+      "flag_url": "https://flagcdn.com/rw.svg"
+    },
+    {
+      "id": 155,
+      "name": "Mauritius",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/155.webp",
+      "code": "mu",
+      "api_name": "Mauritius",
+      "flag_url": "https://flagcdn.com/mu.svg"
+    },
+    {
+      "id": 156,
+      "name": "Somalia",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/156.webp",
+      "code": "so",
+      "api_name": "Somalia",
+      "flag_url": "https://flagcdn.com/so.svg"
+    },
+    {
+      "id": 157,
+      "name": "Montserrat",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/157.webp",
+      "code": "ms",
+      "api_name": "Montserrat",
+      "flag_url": "https://flagcdn.com/ms.svg"
+    },
+    {
+      "id": 158,
+      "name": "São Tomé e Príncipe",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/158.webp",
+      "code": "st",
+      "api_name": "São Tomé and Príncipe",
+      "flag_url": "https://flagcdn.com/st.svg"
+    },
+    {
+      "id": 159,
+      "name": "Korea DPR",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/159.webp",
+      "code": "kp",
+      "api_name": "North Korea",
+      "flag_url": "https://flagcdn.com/kp.svg"
+    },
+    {
+      "id": 160,
+      "name": "Afghanistan",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/160.webp",
+      "code": "af",
+      "api_name": "Afghanistan",
+      "flag_url": "https://flagcdn.com/af.svg"
+    },
+    {
+      "id": 161,
+      "name": "Puerto Rico",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/161.webp",
+      "code": "pr",
+      "api_name": "Puerto Rico",
+      "flag_url": "https://flagcdn.com/pr.svg"
+    },
+    {
+      "id": 162,
+      "name": "Oman",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/162.webp",
+      "code": "om",
+      "api_name": "Oman",
+      "flag_url": "https://flagcdn.com/om.svg"
+    },
+    {
+      "id": 163,
+      "name": "Gibraltar",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/163.webp",
+      "code": "gi",
+      "api_name": "Gibraltar",
+      "flag_url": "https://flagcdn.com/gi.svg"
+    },
+    {
+      "id": 164,
+      "name": "Yemen",
+      "old_flag_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/nations/164.webp",
+      "code": "ye",
+      "api_name": "Yemen",
+      "flag_url": "https://flagcdn.com/ye.svg"
+    }
+  ],
+  "verified": 164,
+  "rows_after": 164,
+  "other_columns_unchanged": true,
+  "already_correct": 0
+}

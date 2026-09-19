@@ -1,6 +1,6 @@
 import { calculate_base_score } from './metaScore.js';
 
-const SCORE_POSITIONS = new Set(['ST', 'CF', 'LW', 'RW', 'CM', 'CAM', 'CDM', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'LM', 'RM']);
+const SCORE_POSITIONS = new Set(['ST', 'CF', 'LW', 'RW', 'CM', 'CAM', 'CDM', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'LM', 'RM', 'GK']);
 
 // The modal evaluates every candidate at the clicked slot, not its primary position.
 export function scoreModalPlayers(cards, targetPosition) {

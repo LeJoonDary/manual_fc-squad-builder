@@ -231,7 +231,6 @@ export interface GeneratedSquad {
 }
 
 const relation = (value: any): RawCandidate => (Array.isArray(value) ? value[0] : value) ?? {};
-const statNumber = (value: unknown) => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
 
 /** Accepts either the grouped input or the flat, annotated output of fetchCandidatePlayers. */
 export function groupCandidatePlayers(candidates: CandidatePlayer[]): CandidateGroups {
@@ -258,11 +257,7 @@ function prepareCandidate(card: RawCandidate, slotPosition: string, threeBack: b
   if (!isLocked && !isPositionMatched(slotPosition, chemistryCard)) return null;
   const stats = card.player_stats ? relation(card.player_stats) : card;
   const normalized = normalizeChemistryPosition(slotPosition);
-  // GK has no existing meta formula: prioritize reflexes/diving/positioning over distribution.
-  const metaScore = normalized === 'GK'
-    ? statNumber(stats.gk_reflexes) * .3 + statNumber(stats.gk_diving) * .25
-      + statNumber(stats.gk_positioning) * .2 + statNumber(stats.gk_handling) * .15 + statNumber(stats.gk_kicking) * .1
-    : calculate_base_score(stats, card, normalized, threeBack).meta_score;
+  const metaScore = calculate_base_score(stats, card, normalized, threeBack).meta_score;
   return { ...chemistryCard, slotPosition, price, metaScore, card, isOwned, isLocked,
     playerKey: String(card.player_id ?? player.id ?? card.id) };
 }

@@ -11,6 +11,22 @@ test('each action fetches exactly one bounded 50-row page', async () => {
   expect(query.range.mock.calls).toEqual([[0, 49], [50, 99]]);
 });
 
+test('details are restricted to the current page IDs and preserve page order', async () => {
+  const query = { limit: vi.fn().mockReturnThis(), range: vi.fn().mockResolvedValue({ data: [{id: 3}, {id: 1}] }) };
+  const details = vi.fn().mockResolvedValue({data: [{id: 1, name: 'One'}, {id: 3, name: 'Three'}]});
+  expect(await fetchPlayerPage(query, 50, details)).toEqual([{id: 3, name: 'Three'}, {id: 1, name: 'One'}]);
+  expect(details).toHaveBeenCalledExactlyOnceWith([3, 1]);
+});
+
+test('empty pages skip details and incomplete detail responses are retryable by the UI', async () => {
+  const query = { limit: vi.fn().mockReturnThis(), range: vi.fn().mockResolvedValue({ data: [] }) };
+  const details = vi.fn().mockResolvedValue({data: []});
+  expect(await fetchPlayerPage(query, 0, details)).toEqual([]);
+  expect(details).not.toHaveBeenCalled();
+  query.range.mockResolvedValue({data: [{id: 1}]});
+  await expect(fetchPlayerPage(query, 0, details)).rejects.toThrow('상세 정보');
+});
+
 test('appends unique cards and blocks double clicks while loading', () => {
   const pager = createPlayerPagination();
   const first = pager.begin();

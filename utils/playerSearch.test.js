@@ -16,11 +16,11 @@ test('modal uses the clicked slot and changes ranking when the slot changes', ()
   expect(forwards.filter(card => matchesPlayerName({ ...card, name: 'Player' }, 'player')).map(card => card.id)).toEqual([1, 2]);
 });
 
-test('modal uses four-back LM weights and handles absent prices and unsupported GK', () => {
+test('modal uses four-back LM weights and safe defaults for missing GK stats', () => {
   expect(scoreModalPlayers([{ ...attacker, price: null }], 'LM')[0])
     .toMatchObject({ meta_score: 81.5, value_score: 0 });
   expect(scoreModalPlayers([attacker], 'GK')[0])
-    .toMatchObject({ meta_score: null, value_score: 0 });
+    .toMatchObject({ meta_score: 0, value_score: 0 });
 });
 
 test('selected position ranks by meta score rather than overall, without mutating cards', () => {
@@ -44,10 +44,17 @@ test('multiple positions use the best eligible score and honor primary-only filt
   expect(scoreSearchResults([attacker], ['LM'])[0].meta_score).toBe(81.5);
 });
 
-test('unsupported GK stays visible without a fabricated score and missing price yields zero', () => {
+test('GK uses zero for missing stats and missing price yields zero', () => {
   const result = scoreSearchResults([{ primary_position: 'GK' }, { ...attacker, price: null }], ['GK', 'ST']);
   expect(result[0].value_score).toBe(0);
-  expect(result[1]).toMatchObject({ meta_score: null, value_score: 0 });
+  expect(result[1]).toMatchObject({ meta_score: 0, value_score: 0 });
+});
+
+test('GK receives the same numeric score in search results and the selection modal', () => {
+  const keeper = {id: 2, primary_position: 'GK', height: 195, playstyles: [{name:'Deflector'}],
+    gk_reflexes: 80, gk_diving: 80, gk_positioning: 80, gk_handling: 80, reactions: 80};
+  expect(scoreSearchResults([keeper])[0]).toMatchObject({meta_score: 82.5, score_position: 'GK'});
+  expect(scoreModalPlayers([keeper], 'GK')[0]).toMatchObject({meta_score: 82.5, score_position: 'GK'});
 });
 
 test.each([
