@@ -1,11 +1,10 @@
-"""Seed reference metadata and cards, preserving database card_type values.
+"""Patch only card_versions.accele_type using DB height and FC27 CSV stats.
 
 python seed.py --dry-run
 python seed.py --fc27 fc27_dataset.csv --batch-size 50
 
-new_card_versions.csv supplies stable card IDs and foreign-key mappings.
-FC27 supplies ratings/stats; FC26 fills missing physical measurements only.
-Reference CSV IDs are stable foreign keys; players are never modified.
+All other card columns and reference/player tables are left unchanged.
+Dry runs read the database and save a snapshot without writing to the database.
 """
 from __future__ import annotations
 
@@ -142,23 +141,27 @@ def body_type(height, weight):
     return f'{build} {size}'
 
 
-def accele_type(height, strength, agility, acceleration, sprint_speed):
-    if any(v is None for v in (height, strength, agility, acceleration, sprint_speed)):
+def accele_type(height, strength, agility, acceleration):
+    try:
+        height, strength, agility, acceleration = map(
+            number, (height, strength, agility, acceleration))
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if any(v is None for v in (height, strength, agility, acceleration)):
         return None
     strength_gap = strength - agility
-    speed_gap = sprint_speed - acceleration
-    if height >= 183 and strength_gap >= 20 and speed_gap >= 12:
-        return 'Lengthy'
-    if height >= 174 and strength_gap >= 12 and speed_gap >= 6:
-        return 'Mostly Lengthy'
-    if height >= 183 and strength_gap >= 5:
-        return 'Controlled Lengthy'
-    if height <= 175 and -strength_gap >= 20 and -speed_gap >= 12:
+    if -strength_gap >= 20 and agility >= 80 and acceleration >= 80 and height <= 175:
         return 'Explosive'
-    if height <= 180 and -strength_gap >= 12 and -speed_gap >= 6:
+    if -strength_gap >= 12 and agility >= 70 and acceleration >= 80 and height <= 182:
         return 'Mostly Explosive'
-    if height <= 175 and -strength_gap >= 5:
+    if -strength_gap >= 4 and agility >= 65 and acceleration >= 70 and height <= 182:
         return 'Controlled Explosive'
+    if strength_gap >= 20 and strength >= 80 and acceleration >= 55 and height >= 188:
+        return 'Lengthy'
+    if strength_gap >= 12 and strength >= 75 and acceleration >= 55 and height >= 183:
+        return 'Mostly Lengthy'
+    if strength_gap >= 4 and strength >= 65 and acceleration >= 55 and height >= 181:
+        return 'Controlled Lengthy'
     return 'Controlled'
 
 
@@ -211,7 +214,14 @@ def rating_version(rating):
 
 
 def prepare(fc27, fc26, directory):
-    merged = merge_physical(read_csv(fc27), read_csv(fc26))
+    current = read_csv(fc27)
+    for source in current:
+        # Invalid height must not fail physical preparation before the fallback is saved.
+        try:
+            number(source.get('height_cm'))
+        except (TypeError, ValueError, OverflowError):
+            source['height_cm'] = None
+    merged = merge_physical(current, read_csv(fc26))
     rows = read_csv(directory / 'new_card_versions.csv')
     cards = [{key: integer(value) if key in INTEGER_FIELDS else
               None if value.strip().lower() in MISSING else value.strip()
@@ -229,11 +239,22 @@ def prepare(fc27, fc26, directory):
         # Never derive card_type from rating, edition, or version.
         # Existing DB values take precedence during upload; new cards use CSV.
         row['body_type'] = body_type(source['height_cm'], source['weight_kg'])
-        row['accele_type'] = accele_type(source['height_cm'], *(
-            number(source.get(key)) for key in ('power_strength', 'movement_agility',
-                                                'movement_acceleration', 'movement_sprint_speed')))
+        # Resolved from DB height immediately before card upload; dry runs leave this null.
+        row['accele_type'] = None
     json.dumps(cards, allow_nan=False)
     return {'card_versions': cards}
+
+
+def prepare_acceleration_types(client, cards, fc27):
+    """Preload DB heights before calculating any card; never use CSV height."""
+    sources = index_rows(read_csv(fc27), 'player_id', 'FC27')
+    heights = {integer(row['id']): row.get('height')
+               for row in select_all(client, 'players', 'id,height')}
+    for card in cards:
+        source = sources.get(card['player_id'], {})
+        card['accele_type'] = accele_type(heights.get(card['player_id']), *(
+            source.get(key) for key in ('power_strength', 'movement_agility',
+                                       'movement_acceleration')))
 
 
 def preserve_card_types(client, batch):
@@ -368,54 +389,77 @@ def retryable(error):
         '408', '429', '500', '502', '503', '504', '57014', '40001', '40P01', 'PGRST003'} or code.startswith('08')
 
 
-def upload(client, tables, attempts=6, sleep=time.sleep, batch_size=50, progress=True):
-    """Initial attempt + up to five retries. Progress measures processed rows."""
-    from tqdm import tqdm
-    from tqdm.contrib.logging import logging_redirect_tqdm
+def select_all(client, table, columns):
+    """Preload a complete mapping, paging past the API response limit."""
+    rows = []
+    while True:
+        response = client.table(table).select(columns, count='exact').order('id').range(
+            len(rows), len(rows) + 999).execute()
+        rows.extend(response.data)
+        if response.count is None:
+            raise ValueError('Missing exact count during database read')
+        if len(rows) == response.count:
+            return rows
+        if not response.data or len(rows) > response.count:
+            raise ValueError('Incomplete database read')
 
-    if not 50 <= batch_size <= 100 or not 1 <= attempts <= 6:
-        raise ValueError('batch_size must be 50..100 and attempts must be 1..6')
+
+def upload(client, tables, attempts=6, sleep=time.sleep, batch_size=50, progress=True):
+    """Patch only accele_type, once per player; retries are idempotent."""
     if set(tables) != {'card_versions'}:
         raise ValueError('Only card_versions is allowed')
-    succeeded = {table: set() for table in TABLES}
-    report = {'tables': {}, 'failures': []}
-    with logging_redirect_tqdm(), tqdm(total=sum(map(len, tables.values())),
-                                      desc='Overall processed', unit='row',
-                                      disable=not progress, dynamic_ncols=True) as overall:
-        for table in TABLES:
-            ready = tables['card_versions']
-            batches = math.ceil(len(ready) / batch_size)
-            good_batches = bad_batches = 0
-            for start in range(0, len(ready), batch_size):
-                batch = ready[start:start + batch_size]
-                batch_number = start // batch_size + 1
-                for attempt in range(1, attempts + 1):
-                    try:
-                        payload = preserve_card_types(client, batch)
-                        client.table('card_versions').upsert(payload, on_conflict='id', returning='minimal').execute()
-                        succeeded[table].update(row['id'] for row in batch)
-                        good_batches += 1
-                        LOG.info('%s batch %s/%s OK (%s rows)', table, batch_number, batches, len(batch))
-                        break
-                    except Exception as error:
-                        # Do not log exception messages: HTTP errors may contain credentials.
-                        LOG.warning('%s batch %s attempt %s/%s: %s', table, batch_number,
-                                    attempt, attempts, type(error).__name__)
-                        if attempt == attempts or not retryable(error):
-                            bad_batches += 1
-                            report['failures'].append({'table': table, 'reason': type(error).__name__, 'rows': batch})
-                            LOG.error('%s batch %s/%s FAILED; continuing', table, batch_number, batches)
-                            break
-                        else:
-                            delay = min(2 ** attempt, 32) + random.uniform(0, 1)
-                            LOG.warning('Retry %s/%s in %.1fs', attempt, attempts - 1, delay)
-                            sleep(delay)
-                overall.set_postfix(table=table, batch=f'{batch_number}/{batches}',
-                                    ok=good_batches, failed=bad_batches)
-                overall.update(len(batch))
-            count = len(succeeded[table])
-            report['tables'][table] = {'uploaded': count, 'not_uploaded': len(tables[table]) - count}
-            LOG.info('%s: uploaded=%s, not_uploaded=%s', table, count, len(tables[table]) - count)
+    if not 50 <= batch_size <= 100 or not 1 <= attempts <= 6:
+        raise ValueError('Invalid batch size or attempts')
+    values = {}
+    for row in tables['card_versions']:
+        pid = integer(row['player_id'])
+        if pid is None or pid <= 0:
+            raise ValueError('Invalid player_id')
+        if pid in values and values[pid] != row['accele_type']:
+            raise ValueError('Conflicting acceleration types for one player')
+        values[pid] = row['accele_type']
+    report = {'updated_players': 0, 'updated_cards': 0, 'failures': []}
+    for pid, value in values.items():
+        for attempt in range(1, attempts + 1):
+            try:
+                response = client.table('card_versions').update(
+                    {'accele_type': value}).eq('player_id', pid).execute()
+                if not response.data:
+                    raise ValueError('No matching cards were updated')
+                report['updated_players'] += 1
+                report['updated_cards'] += len(response.data)
+                break
+            except Exception as error:
+                if attempt == attempts or not retryable(error):
+                    report['failures'].append({'player_id': pid, 'reason': type(error).__name__})
+                    break
+                sleep(min(2 ** attempt, 32) + random.uniform(0, 1))
+    return report
+
+
+def patch_batches(url, key, cards, attempts, batch_size, report_path):
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    batches = [cards[i:i + batch_size] for i in range(0, len(cards), batch_size)]
+    report = {'updated_players': 0, 'updated_cards': 0, 'failures': []}
+    def run(batch):
+        with stable_client(url, key) as client:
+            return upload(client, {'card_versions': batch}, attempts=attempts,
+                          batch_size=batch_size, progress=False)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(run, batch): batch for batch in batches}
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+            except Exception as error:
+                result = {'updated_players': 0, 'updated_cards': 0,
+                          'failures': [{'player_id': c['player_id'], 'reason': type(error).__name__}
+                                       for c in futures[future]]}
+            for field in ('updated_players', 'updated_cards'):
+                report[field] += result[field]
+            report['failures'].extend(result['failures'])
+            report_path.write_text(json.dumps(report, indent=2), encoding='utf-8')
+            LOG.info('Patched players=%s cards=%s failures=%s', report['updated_players'],
+                     report['updated_cards'], len(report['failures']))
     return report
 
 
@@ -434,7 +478,7 @@ def main():
     parser.add_argument('--fc26')
     parser.add_argument('--data-dir', type=Path, default=ROOT)
     parser.add_argument('--env-file', type=Path, default=ROOT / '.env')
-    parser.add_argument('--dry-run', action='store_true', help='Validate and summarize without database access')
+    parser.add_argument('--dry-run', action='store_true', help='Read and calculate without database writes')
     parser.add_argument('--attempts', type=int, default=6, help='Total attempts, including initial request (1..6)')
     parser.add_argument('--batch-size', type=int, default=50, help='Rows per request (50..100; default 50)')
     parser.add_argument('--no-progress', action='store_true')
@@ -445,38 +489,59 @@ def main():
     if not 50 <= args.batch_size <= 100:
         parser.error('--batch-size must be between 50 and 100')
     logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s')
+    logging.getLogger('httpx').setLevel(logging.WARNING)
     try:
         fc27 = resolve_source(args.fc27, ('fc27_players.csv', 'players.csv', 'fc27_dataset.csv'), args.data_dir)
-        fc26 = resolve_source(args.fc26, ('fc26_players.csv', 'fc26_dataset.csv'), args.data_dir)
-        tables = prepare(fc27, fc26, args.data_dir)
-        references = prepare_references(args.data_dir)
-        for table, rows in tables.items():
-            LOG.info('Prepared %s: %s rows', table, len(rows))
-        for version in ('Gold', 'Silver', 'Bronze'):
-            LOG.info('%s: %s', version, sum(r['version'] == version for r in tables['card_versions']))
-        LOG.info('Reference metadata and card_versions will be written; DB card_type is preserved.')
-        if args.dry_run:
-            return 0
+        # Reference/player preparation and writes are disabled for this patch-only run.
+        # references = prepare_references(args.data_dir)
+        # tables = prepare(fc27, fc26, args.data_dir)
         from dotenv import load_dotenv
         load_dotenv(args.env_file)
         url, key = os.getenv('VITE_SUPABASE_URL'), os.getenv('SUPABASE_SERVICE_ROLE_KEY')
         if not url or not key:
             raise ValueError('VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required')
-        # Verify report destination before any upload.
-        with args.report.open('w', encoding='utf-8') as stream:
-            json.dump({'status': 'started'}, stream)
         with stable_client(url, key) as client:
-            report = upload_references(client, references, args.attempts, batch_size=args.batch_size)
-            if not report['failures']:
-                cards_report = upload(client, tables, args.attempts, batch_size=args.batch_size,
-                                      progress=not args.no_progress)
-                report['tables'].update(cards_report['tables'])
-                report['failures'].extend(cards_report['failures'])
+            before = select_all(client, 'card_versions', '*')
+            sources = index_rows(read_csv(fc27), 'player_id', 'FC27')
+            cards = [{'player_id': pid} for pid in sorted({integer(c['player_id']) for c in before})
+                     if pid in sources]
+            prepare_acceleration_types(client, cards, fc27)
+            expected = {c['player_id']: c['accele_type'] for c in cards}
+            changed = {integer(c['player_id']) for c in before
+                       if integer(c['player_id']) in expected
+                       and c.get('accele_type') != expected[integer(c['player_id'])]}
+            pending = [c for c in cards if c['player_id'] in changed]
+            LOG.info('Plan: %s players to patch; %s cards total', len(pending), len(before))
+            snapshot = args.report.with_suffix('.before.json')
+            snapshot.write_text(json.dumps(before, ensure_ascii=False, allow_nan=False), encoding='utf-8')
+            if args.dry_run:
+                return 0
+            # upload_references(client, references) -- disabled: no reference writes.
+            # players uploads -- disabled: players is read-only.
+            # Full card upsert -- disabled: only the patch function below is used.
+        report = patch_batches(url, key, pending, args.attempts, args.batch_size, args.report)
+        with stable_client(url, key) as client:
+            after = select_all(client, 'card_versions', '*')
+        original = {c['id']: c for c in before}
+        report['verification_mismatches'] = []
+        report['other_column_changes'] = []
+        for card in after:
+            pid = integer(card['player_id'])
+            if pid in expected and card.get('accele_type') != expected[pid]:
+                report['verification_mismatches'].append(card['id'])
+            old = original.get(card['id'])
+            if old is None or any(card.get(k) != v for k, v in old.items() if k != 'accele_type'):
+                report['other_column_changes'].append(card['id'])
+        report['card_count_before'] = len(before)
+        report['card_count_after'] = len(after)
+        report['verified'] = (not report['failures'] and not report['verification_mismatches']
+                              and not report['other_column_changes']
+                              and {c['id'] for c in after} == set(original))
         args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
-        if report['failures']:
+        if not report['verified']:
             LOG.error('Partial failure. See %s; fix causes and rerun the same inputs.', args.report)
             return 1
-        LOG.info('card_versions uploaded successfully. Report: %s', args.report)
+        LOG.info('accele_type patches verified; other card columns unchanged. Report: %s', args.report)
         return 0
     except (ValueError, OSError, ImportError) as error:
         LOG.error('%s', error)

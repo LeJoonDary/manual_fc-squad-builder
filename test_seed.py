@@ -55,20 +55,66 @@ class SeedTests(unittest.TestCase):
         self.assertIsNone(seed.body_type(None, 70))
 
     def test_all_acceleration_types(self):
-        cases = [((183, 80, 60, 70, 82), 'Lengthy'),
-                 ((174, 72, 60, 70, 76), 'Mostly Lengthy'),
-                 ((183, 65, 60, 70, 70), 'Controlled Lengthy'),
-                 ((175, 60, 80, 82, 70), 'Explosive'),
-                 ((180, 60, 72, 76, 70), 'Mostly Explosive'),
-                 ((175, 60, 65, 70, 70), 'Controlled Explosive'),
-                 ((180, 60, 60, 70, 70), 'Controlled')]
+        cases = [((175, 60, 80, 80), 'Explosive'),
+                 ((182, 58, 70, 80), 'Mostly Explosive'),
+                 ((182, 61, 65, 70), 'Controlled Explosive'),
+                 ((188, 80, 60, 55), 'Lengthy'),
+                 ((183, 75, 63, 55), 'Mostly Lengthy'),
+                 ((181, 65, 61, 55), 'Controlled Lengthy'),
+                 ((180, 60, 60, 70), 'Controlled')]
         for values, expected in cases:
             self.assertEqual(seed.accele_type(*values), expected)
-        for i in range(5):
-            values = [180, 60, 60, 70, 70]
-            values[i] = None
-            self.assertIsNone(seed.accele_type(*values))
-        self.assertEqual(seed.accele_type(183, 72, 60, 70, 76), 'Mostly Lengthy')
+            self.assertEqual(seed.accele_type(*map(str, values)), expected)
+        for base in ([175, 60, 80, 80], [188, 80, 60, 55]):
+            for i in range(4):
+                for missing in (None, float('nan'), '', 'NaN', 'invalid', float('inf')):
+                    values = list(base)
+                    values[i] = missing
+                    self.assertIsNone(seed.accele_type(*values))
+
+    def test_prepare_invalid_acceleration_inputs(self):
+        for field in ('height_cm', 'power_strength', 'movement_agility', 'movement_acceleration'):
+            for value in (None, float('nan'), 'invalid'):
+                raw = {'player_id': '1', 'overall_rating': '80', 'height_cm': '175',
+                       'power_strength': '60', 'movement_agility': '80',
+                       'movement_acceleration': '80'}
+                raw[field] = value
+                with patch('seed.read_csv', side_effect=[
+                        [raw], [{'player_id': '1', 'height_cm': '175'}],
+                        [{'id': '7', 'player_id': '1', 'card_type': 'normal'}]]):
+                    cards = seed.prepare('current', 'previous', seed.ROOT)['card_versions']
+                self.assertIsNone(cards[0]['accele_type'])
+
+    def test_db_height_mapping_and_missing_values(self):
+        client = Mock()
+        client.table.return_value.select.return_value.order.return_value.range.return_value.execute.return_value = Mock(
+            data=[{'id': 1, 'height': 175}, {'id': 2, 'height': None},
+                  {'id': 3, 'height': 175}, {'id': 5, 'height': 190}], count=4)
+        raw = [{'player_id': str(i), 'height_cm': '190', 'power_strength': '60',
+                'movement_agility': '80', 'movement_acceleration': '80'}
+               for i in range(1, 6)]
+        raw[2]['movement_agility'] = ''
+        cards = [{'id': i, 'player_id': i, 'accele_type': 'old'} for i in range(1, 6)]
+        with patch('seed.read_csv', return_value=raw):
+            seed.prepare_acceleration_types(client, cards, 'current')
+        self.assertEqual([c['accele_type'] for c in cards],
+                         ['Explosive', None, None, None, 'Controlled'])
+        client.table.assert_called_once_with('players')
+        client.table.return_value.select.assert_called_once_with('id,height', count='exact')
+        self.assertIn('null', __import__('json').dumps(cards, allow_nan=False))
+
+    def test_incomplete_or_failed_height_lookup_never_changes_cards(self):
+        client = Mock()
+        query = client.table.return_value.select.return_value.order.return_value.range.return_value.execute
+        cards = [{'id': 1, 'player_id': 1, 'accele_type': 'old'}]
+        with patch('seed.read_csv', return_value=[{'player_id': '1'}]):
+            query.return_value = Mock(data=[], count=2)
+            with self.assertRaises(ValueError):
+                seed.prepare_acceleration_types(client, cards, 'current')
+            query.side_effect = ConnectionError()
+            with self.assertRaises(ConnectionError):
+                seed.prepare_acceleration_types(client, cards, 'current')
+        self.assertEqual(cards[0]['accele_type'], 'old')
 
     def test_merge_and_null_json(self):
         result = seed.merge_physical(
@@ -84,40 +130,29 @@ class SeedTests(unittest.TestCase):
 
     def test_retry_batches_and_failure_dependencies(self):
         client = Mock()
-        client.table.return_value.select.return_value.in_.return_value.execute.return_value.data = []
-        client.table.return_value.upsert.return_value.execute.side_effect = [
-            ConnectionError(), None, None, None]
-        tables = {name: [] for name in seed.TABLES}
-        tables['card_versions'] = [{'id': i, 'player_id': i, 'card_type': 'normal'} for i in range(1, 102)]
-        report = seed.upload(client, tables, attempts=2, sleep=lambda _: None, progress=False)
+        execute = client.table.return_value.update.return_value.eq.return_value.execute
+        execute.side_effect = [ConnectionError(), Mock(data=[{'id': 1}]), Mock(data=[{'id': 2}])]
+        cards = [{'player_id': i, 'accele_type': None} for i in (1, 2)]
+        report = seed.upload(client, {'card_versions': cards}, attempts=2, sleep=lambda _: None)
+        self.assertEqual(report['updated_cards'], 2)
         self.assertFalse(report['failures'])
-        calls = client.table.return_value.upsert.call_args_list
-        self.assertEqual([len(c.args[0]) for c in calls], [50, 50, 50, 1])
-        self.assertEqual(report['tables']['card_versions']['uploaded'], 101)
-        self.assertTrue(all(call.args == ('card_versions',) for call in client.table.call_args_list))
+        self.assertEqual(execute.call_count, 3)
+        client.table.return_value.upsert.assert_not_called()
         with self.assertRaises(ValueError):
-            seed.upload(client, {'players': []}, progress=False)
+            seed.upload(client, {'players': []})
 
     def test_network_errors_backoff_and_continuation(self):
         import httpx
-        import httpcore
-        errors = [httpx.ReadTimeout('read'), httpx.PoolTimeout('pool'),
-                  httpx.RemoteProtocolError('closed'), httpcore.ReadTimeout(),
-                  httpcore.ConnectError()]
         client = Mock()
-        client.table.return_value.select.return_value.in_.return_value.execute.return_value.data = []
-        client.table.return_value.upsert.return_value.execute.side_effect = errors + [None, None]
-        tables = {name: [] for name in seed.TABLES}
-        tables['card_versions'] = [{'id': i, 'player_id': i, 'card_type': 'normal'} for i in range(1, 52)]
+        execute = client.table.return_value.update.return_value.eq.return_value.execute
+        execute.side_effect = [httpx.ReadTimeout('read')] * 6 + [Mock(data=[{'id': 2}])]
+        cards = [{'player_id': i, 'accele_type': 'Controlled'} for i in (1, 2)]
         sleep = Mock()
         with patch('seed.random.uniform', return_value=0):
-            report = seed.upload(client, tables, sleep=sleep, progress=False)
+            report = seed.upload(client, {'card_versions': cards}, sleep=sleep)
         self.assertEqual([c.args[0] for c in sleep.call_args_list], [2, 4, 8, 16, 32])
-        self.assertEqual(report['tables']['card_versions']['uploaded'], 51)
-        client.table.return_value.upsert.return_value.execute.side_effect = [httpx.ReadTimeout('read')] * 6 + [None]
-        report = seed.upload(client, tables, sleep=lambda _: None, progress=False)
-        self.assertEqual(report['tables']['card_versions'], {'uploaded': 1, 'not_uploaded': 50})
-        self.assertEqual(len(report['failures']), 1)
+        self.assertEqual(report['updated_players'], 1)
+        self.assertEqual(report['failures'][0]['player_id'], 1)
 
     def test_http11_transport_and_timeout_used_by_sdk(self):
         import httpx
@@ -141,19 +176,12 @@ class SeedTests(unittest.TestCase):
         self.assertEqual(observed[0]['limits'].max_keepalive_connections, 0)
 
     def test_permanent_failure_and_progress(self):
-        from io import StringIO
         client = Mock()
-        client.table.return_value.select.return_value.in_.return_value.execute.return_value.data = []
-        client.table.return_value.upsert.return_value.execute.side_effect = ValueError('invalid')
-        tables = {name: [] for name in seed.TABLES}
-        tables['card_versions'] = [{'id': 1, 'player_id': 1, 'card_type': 'normal'}]
-        with patch('sys.stderr', new_callable=StringIO) as output:
-            report = seed.upload(client, tables)
-        self.assertIn('100%', output.getvalue())
-        self.assertIn('failed=1', output.getvalue())
-        self.assertEqual(client.table.return_value.upsert.call_count, 1)
+        execute = client.table.return_value.update.return_value.eq.return_value.execute
+        execute.side_effect = ValueError('invalid')
+        report = seed.upload(client, {'card_versions': [{'player_id': 1, 'accele_type': None}]})
+        self.assertEqual(execute.call_count, 1)
         self.assertEqual(len(report['failures']), 1)
-
 
     def test_rating_boundaries(self):
         for rating, version in [(0, 'Bronze'), (64, 'Bronze'), (65, 'Silver'),
@@ -181,11 +209,13 @@ class SeedTests(unittest.TestCase):
     def test_failed_db_read_never_writes_csv_type(self):
         import httpx
         client = Mock()
-        client.table.return_value.select.return_value.in_.return_value.execute.side_effect = httpx.ReadTimeout('read')
-        report = seed.upload(client, {'card_versions': [{'id': 1, 'player_id': 1, 'card_type': 'normal'}]},
-                             sleep=lambda _: None, progress=False)
-        self.assertFalse(client.table.return_value.upsert.called)
-        self.assertEqual(len(report['failures']), 1)
+        cards = [{'player_id': 1}]
+        with patch('seed.read_csv', return_value=[{'player_id': '1'}]), patch(
+                'seed.select_all', side_effect=httpx.ReadTimeout('read')):
+            with self.assertRaises(httpx.ReadTimeout):
+                seed.prepare_acceleration_types(client, cards, 'current')
+        client.table.return_value.update.assert_not_called()
+        client.table.return_value.upsert.assert_not_called()
 
     def test_prepare_uses_raw_rating_and_only_card_csv(self):
         raw = [{'player_id': '1', 'overall_rating': '64', 'edition': 'fc27'}]

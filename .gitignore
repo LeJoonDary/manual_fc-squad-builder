@@ -3,4 +3,5 @@ dist/
 .env
 supabase/.temp/
 .seed-deps/
+.seed-runtime/
 __pycache__/
