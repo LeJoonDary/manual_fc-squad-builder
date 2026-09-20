@@ -2,7 +2,7 @@ export const PLAYER_PAGE_SIZE = 50;
 
 // A page may contain no visible matches after client-side filters. Advance by
 // fetched rows, not visible rows, and keep the next-page action available.
-export function createPlayerPagination() {
+export function createPlayerPagination(pageSize = PLAYER_PAGE_SIZE) {
   let generation = 0;
   const state = { offset: 0, hasMore: true, loading: false, cards: [] };
   return {
@@ -26,7 +26,7 @@ export function createPlayerPagination() {
         }
       }
       state.offset += rows.length;
-      state.hasMore = rows.length === PLAYER_PAGE_SIZE;
+      state.hasMore = rows.length === pageSize;
       state.loading = false;
       return true;
     },

@@ -51,7 +51,7 @@ test('combines all relationship predicates and scalar ranges in the same DB quer
   expect(url.searchParams.get('players.nation_id')).toBe('eq.1');
   expect(url.searchParams.get('club_id')).toBe('eq.3');
   expect(url.searchParams.getAll('player_stats.pac')).toEqual(['gte.85', 'lte.99']);
-  expect(url.searchParams.get('body_type')).toBe('in.(Lean)');
+  expect(url.searchParams.get('body_type')).toBe('eq.Lean Medium');
   expect(url.searchParams.get('select')).toContain('player_stats!inner');
 });
 

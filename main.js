@@ -1,10 +1,13 @@
+import { createPlayerCard } from './components/PlayerCard.js';
+import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
+import { createPlayerPagination } from './utils/playerPagination.js';
 import { renderDetailStatGroups } from './utils/detailStats.js';
 import { STAT_KEYS, defaultStats, activeStats, renderStatInputs } from './utils/statFilters.js';
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
 import { fetchPlaystyleOptions } from './utils/playstyleFilters.js';
-import { PLAYER_CARD_SELECT, fetchPlayerCards } from './utils/playerCards.js';
+import { PLAYER_CARD_SELECT } from './utils/playerCards.js';
 import { createDefaultFilters, fetchPlayers } from './utils/playerFilters.js';
-import { matchesPlayerName, scoreSearchResults, scoreModalPlayers, getValueScoreGrade } from './utils/playerSearch.js';
+import { scoreSearchResults, scoreModalPlayers, getValueScoreGrade } from './utils/playerSearch.js';
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
@@ -121,6 +124,11 @@ const squad = {};
 let affiliationCatalog = { nations: [], leagues: [], clubs: [] };
 const PLAYER_DETAIL_SELECT = PLAYER_CARD_SELECT;
 let modalRequest = 0;
+let modalSearchTimer;
+let modalAbort;
+const modalPager = createPlayerPagination(MODAL_PAGE_SIZE);
+const modalLoadMore = document.querySelector('#modal-load-more');
+modalLoadMore.addEventListener('click', () => loadModalPlayerPage());
 
 function bindSquadSlot(slot) {
   slot.addEventListener('click', () => {
@@ -995,145 +1003,7 @@ function renderPlayerGrid(cards, scrollPositions = null) {
   }
 
   cards.forEach((card) => {
-    const article = document.createElement('article');
-    article.className = 'browser-player-card rounded-xl overflow-hidden shadow-md border border-slate-700/50 flex flex-col w-full';
-    article.tabIndex = 0;
-    article.setAttribute('role', 'button');
-    article.setAttribute('aria-label', `${getCardName(card)} 선수 상세 정보 보기`);
-    article.addEventListener('click', () => openPlayerDetailModal(card));
-    article.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        openPlayerDetailModal(card);
-      }
-    });
-    const content = document.createElement('div');
-    content.className = 'browser-player-content w-full bg-cover bg-center bg-no-repeat relative p-3';
-    content.style.backgroundImage = card.raw?.background_url
-      ? `url(${JSON.stringify(card.raw.background_url)})` : 'none';
-    const identity = document.createElement('div');
-    identity.className = 'browser-player-identity';
-    const rating = document.createElement('span');
-    rating.className = 'browser-player-rating';
-    rating.textContent = getCardRating(card) || '-';
-    const name = document.createElement('h3');
-    name.textContent = getCardName(card);
-    name.title = getCardName(card);
-    identity.append(rating, name);
-    const affiliations = document.createElement('div');
-    affiliations.className = 'browser-player-affiliations';
-    if (card.nation_flag_url) {
-      const flag = document.createElement('img');
-      flag.className = 'browser-player-flag';
-      flag.src = card.nation_flag_url;
-      flag.alt = card.nation ? `${card.nation} 국기` : '국기';
-      flag.title = card.nation ?? '';
-      flag.width = 24;
-      flag.loading = 'lazy';
-      flag.addEventListener('error', () => flag.remove());
-      affiliations.append(flag);
-    }
-    for (const key of ['league', 'club']) {
-      const shortName = card[`${key}_short_name`];
-      const fullName = card[key];
-      const entity = affiliationCatalog[`${key}s`]?.find(row => String(row.id) === String(card[`${key}_id`]));
-      const logoUrl = getChemistryEntityLogo(card, key) || entity?.logo_url;
-      if (!shortName && !fullName && !logoUrl) continue;
-      const label = document.createElement('span');
-      label.textContent = shortName || fullName || '';
-      label.title = fullName ?? shortName ?? '';
-      if (logoUrl) {
-        const logo = document.createElement('img');
-        logo.className = 'browser-player-logo';
-        logo.src = logoUrl;
-        logo.alt = fullName || shortName || key;
-        logo.loading = 'lazy';
-        logo.addEventListener('error', () => label.replaceChildren(shortName || fullName || ''));
-        label.replaceChildren(logo);
-      }
-      affiliations.append(label);
-    }
-    const footer = document.createElement('div');
-    footer.className = `browser-player-footer w-full p-2.5 flex flex-col font-bold ${
-      /gold/i.test(card.version ?? '') ? 'bg-[#D4A83B] text-slate-900'
-        : /silver/i.test(card.version ?? '') ? 'bg-[#979A9A] text-slate-900'
-          : /bronze/i.test(card.version ?? '') ? 'bg-[#C2845C] text-slate-900'
-            : 'bg-slate-800 text-slate-100'
-    }`;
-    const positions = document.createElement('div');
-    positions.className = 'browser-player-positions';
-    const position = document.createElement('strong');
-    position.className = 'browser-player-position bg-slate-950/80 text-amber-300 border border-amber-400/80 font-bold';
-    position.textContent = card.primary_position || getCardPosition(card) || '-';
-    position.title = '주 포지션';
-    positions.append(position);
-    for (const secondary of card.secondary_positions ?? []) {
-      const badge = document.createElement('span');
-      badge.className = 'browser-player-secondary-position bg-slate-900/60 text-slate-200 border border-slate-600/60';
-      badge.textContent = secondary;
-      badge.title = '부 포지션';
-      positions.append(badge);
-    }
-    const score = document.createElement('div');
-    score.className = 'browser-player-meta-score bg-slate-950/85 text-emerald-400 border border-emerald-500/50 font-extrabold px-2 py-0.5 rounded-md';
-    score.textContent = card.meta_score === null ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
-    score.title = card.score_position ? `${card.score_position} 기준 · 3백 미적용` : '이 포지션의 가중치가 아직 없습니다.';
-    affiliations.append(score);
-    content.append(identity, positions, affiliations,
-      createPlaystyleBadges(card, Infinity, 'browser-player-playstyles playstyle-badges'));
-    const foot = String(card.preferred_foot ?? '').trim();
-    const footLabel = /^(right|r|오른발)$/i.test(foot) ? 'Right'
-      : /^(left|l|왼발)$/i.test(foot) ? 'Left' : foot || '-';
-    const details = document.createElement('div');
-    details.className = 'browser-player-foot-skills flex items-center justify-between';
-    const preferredFoot = document.createElement('span');
-    preferredFoot.textContent = `Foot: ${footLabel}`;
-    const skills = document.createElement('span');
-    skills.textContent = `SM ${card.sm ?? '-'}★ / WF ${card.wf ?? '-'}★`;
-    details.append(preferredFoot, skills);
-    const stats = document.createElement('div');
-    stats.className = 'browser-player-stats grid grid-cols-6 gap-1 text-center';
-    const rawStats = unwrapRelation(card.raw?.player_stats) ?? {};
-    const rawPlayer = unwrapRelation(card.raw?.players) ?? {};
-    // Read display aliases without changing the shared card data mapping.
-    const statValue = (...keys) => {
-      for (const key of keys) {
-        const value = card[key] ?? rawStats[key] ?? rawPlayer[key];
-        if (value !== undefined && value !== null && value !== '') return value;
-      }
-      return '-';
-    };
-    const isGoalkeeper = String(card.primary_position || card.position || '').trim().toUpperCase() === 'GK';
-    const displayedStats = isGoalkeeper ? [
-      ['DIV', statValue('goalkeeping_diving', 'gk_diving', 'pace', 'pac')],
-      ['HAN', statValue('goalkeeping_handling', 'gk_handling', 'shooting', 'sho')],
-      ['KIC', statValue('goalkeeping_kicking', 'gk_kicking', 'passing', 'pas')],
-      ['REF', statValue('goalkeeping_reflexes', 'gk_reflexes', 'dribbling', 'dri')],
-      ['SPD', statValue('defending', 'def', 'movement_sprint_speed', 'sprint_speed')],
-      ['POS', statValue('goalkeeping_positioning', 'gk_positioning', 'physicality', 'phy')],
-    ] : [
-      ['PAC', statValue('pace', 'pac')],
-      ['SHO', statValue('shooting', 'sho')],
-      ['PAS', statValue('passing', 'pas')],
-      ['DRI', statValue('dribbling', 'dri')],
-      ['DEF', statValue('defending', 'def')],
-      ['PHY', statValue('physicality', 'phy')],
-    ];
-    for (const [label, value] of displayedStats) {
-      const item = document.createElement('div');
-      item.className = 'browser-player-stat';
-      const title = document.createElement('span');
-      title.className = 'browser-player-stat-label text-xs font-bold text-slate-800/90';
-      title.textContent = label;
-      const detail = document.createElement('strong');
-      detail.className = 'browser-player-stat-value text-base font-black text-slate-950';
-      detail.textContent = value;
-      item.append(title, detail);
-      stats.append(item);
-    }
-    footer.append(details, stats);
-    article.append(content, footer);
-    playerGrid.append(article);
+    playerGrid.append(buildPlayerCard(card, { onActivate: openPlayerDetailModal }));
   });
   restorePlayerPanelScrollPositions(scrollPositions);
 }
@@ -1323,28 +1193,55 @@ async function openPlayerModal(slot) {
   modalDescription.textContent = `${position} 포지션 카드를 불러오는 중…`;
   renderMessage('선수 목록을 불러오는 중입니다…');
 
-  const requestId = ++modalRequest;
+  resetModalSearch();
+  await loadModalPlayerPage();
+}
+
+function resetModalSearch() {
+  clearTimeout(modalSearchTimer);
+  modalAbort?.abort();
+  modalRequest += 1;
+  modalPager.reset();
+  modalPlayerCards = [];
+  modalLoadMore.hidden = true;
+  renderMessage('선수 목록을 불러오는 중입니다…');
+}
+
+async function loadModalPlayerPage() {
+  if (modal.hidden || !activeSlot) return;
+  const ticket = modalPager.begin();
+  if (!ticket) return;
+  const requestId = modalRequest;
+  const position = activeSlot.dataset.position;
+  modalAbort = new AbortController();
+  modalLoadMore.disabled = true;
+  modalLoadMore.textContent = '불러오는 중…';
   try {
-    const rows = await fetchPlayerCards(supabase);
+    const rows = await fetchModalPlayerPage(supabase, {
+      position: normalizePosition(position), keyword: modalPlayerSearchInput.value,
+      offset: ticket.offset, signal: modalAbort.signal,
+    });
     if (requestId !== modalRequest || modal.hidden) return;
     const selectedCardIds = getSelectedCardIds(position);
-    const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean);
-    const matchesSlot = card => [card.position, ...(card.alt_positions ?? [])]
-      .some(value => normalizePosition(value) === normalizePosition(position));
-    // 주/보조 포지션이 일치하는 카드만 검색 목록에 전달합니다.
-    const positionedCards = cards.filter(matchesSlot);
-    const availableCards = positionedCards.filter(card => !selectedCardIds.has(String(card.id)));
-    modalDescription.textContent = normalizePosition(position) + ' 가능 카드 ' + positionedCards.length + '개 · 선택 가능 ' + availableCards.length + '개 · 주/보조 포지션 포함';
-    if (!availableCards.length) {
-      renderMessage(positionedCards.length ? '해당 포지션의 모든 카드가 다른 슬롯에 배치되어 있습니다.' : '해당 포지션을 수행할 수 있는 카드가 없습니다.');
-      return;
-    }
-    renderPlayerList(availableCards, normalizePosition(position));
+    const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean)
+      .filter(card => !selectedCardIds.has(String(card.id)));
+    if (!modalPager.complete(ticket, rows, cards)) return;
+    modalDescription.textContent = `${normalizePosition(position)} · ${modalPager.state.cards.length}개 표시 · 주/보조 포지션 포함`;
+    renderPlayerList(modalPager.state.cards, normalizePosition(position));
+    if (!modalPager.state.cards.length) renderMessage(modalPager.state.hasMore
+      ? '현재 페이지에 선택 가능한 선수가 없습니다. 더 보기를 눌러 주세요.'
+      : '조건에 맞는 선수가 없습니다.');
   } catch (error) {
     if (requestId !== modalRequest || modal.hidden) return;
-    console.error('Player card lookup failed:', error);
-    modalDescription.textContent = '선수 목록을 불러오지 못했습니다.';
-    renderMessage('DB 연결 오류: ' + error.message + ' 창을 다시 열어 재시도해 주세요.', true);
+    modalPager.fail(ticket);
+    modalDescription.textContent = '선수 목록을 불러오지 못했습니다. 더 보기로 다시 시도해 주세요.';
+    if (!modalPager.state.cards.length) renderMessage('DB 연결 오류: ' + error.message, true);
+  } finally {
+    if (requestId === modalRequest && !modal.hidden) {
+      modalLoadMore.hidden = !modalPager.state.hasMore;
+      modalLoadMore.disabled = false;
+      modalLoadMore.textContent = '더 보기 (30명)';
+    }
   }
 }
 
@@ -1585,80 +1482,31 @@ function renderPlayerList(cards, targetPosition) {
 
 function updateModalPlayerSearch() {
   modalPlayerSearchClear.hidden = !modalPlayerSearchInput.value;
-  renderFilteredPlayerList();
+  resetModalSearch();
+  modalSearchTimer = setTimeout(() => loadModalPlayerPage(), 300);
+}
+
+function buildPlayerCard(card, options) {
+  return createPlayerCard(card, {
+    getCardName, getCardRating, getCardPosition, getChemistryEntityLogo,
+    createPlaystyleBadges, unwrapRelation, affiliationCatalog, ...options,
+  });
 }
 
 function renderFilteredPlayerList() {
-  const searchTerm = modalPlayerSearchInput.value.trim();
-  const filteredCards = searchTerm
-    ? modalPlayerCards.filter((card) => matchesPlayerName(card, searchTerm))
-    : modalPlayerCards;
-
-  if (searchTerm && !filteredCards.length) {
-    renderMessage('검색 결과와 일치하는 선수가 없습니다.');
-    playerList.firstElementChild?.classList.add('search-empty');
-    return;
-  }
-
   playerList.replaceChildren();
-  filteredCards.forEach((card) => {
-    const button = document.createElement('button');
-    button.className = 'player-option';
-    button.type = 'button';
-    button.addEventListener('click', () => {
-      placeCard(activeSlot, card);
-      status.textContent = `${getCardName(card)} 선수를 ${activeSlot.dataset.position} 슬롯에 배치했습니다.`;
-      closeModal();
+  modalPlayerCards.forEach(card => {
+    const article = buildPlayerCard(card, {
+      actionLabel: '선수 선택',
+      textAffiliations: true,
+      onActivate: () => {
+        if (!activeSlot) return;
+        placeCard(activeSlot, card);
+        status.textContent = `${getCardName(card)} 선수를 ${activeSlot.dataset.position} 슬롯에 배치했습니다.`;
+        closeModal();
+      },
     });
-
-    const image = getCardImage(card);
-    if (image) {
-      const thumbnail = document.createElement('img');
-      thumbnail.className = 'player-thumbnail';
-      thumbnail.src = image;
-      thumbnail.alt = '';
-      thumbnail.loading = 'lazy';
-      thumbnail.addEventListener('error', () => thumbnail.remove());
-      button.append(thumbnail);
-    }
-
-    const details = document.createElement('span');
-    details.className = 'player-option-details';
-    const name = document.createElement('strong');
-    name.textContent = getCardName(card);
-    const meta = document.createElement('small');
-    meta.textContent = [getCardRating(card), getCardPosition(card), card.nation, card.club]
-      .filter(Boolean)
-      .join(' · ') || '카드 정보';
-    details.append(name, meta);
-
-    const scoreBadges = document.createElement('span');
-    scoreBadges.className = 'player-option-score-badges';
-    const metaBadge = document.createElement('span');
-    metaBadge.className = 'player-option-meta-score';
-    metaBadge.textContent = card.meta_score === null
-      ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
-    metaBadge.title = `${card.score_position} 슬롯 기준 · 3백 미적용`;
-    const valueBadge = createValueScoreBadge(card.value_score);
-    scoreBadges.append(metaBadge, valueBadge);
-    details.append(scoreBadges);
-
-    const stats = getCardStats(card, true);
-    if (stats.length) {
-      const statsGrid = document.createElement('span');
-      statsGrid.className = 'player-option-stats';
-      statsGrid.textContent = stats.join('  ');
-      details.append(statsGrid);
-    }
-    const physicalInfo = document.createElement('small');
-    physicalInfo.className = 'player-option-physical-info';
-    physicalInfo.textContent = formatPlayerPhysicalInfo(card);
-    details.append(physicalInfo);
-    details.append(createSkillFootBadges(card));
-    details.append(createRoleBadges(card));
-    details.append(createPlaystyleBadges(card));
-    button.append(details);
-    playerList.append(button);
+    playerList.append(article);
   });
 }
 
@@ -1670,6 +1518,9 @@ function renderMessage(message, isError = false) {
 }
 
 function closeModal() {
+  clearTimeout(modalSearchTimer);
+  modalAbort?.abort();
+  modalPager.reset();
   modal.hidden = true;
   modalRequest += 1;
   activeSlot = null;
@@ -1693,6 +1544,7 @@ function resetSlot(slot, shouldUpdate = true) {
   delete slot.dataset.card;
   delete slot.dataset.cardId;
   slot.draggable = false;
+  slot.style.removeProperty('background-image');
   slot.classList.remove('occupied', 'is-locked', 'is-owned', 'is-out-of-position', 'is-dragging', 'is-drop-target');
   slot.replaceChildren();
 
@@ -1711,6 +1563,8 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   squad[slot.dataset.position].isOwned = state.isOwned === true;
   slot.draggable = true;
   slot.classList.add('occupied');
+  const backgroundUrl = card.raw?.background_url ?? card.background_url;
+  slot.style.backgroundImage = backgroundUrl ? `url(${JSON.stringify(backgroundUrl)})` : 'none';
   slot.classList.remove('is-locked');
   slot.replaceChildren();
 
@@ -1762,6 +1616,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   slot.append(affiliations);
   const nameElement = document.createElement('strong');
   nameElement.textContent = name;
+  nameElement.title = name;
   const rarityElement = document.createElement('span');
   rarityElement.className = 'slot-rarity';
   rarityElement.textContent = card.version || 'Standard';
@@ -2307,10 +2162,7 @@ function createPlaystyleBadges(card, maxCount = Infinity, className = 'playstyle
 }
 
 function getCardName(card) {
-  const namedField = ['name', 'player_name', 'card_name', 'display_name'].find(
-    (field) => typeof card[field] === 'string' && card[field].trim(),
-  );
-  return namedField ? card[namedField] : '이름 없는 선수';
+  return card.name ?? '';
 }
 
 function getCardRating(card) {

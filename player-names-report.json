@@ -1,0 +1,18 @@
+{
+  "csv_unique_ids": 18405,
+  "matched": 13027,
+  "unmatched": 5378,
+  "unchanged": 1102,
+  "pending": 11925,
+  "updated": 11925,
+  "disappeared": [],
+  "invalid_lines": [],
+  "conflicting_ids": [],
+  "failures": [],
+  "name_mismatches": [],
+  "other_column_changes": [],
+  "unmatched_changes": [],
+  "row_count_before": 19789,
+  "row_count_after": 19789,
+  "verified": true
+}
