@@ -6,8 +6,11 @@ import { calculate_base_score } from './metaScore.js';
 import { FORMATIONS } from './formations.js';
 import { PLAYER_CARD_SELECT } from './playerCards.js';
 import { getCardCoinPrice, calculateSquadTotalCost } from './squadCost.ts';
+import { getCardVersionId, normalizeExcludedCardVersionIds } from './excludedCardVersions.js';
 
 export interface AutoBuildOptions {
+  /** card_versions.id values: other versions of the same player remain eligible. */
+  excludedCardVersionIds?: Array<string | number>;
   budgetAllocations?: BudgetAllocations;
   currentSquad?: Record<string, { card: Record<string, any>; isOwned?: boolean; isLocked?: boolean } | null>;
   /** Combined Icon/Hero maximum. null/undefined means unlimited (11). */
@@ -20,6 +23,17 @@ function specialLimit(options: AutoBuildOptions): number {
 }
 function rawEntryCard(entry: NonNullable<NonNullable<AutoBuildOptions['currentSquad']>[string]>) {
   return entry.card.raw ?? entry.card;
+}
+function exclusionSet(options: AutoBuildOptions, formation: string): Set<string> {
+  const excluded = new Set<string>(normalizeExcludedCardVersionIds(options.excludedCardVersionIds));
+  const slots = FORMATIONS.find(item => item.name === formation)?.slots ?? [];
+  for (const { position } of slots) {
+    const entry = options.currentSquad?.[position];
+    if (entry?.isLocked && excluded.has(getCardVersionId(entry.card))) {
+      throw new Error('제외된 카드가 스쿼드에 잠겨 있습니다. 해당 카드의 잠금 또는 제외를 해제한 뒤 다시 실행해 주세요.');
+    }
+  }
+  return excluded;
 }
 function isSpecialCard(card: Record<string, any>): boolean {
   const type = String(card.card_type ?? card.cardType ?? '').toUpperCase();
@@ -93,6 +107,7 @@ export async function fetchCandidatePlayers(
   options: AutoBuildOptions = {},
 ): Promise<CandidatePlayer[]> {
   const plan = getCandidateBudgetPlan(totalBudget, budgetAllocations, formation, isThreeBack, options);
+  const excluded = exclusionSet(options, formation);
   const maxSpecial = specialLimit(options);
   const entries = Object.entries(options.currentSquad ?? {}).filter(([, entry]) => entry?.card);
   const locked = entries.filter(([, entry]) => entry!.isLocked);
@@ -106,6 +121,7 @@ export async function fetchCandidatePlayers(
     const queryRows = async (cap: number | null, limit: number, cheapest = false, positions = item.positions) => {
       let query = supabase.from('card_versions').select(select)
         .in('candidate_positions.positions.name', positions).gte('price', 0);
+      if (excluded.size) query = query.not('id', 'in', `(${[...excluded].join(',')})`);
       if (cap !== null) query = query.lte('price', cap);
       if (lockedSpecial >= maxSpecial) query = query.or('card_type.is.null,card_type.not.in.(ICON,SPECIAL_ICON,HERO,SPECIAL_HERO)');
       if (cheapest) query = query.order('price', { ascending: true });
@@ -129,6 +145,7 @@ export async function fetchCandidatePlayers(
   const candidates = new Map<string, CandidatePlayer>();
   for (const { group, rows } of results) {
     for (const row of rows) {
+      if (excluded.has(getCardVersionId(row))) continue;
       const { candidate_positions: _matchedPositions, ...card } = row;
       const existing = candidates.get(String(card.id));
       if (existing) existing.candidateGroups.push(group);
@@ -139,6 +156,7 @@ export async function fetchCandidatePlayers(
   for (const [, entry] of entries) {
     if (!entry!.isOwned) continue;
     const card = rawEntryCard(entry!);
+    if (excluded.has(getCardVersionId(card))) continue;
     if (isSpecialCard(card) && lockedSpecial >= maxSpecial && !entry!.isLocked) continue;
     const candidateGroups = plan.filter(item => item.positions.some(position => prepareCandidate(card, position, isThreeBack, true))).map(item => item.group);
     candidates.set(String(card.id), { ...card, candidateGroups, isOwned: true } as CandidatePlayer);
@@ -289,6 +307,7 @@ export async function generateOptimalSquad(
   const spendingLimit = totalBudget === 0 ? Infinity : totalBudget;
   if (!Number.isInteger(minChemistry) || minChemistry < 0 || minChemistry > 33) throw new RangeError('케미스트리는 0~33이어야 합니다.');
   const groups = Array.isArray(candidates) ? groupCandidatePlayers(candidates) : candidates;
+  const excluded = exclusionSet(options, formation);
   const threeBack = formation.startsWith('3');
   const maxSpecial = specialLimit(options);
   const existing = options.currentSquad ?? {};
@@ -310,6 +329,7 @@ export async function generateOptimalSquad(
     const unique = new Map<string, GeneratedPlayer>();
     const owned = Object.values(existing).filter(entry => entry?.isOwned).map(entry => rawEntryCard(entry!));
     for (const card of [...(groups[getPositionBudgetGroup(position, threeBack)] ?? []), ...owned]) {
+      if (excluded.has(getCardVersionId(card))) continue;
       const prepared = prepareCandidate(card, position, threeBack, ownedIds.has(String(card.id)) || card.isOwned === true);
       if (prepared && (prepared.isIcon || prepared.isHero) && maxSpecial === 0) continue;
       if (prepared) unique.set(prepared.id, prepared);

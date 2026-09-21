@@ -7,6 +7,29 @@ const allocations = { FW: 400000, MF: 350000, DF: 250000 };
 const client = (db: ReturnType<typeof createCandidateMockDb>) => db as unknown as SupabaseClient;
 
 describe('candidate pruning', () => {
+  it.each([0, 1000000])('excludes only the selected version in every query and owned-card path (budget %s)', async budget => {
+    const banned = { ...mockCandidate(100, ['ST', 'CM', 'CB'], 0, 99), player_id: 7 };
+    const variant = { ...banned, id: 101 };
+    const allowed = { ...mockCandidate(7, ['ST', 'CM', 'CB'], 0, 80), player_id: 8 };
+    const db = createCandidateMockDb([banned, variant, allowed]);
+    const cards = await fetchCandidatePlayers(budget, allocations, '4-3-3', false, client(db), {
+      excludedCardVersionIds: ['100'], currentSquad: { ST: { card: { raw: banned }, isOwned: true } },
+    });
+    expect(cards.map(card => card.id)).toEqual([101, 7]);
+    expect(db.calls.length).toBeGreaterThan(3);
+    expect(db.calls.every(call => call.not?.column === 'id' && call.not.operator === 'in' && call.not.value === '(100)')).toBe(true);
+  });
+
+  it('omits the exclusion query for an empty list and rejects excluded locks before querying', async () => {
+    const db = createCandidateMockDb([]);
+    await fetchCandidatePlayers(1000000, allocations, '4-3-3', false, client(db), { excludedCardVersionIds: [] });
+    expect(db.calls.every(call => !call.not)).toBe(true);
+    const lockedDb = createCandidateMockDb([]);
+    await expect(fetchCandidatePlayers(1000000, allocations, '4-3-3', false, client(lockedDb), {
+      excludedCardVersionIds: [90], currentSquad: { ST: { card: { ...mockCandidate(90, ['ST'], 0), player_id: 9 }, isLocked: true } },
+    })).rejects.toThrow('제외된 카드가 스쿼드에 잠겨');
+    expect(lockedDb.calls).toHaveLength(0);
+  });
   it('deducts locks only from the total, never the open-slot allocation', async () => {
     const currentSquad = {
       LCB: { card: { raw: mockCandidate(900, ['CB'], 3000000) }, isLocked: true },

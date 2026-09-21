@@ -1,7 +1,7 @@
 import { createPlayerCard } from './components/PlayerCard.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { createPlayerPagination } from './utils/playerPagination.js';
-import { renderDetailStatGroups } from './utils/detailStats.js';
+import { createPlayerDetailModal } from './components/PlayerDetailModal.js';
 import { STAT_KEYS, defaultStats, activeStats, renderStatInputs } from './utils/statFilters.js';
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
 import { fetchPlaystyleOptions } from './utils/playstyleFilters.js';
@@ -45,12 +45,6 @@ const modalDescription = document.querySelector('#modal-description');
 const modalPlayerSearchInput = document.querySelector('#modal-player-search-input');
 const modalPlayerSearchClear = document.querySelector('#modal-player-search-clear');
 const playerList = document.querySelector('#player-list');
-const playerDetailModal = document.querySelector('#player-detail-modal');
-const playerDetailIdentity = document.querySelector('#player-detail-identity');
-const playerDetailBio = document.querySelector('#player-detail-bio');
-const playerDetailStats = document.querySelector('#player-detail-stats');
-const playerDetailRoles = document.querySelector('#player-detail-roles');
-const playerDetailPlaystyles = document.querySelector('#player-detail-playstyles');
 const tabButtons = document.querySelectorAll('[data-tab]');
 const tabPages = document.querySelectorAll('.tab-page');
 const appShell = document.querySelector('.app-shell');
@@ -111,18 +105,15 @@ const ROLE_DATA = [
 ];
 let playerSearchRequest = 0;
 let playerSearchTimer;
-let playerDetailRequest = 0;
 let pendingPanelScrollPositions = null;
 let activeSlot = null;
 let managerState = null;
 let targetBudget = 0;
 let modalPlayerCards = [];
-let selectedPlayer = null;
 let dragOriginPosition = null;
 let suppressSlotClick = false;
 const squad = {};
 let affiliationCatalog = { nations: [], leagues: [], clubs: [] };
-const PLAYER_DETAIL_SELECT = PLAYER_CARD_SELECT;
 let modalRequest = 0;
 let modalSearchTimer;
 let modalAbort;
@@ -449,13 +440,14 @@ document.querySelectorAll('[data-close-modal]').forEach((button) => {
   button.addEventListener('click', closeModal);
 });
 
-document.querySelectorAll('[data-close-detail-modal]').forEach((button) => {
-  button.addEventListener('click', closePlayerDetailModal);
+const playerDetail = createPlayerDetailModal({
+  supabase, normalizeBrowserPlayerCard, asArray, getCardImage, getCardRating,
+  getCardName, getPlayStyles, createPlaystyleBadges, getRoles, unwrapRelation,
 });
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
-  if (!playerDetailModal.hidden) closePlayerDetailModal();
+  if (playerDetail.isOpen) playerDetail.close();
   else if (!modal.hidden) closeModal();
   else closeCommandPopovers();
 });
@@ -1003,7 +995,7 @@ function renderPlayerGrid(cards, scrollPositions = null) {
   }
 
   cards.forEach((card) => {
-    playerGrid.append(buildPlayerCard(card, { onActivate: openPlayerDetailModal }));
+    playerGrid.append(buildPlayerCard(card, { onActivate: playerDetail.open }));
   });
   restorePlayerPanelScrollPositions(scrollPositions);
 }
@@ -1044,140 +1036,6 @@ function restorePlayerPanelScrollPositions(scrollPositions) {
     if (resultsPanel) resultsPanel.scrollTop = scrollPositions.results;
     if (filtersPanel) filtersPanel.scrollTop = scrollPositions.filters;
   });
-}
-
-async function openPlayerDetailModal(card) {
-  console.log('[DEBUG] Player Raw Data:', card.raw ?? card);
-  selectedPlayer = card;
-  renderPlayerDetail(card);
-  playerDetailModal.hidden = false;
-  document.querySelector('#player-detail-close').focus();
-
-  if (!supabase) return;
-
-  const requestId = ++playerDetailRequest;
-  const { data: cardDetail, error } = await supabase
-    .from('card_versions')
-    .select(PLAYER_DETAIL_SELECT)
-    .eq('id', card.id)
-    .single();
-
-  if (cardDetail) console.log('[DEBUG] Player Raw Data:', cardDetail);
-
-  if (error || requestId !== playerDetailRequest || selectedPlayer?.id !== card.id) return;
-
-  const detailedCard = normalizeBrowserPlayerCard(cardDetail);
-  if (!detailedCard) return;
-  // Nested Join 결과를 그대로 보존해 Roles 렌더러가 card_roles 배열을 항상 참조하도록 합니다.
-  detailedCard.card_roles = asArray(cardDetail.card_roles);
-  selectedPlayer = detailedCard;
-  renderPlayerDetail(detailedCard);
-}
-
-function closePlayerDetailModal() {
-  playerDetailModal.hidden = true;
-  selectedPlayer = null;
-  playerDetailRequest += 1;
-}
-
-function renderPlayerDetail(card) {
-  const positions = [card.primary_position, ...(card.secondary_positions ?? [])].filter(Boolean);
-  playerDetailIdentity.replaceChildren();
-  const image = getCardImage(card);
-  if (image) {
-    const portrait = document.createElement('img');
-    portrait.className = 'player-detail-image';
-    portrait.src = image;
-    portrait.alt = '';
-    portrait.addEventListener('error', () => portrait.remove());
-    playerDetailIdentity.append(portrait);
-  }
-  const heading = document.createElement('div');
-  const eyebrow = document.createElement('p');
-  eyebrow.className = 'eyebrow';
-  eyebrow.textContent = [getCardRating(card), positions.join(' / ')].filter(Boolean).join(' · ');
-  const name = document.createElement('h1');
-  name.id = 'player-detail-name';
-  name.textContent = getCardName(card);
-  const meta = document.createElement('p');
-  meta.className = 'player-detail-meta';
-  meta.textContent = [card.club, card.nation].filter(Boolean).join(' · ') || '소속 및 국적 정보 없음';
-  heading.append(eyebrow, name, meta);
-  playerDetailIdentity.append(heading);
-
-  renderDetailSpecs(card);
-  renderDetailStats(card);
-  renderDetailRoles(card);
-  const detailPlaystyles = getPlayStyles(card);
-  playerDetailPlaystyles.replaceChildren(
-    createPlaystyleBadges({ ...card, playstyles: detailPlaystyles }, Infinity, 'detail-playstyle-badges playstyle-badges'),
-  );
-  if (!detailPlaystyles.length) {
-    playerDetailPlaystyles.textContent = '등록된 특성이 없습니다.';
-    if (import.meta.env.DEV) console.log('[PlayerDetail] PlayStyles raw player data:', card.raw ?? card);
-  }
-}
-
-function renderDetailRoles(card) {
-  playerDetailRoles.replaceChildren();
-  const roles = getRoles(card)
-    .sort((left, right) => left.position.localeCompare(right.position) || left.name.localeCompare(right.name) || right.level - left.level);
-
-  if (!roles.length) {
-    playerDetailRoles.textContent = '등록된 역할이 없습니다.';
-    return;
-  }
-
-  roles.forEach((role) => {
-    const badge = document.createElement('span');
-    badge.className = role.level === 2 ? 'detail-role-badge is-plus-plus' : 'detail-role-badge is-plus';
-    badge.textContent = `${role.position} ${role.name} ${role.level === 2 ? '++' : '+'}`;
-    playerDetailRoles.append(badge);
-  });
-}
-
-function renderDetailSpecs(card) {
-  const player = unwrapRelation(card.raw?.players);
-  const nation = unwrapRelation(player?.nations);
-  const nationTile = createDetailValue('Nation', nation?.name ?? card.nation ?? '-');
-  const nationValue = nationTile.querySelector('strong');
-  nationValue.classList.add('detail-nation-value');
-  if (typeof nation?.flag_url === 'string' && nation.flag_url.trim()) {
-    const flag = document.createElement('img');
-    flag.src = nation.flag_url;
-    flag.alt = '';
-    flag.addEventListener('error', () => flag.remove());
-    nationValue.prepend(flag);
-  }
-  const specs = [
-    ['League', card.league ?? '-'],
-    ['Club', card.club ?? '-'],
-    ['Card Version', card.version ?? '-'],
-    ['Height', card.height === undefined || card.height === null ? '-' : `${card.height}cm`],
-    ['Weight', card.weight === undefined || card.weight === null ? '-' : `${card.weight}kg`],
-    ['Age', card.age === undefined || card.age === null ? '-' : `${card.age}세`],
-    ['Gender', card.gender ?? '-'],
-    ['Preferred Foot', card.preferred_foot ?? '-'],
-    ['Skill Moves', card.sm === undefined || card.sm === null ? '-' : `${card.sm}★`],
-    ['Weak Foot', card.wf === undefined || card.wf === null ? '-' : `${card.wf}★`],
-    ['Accele Type', card.accele_type ?? '-'],
-    ['Body Type', card.body_type ?? '-'],
-  ];
-  playerDetailBio.replaceChildren(nationTile, ...specs.map(([label, value]) => createDetailValue(label, value)));
-}
-
-function renderDetailStats(card) {
-  renderDetailStatGroups(playerDetailStats, card);
-}
-
-function createDetailValue(label, value) {
-  const item = document.createElement('div');
-  const labelElement = document.createElement('span');
-  labelElement.textContent = label;
-  const valueElement = document.createElement('strong');
-  valueElement.textContent = value;
-  item.append(labelElement, valueElement);
-  return item;
 }
 
 async function openPlayerModal(slot) {
@@ -1586,7 +1444,18 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   removeButton.setAttribute('aria-label', `${name} 선수 제거`);
   removeButton.textContent = '×';
   removeButton.addEventListener('click', (event) => handleRemovePlayer(event, slot.dataset.position));
-  cardActions.append(lockButton, ownedButton, removeButton);
+  const detailButton = document.createElement('button');
+  detailButton.className = 'detail-player';
+  detailButton.type = 'button';
+  detailButton.setAttribute('aria-label', name + ' 선수 상세 보기');
+  detailButton.title = '상세 보기';
+  detailButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg>';
+  detailButton.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const selectedCard = squad[slot.dataset.position]?.card;
+    if (selectedCard) playerDetail.open(selectedCard);
+  });
+  cardActions.append(lockButton, ownedButton, detailButton, removeButton);
   slot.append(cardActions);
   updateSlotLockUI(slot);
   updateSlotOwnedUI(slot);

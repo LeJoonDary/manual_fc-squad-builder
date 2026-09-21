@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ExcludedCardVersionsManager } from './ExcludedCardVersionsManager.jsx';
+import { excludedCardVersionsStore } from '../utils/excludedCardVersions.js';
 import { fetchCandidatePlayers, generateOptimalSquad, getCandidateBudgetPlan, getRemainingAutoBuildBudget } from '../utils/autoBuildUtils.ts';
 
 export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {} }) {
@@ -63,10 +65,14 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
         throw new Error('자동 완성을 실행하려면 0 이상의 총예산을 입력해 주세요.');
       }
       const snapshot = getSquadSnapshot();
-      const options = { currentSquad, budgetAllocations: { ...budgetAllocations }, maxSpecialCards: specialMode === 'unlimited' ? null : specialMode === 'none' ? 0 : specialCount };
+      const exclusionSnapshot = excludedCardVersionsStore.getState();
+      const options = { currentSquad, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], budgetAllocations: { ...budgetAllocations }, maxSpecialCards: specialMode === 'unlimited' ? null : specialMode === 'none' ? 0 : specialCount };
       getCandidateBudgetPlan(totalBudget, budgetAllocations, formation, isThreeBack, options);
       const candidates = await fetchCandidatePlayers(totalBudget, { ...budgetAllocations }, formation, isThreeBack, supabase, options);
       const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, considerManager, options);
+      if (excludedCardVersionsStore.getState() !== exclusionSnapshot) {
+        throw new Error('구성 중 제외 목록이 변경되었습니다. 현재 목록으로 다시 실행해 주세요.');
+      }
       if (!result.success && result.status !== 'fallback') {
         throw new Error('조건을 만족하는 스쿼드를 찾지 못했습니다. 예산을 늘리거나 케미스트리 조건을 낮춰주세요.');
       }
@@ -103,6 +109,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
           <span className="auto-build-chevron" aria-hidden="true">{isAutoBuildSettingsOpen ? '∧' : '∨'}</span>
         </button>
       </h2>
+      <ExcludedCardVersionsManager supabase={supabase} />
         <div id="auto-build-details" className="auto-build-details" hidden={!isAutoBuildSettingsOpen}>
           <div ref={budgetHost} />
           <div className="auto-build-total">락 선수 비용 {lockedCost.toLocaleString('en-US')} C<br />

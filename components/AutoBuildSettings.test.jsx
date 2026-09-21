@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { AutoBuildSettings } from './AutoBuildSettings.jsx';
 import { fetchCandidatePlayers, generateOptimalSquad } from '../utils/autoBuildUtils.ts';
+import { excludedCardVersionsStore } from '../utils/excludedCardVersions.js';
 
 vi.mock('../utils/autoBuildUtils.ts', async importOriginal => ({ ...await importOriginal(), fetchCandidatePlayers: vi.fn(), generateOptimalSquad: vi.fn() }));
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -11,6 +12,7 @@ let root, container, props;
 const result = { success: true, squad: [], manager: null, totalCost: 500000, totalChemistry: 33 };
 const button = () => container.querySelector('.auto-build-button');
 beforeEach(async () => {
+  for (const id of excludedCardVersionsStore.getState().excludedCardVersionIds) excludedCardVersionsStore.unban(id);
   vi.resetAllMocks();
   container = document.createElement('div'); document.body.append(container);
   root = createRoot(container);
@@ -23,6 +25,36 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 
 describe('Auto Build UI workflow', () => {
+  it('shows excluded names, passes exclusions to generation and lets the user unban', async () => {
+    await act(async () => excludedCardVersionsStore.ban(77, 'Excluded Player'));
+    const toggle = container.querySelector('.excluded-card-versions-toggle');
+    expect(toggle.textContent).toContain('(1)');
+    await act(async () => toggle.click());
+    await act(async () => document.querySelector('#exclusion-tab-excluded').click());
+    const list = document.querySelector('#excluded-card-versions-list');
+    expect(document.querySelector('#exclusion-panel-excluded').hidden).toBe(false);
+    expect(list.textContent).toContain('Excluded Player');
+    await act(async () => button().click());
+    expect(fetchCandidatePlayers.mock.calls[0][5].excludedCardVersionIds).toEqual(['77']);
+    expect(generateOptimalSquad.mock.calls[0][5].excludedCardVersionIds).toEqual(['77']);
+    await act(async () => list.querySelector('input[type="checkbox"]').click());
+    await act(async () => document.querySelector('.exclusion-bulk-actions button').click());
+    expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
+    expect(list.textContent).toContain('제외된 카드가 없습니다');
+    await act(async () => button().click());
+    expect(fetchCandidatePlayers.mock.calls[1][5].excludedCardVersionIds).toEqual([]);
+  });
+
+  it('rejects a result if exclusions changed while generation was in progress', async () => {
+    let resolve;
+    generateOptimalSquad.mockImplementation(() => new Promise(done => { resolve = done; }));
+    await act(async () => button().click());
+    await act(async () => excludedCardVersionsStore.ban(77, 'Newly excluded'));
+    await act(async () => resolve(result));
+    expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]').textContent).toContain('제외 목록이 변경');
+    expect(button().disabled).toBe(false);
+  });
   it('keeps the budget input and its listeners inside the accordion across toggles', async () => {
     const budgetSection = document.createElement('section');
     budgetSection.innerHTML = '<input aria-label="예산 상한" />';
@@ -121,7 +153,7 @@ describe('Auto Build UI workflow', () => {
     await act(async () => { select.value = 'none'; select.dispatchEvent(new Event('change', { bubbles: true })); });
     await act(async () => container.querySelector('input[type="checkbox"]').click());
     await act(async () => button().click());
-    expect(generateOptimalSquad).toHaveBeenLastCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, false, { currentSquad, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: 0 });
+    expect(generateOptimalSquad).toHaveBeenLastCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, false, { currentSquad, excludedCardVersionIds: [], budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: 0 });
     await act(async () => container.querySelector('.auto-build-reset').click());
     expect(resetTargetBudget).toHaveBeenCalledOnce();
     expect(select.value).toBe('unlimited');
@@ -139,8 +171,8 @@ describe('Auto Build UI workflow', () => {
     await act(async () => button().click());
     expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
     await act(async () => resolve([{ id: 1 }]));
-    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, { FW: 333333, MF: 333333, DF: 333334 }, '4-3-3', false, props.supabase, { currentSquad: {}, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
-    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
+    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, { FW: 333333, MF: 333333, DF: 333334 }, '4-3-3', false, props.supabase, { currentSquad: {}, excludedCardVersionIds: [], budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
+    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludedCardVersionIds: [], budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(result, { snapshot: 'snapshot', formation: '4-3-3', totalBudget: 1000000 });
     expect(button().disabled).toBe(false);
     expect(container.querySelector('[role="status"]').textContent).toContain('완료');

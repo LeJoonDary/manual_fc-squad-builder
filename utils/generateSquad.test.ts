@@ -10,6 +10,30 @@ function groups(rows = createSquadCandidateRows()): CandidateGroups {
 }
 
 describe('generateOptimalSquad', () => {
+  it('excludes only the banned card through candidates, ownership and fallback', async () => {
+    const rows = createSquadCandidateRows();
+    const versions = rows.filter(row => row.card_positions[0].positions.name === 'LW');
+    versions.forEach(row => { row.player_id = 999; });
+    const banned = versions[2];
+    for (const budget of [0, 1]) {
+      const result = await generateOptimalSquad('4-3-3', groups(rows), budget, 0, false, {
+        excludedCardVersionIds: [String(banned.id)], currentSquad: { LW: { card: { raw: banned }, isOwned: true } },
+      });
+      expect(result.squad).toHaveLength(11);
+      expect(result.squad.every(player => player.id !== String(banned.id))).toBe(true);
+      expect(result.squad.find(player => player.slotPosition === 'LW')?.playerKey).toBe('999');
+      expect(result.status).toBe(budget === 0 ? 'success' : 'fallback');
+    }
+    await expect(generateOptimalSquad('4-3-3', groups(rows), 0, 0, false, {
+      excludedCardVersionIds: [banned.id], currentSquad: { LW: { card: banned, isLocked: true } },
+    })).rejects.toThrow('제외된 카드가 스쿼드에 잠겨');
+    const lockedAlternative = await generateOptimalSquad('4-3-3', groups(rows), 0, 0, false, {
+      excludedCardVersionIds: [banned.id], currentSquad: { LW: { card: versions[0], isLocked: true } },
+    });
+    expect(lockedAlternative.success).toBe(true);
+    expect(lockedAlternative.squad.find(player => player.slotPosition === 'LW')?.id).toBe(String(versions[0].id));
+  });
+
   it.each([0, null, undefined])('prioritizes quality and 33 chemistry without a budget (%s)', async budget => {
     const result = await generateOptimalSquad('4-3-3', groups(), budget, 33, false);
     expect(result.success).toBe(true);

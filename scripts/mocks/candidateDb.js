@@ -13,9 +13,11 @@ export function createCandidateMockDb(rows, error = null) {
         lte(column, value) { call.maxColumn = column; call.max = value; return query; },
         order(column, options) { call.orders.push({ column, ...options }); return query; },
         or(value) { call.or = value; return query; },
+        not(column, operator, value) { call.not = { column, operator, value }; return query; },
         async limit(value) {
           call.limit = value;
           const data = rows.filter(row => (!call.or || !['ICON', 'SPECIAL_ICON', 'HERO', 'SPECIAL_HERO'].includes(row.card_type))
+            && (!call.not || !call.not.value.slice(1, -1).split(',').includes(String(row[call.not.column])))
             && row.price != null && row.price >= call.min && (call.max === undefined || row.price <= call.max)
             && row.card_positions.some(item => call.positions.includes(item.positions.name)))
             .sort((a, b) => {
