@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { buildPlaystyles } from './seed-card-playstyles.ts';
 
 const styles = [{ id: 1, name: 'Finesse Shot' }, { id: 2, name: 'Cross Claimer' }];

@@ -78,7 +78,7 @@ describe('candidate pruning', () => {
   });
 
   it('filters before limiting, ranks by rating, and keeps secondary positions and deduplicates', async () => {
-    const rows = Array.from({ length: 40 }, (_, i) => mockCandidate(i, ['ST'], 10000 + i, 70 + i));
+    const rows = Array.from({ length: 40 }, (_, i) => mockCandidate(i, ['ST'], 10000 + i, 60 + i));
     rows.push(mockCandidate(100, ['CAM', 'CM'], 100000, 99));
     rows.push(mockCandidate(101, ['ST'], 900000, 100));
     rows.push(mockCandidate(102, ['CM'], null, 100));
@@ -121,4 +121,14 @@ describe('candidate pruning', () => {
     expect(() => getCandidateBudgetPlan(100, allocations, '3-5-2', false)).toThrow();
     expect(db.calls).toHaveLength(0);
   });
+});
+
+it.each([{ min: 75, max: 99 }, { min: 45, max: 74 }])('applies OVR bounds to every DB query and owned cards: %s', async squadOvrRange => {
+  const rows = [44, 45, 74, 75, 99, 100].map(ovr => mockCandidate(ovr, ['ST', 'CM', 'CB'], 0, ovr));
+  const db = createCandidateMockDb(rows);
+  const cards = await fetchCandidatePlayers(0, allocations, '4-3-3', false, client(db), {
+    squadOvrRange, excludedCardVersionIds: ['99'], currentSquad: { ST: { card: rows[0], isOwned: true } },
+  });
+  expect(db.calls.every(call => call.ovrMin === squadOvrRange.min && call.ovrMax === squadOvrRange.max)).toBe(true);
+  expect(cards.map(card => card.id)).toEqual(squadOvrRange.min === 75 ? [75] : [74, 45]);
 });

@@ -3,6 +3,26 @@ import { normalizeExcludedCardVersionIds } from './excludedCardVersions.js';
 export const EXCLUSION_SEARCH_PAGE_SIZE = 30;
 export const EXCLUSION_CARD_SELECT = 'id,overall,version,image_url,background_url,players!inner(id,name,long_name)';
 
+export async function fetchExclusionCardIdsByOvr(db, { minOvr, maxOvr, signal }) {
+  if (!Number.isInteger(minOvr) || !Number.isInteger(maxOvr) || minOvr < 45 || maxOvr > 99 || minOvr > maxOvr) {
+    throw new Error('OVR 범위는 45 ~ 99 사이이며 최소값이 최대값 이하여야 합니다.');
+  }
+  if (!db) throw new Error('Supabase 연결 설정이 없습니다.');
+  const ids = [];
+  // Continue until an empty page so server row limits cannot silently truncate results.
+  for (let offset = 0; ; ) {
+    signal?.throwIfAborted();
+    const { data, error } = await db.from('card_versions').select('id')
+      .gte('overall', minOvr).lte('overall', maxOvr).order('id')
+      .range(offset, offset + 499).abortSignal(signal);
+    if (error) throw error;
+    if (!data?.length) break;
+    ids.push(...data.map(card => card.id));
+    offset += data.length;
+  }
+  return normalizeExcludedCardVersionIds(ids);
+}
+
 export async function searchExclusionCards(db, { keyword, offset = 0, signal }) {
   const term = keyword.trim();
   if (!term) return [];

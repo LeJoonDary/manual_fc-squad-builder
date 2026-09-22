@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { buildCardRoles } from './seed-card-roles.ts';
 
 const positions = [{ id: 1, name: 'ST' }, { id: 2, name: 'CM' }];

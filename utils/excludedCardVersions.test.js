@@ -6,6 +6,25 @@ function memoryStorage() {
   return { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) };
 }
 
+test('bulk addition deduplicates and persists/notifies once, with atomic storage failure', () => {
+  const storage = memoryStorage();
+  const store = createExcludedCardVersionsStore(() => storage);
+  store.ban(1, 'Existing');
+  const write = vi.spyOn(storage, 'setItem');
+  const listener = vi.fn(); store.subscribe(listener);
+  expect(store.banMany([1, '2', 2, 3])).toBe(2);
+  expect(write).toHaveBeenCalledTimes(1);
+  expect(listener).toHaveBeenCalledTimes(1);
+  expect(store.getState().excludedCardVersionNames['1']).toBe('Existing');
+  expect(createExcludedCardVersionsStore(() => storage).getState().excludedCardVersionIds).toEqual(['1', '2', '3']);
+  expect(store.banMany([2, 3])).toBe(0);
+  expect(write).toHaveBeenCalledTimes(1);
+  write.mockImplementation(() => { throw new Error('quota'); });
+  expect(() => store.banMany([4, 5])).toThrow('저장하지 못했습니다');
+  expect(store.getState().excludedCardVersionIds).toEqual(['1', '2', '3']);
+  expect(listener).toHaveBeenCalledTimes(1);
+});
+
 test('ban/unban is shared, deduplicated, and restored with names after reload', () => {
   const storage = memoryStorage();
   const store = createExcludedCardVersionsStore(() => storage);
@@ -16,7 +35,7 @@ test('ban/unban is shared, deduplicated, and restored with names after reload', 
   store.ban('123', '중복');
   expect(listener).toHaveBeenCalledTimes(1);
   const restored = createExcludedCardVersionsStore(() => storage);
-  expect(restored.getState()).toEqual({ excludedCardVersionIds: ['123'], excludedCardVersionNames: { 123: '테스트 선수' } });
+  expect(restored.getState()).toEqual({ squadOvrRange: { min: 45, max: 99 }, excludedCardVersionIds: ['123'], excludedCardVersionNames: { 123: '테스트 선수' } });
   restored.unban(123);
   expect(createExcludedCardVersionsStore(() => storage).getState().excludedCardVersionIds).toEqual([]);
   unsubscribe();
@@ -49,11 +68,13 @@ test('bulk removal and reset each persist and notify once, including names', () 
   store.unbanMany(['1', 2, 2, 999]);
   expect(listener).toHaveBeenCalledTimes(1);
   expect(createExcludedCardVersionsStore(() => storage).getState()).toEqual({
+    squadOvrRange: { min: 45, max: 99 },
     excludedCardVersionIds: ['3'], excludedCardVersionNames: { 3: 'Card 3' },
   });
   store.clear();
   expect(listener).toHaveBeenCalledTimes(2);
   expect(createExcludedCardVersionsStore(() => storage).getState()).toEqual({
+    squadOvrRange: { min: 45, max: 99 },
     excludedCardVersionIds: [], excludedCardVersionNames: {},
   });
 });
@@ -74,4 +95,15 @@ test('legacy player bans are not reinterpreted as card-version bans', () => {
   expect(store.getState().excludedCardVersionIds).toEqual([]);
   store.ban(456, 'Player · Gold (#456)');
   expect(createExcludedCardVersionsStore(() => storage).getState().excludedCardVersionIds).toEqual(['456']);
+});
+
+test('OVR conditions persist without collecting IDs and survive individual ban changes', () => {
+  const storage = memoryStorage();
+  const store = createExcludedCardVersionsStore(() => storage);
+  store.setSquadOvrRange({ min: 75, max: 99 });
+  store.ban('123', 'Individual');
+  const restored = createExcludedCardVersionsStore(() => storage);
+  expect(restored.getState().squadOvrRange).toEqual({ min: 75, max: 99 });
+  expect(restored.getState().excludedCardVersionIds).toEqual(['123']);
+  expect(() => store.setSquadOvrRange({ min: 90, max: 70 })).toThrow();
 });

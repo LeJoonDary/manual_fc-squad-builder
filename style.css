@@ -853,7 +853,17 @@ body.is-squad-active { height: auto; overflow: auto; }
 .exclusion-manager-panel button:disabled { opacity: .45; cursor: default; }
 .exclusion-manager-panel button:focus-visible, .exclusion-manager-panel input:focus-visible { outline: 2px solid #63e6be; outline-offset: 2px; }
 .exclusion-manager-panel [role="tabpanel"] { padding: 16px 24px 0; }
-.exclusion-search-label { display: block; margin-bottom: 8px; font-size: .8rem; font-weight: 700; }
+.exclusion-search-label { display: block; margin-bottom: 6px; font-size: .8rem; font-weight: 700; }
+.exclusion-ovr { min-width: 0; margin: 0 0 12px; padding: 12px; border: 1px solid #526581; border-radius: 12px; background: #101e32; }
+.exclusion-ovr legend { padding: 0 6px; font-size: .85rem; font-weight: 700; }
+.exclusion-ovr-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.exclusion-ovr-fields label { display: block; margin-bottom: 6px; font-size: .8rem; }
+.exclusion-ovr input[type="number"] { box-sizing: border-box; width: 100%; padding: 8px; border: 1px solid #526581; border-radius: 8px; background: #17263d; color: #f7fbff; font: inherit; }
+.exclusion-ovr input[type="range"] { width: 100%; margin: 12px 0; accent-color: #63e6be; }
+.exclusion-ovr-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.exclusion-ovr-chips button[aria-pressed="true"] { border-color: #63e6be; background: #214b46; }
+.exclusion-ovr-submit { width: 100%; }
+.exclusion-toast { position: fixed; z-index: 10000; bottom: 24px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 48px); box-sizing: border-box; padding: 14px 20px; border: 1px solid #63e6be; border-radius: 12px; background: #17263d; color: #f7fbff; box-shadow: 0 8px 32px #0006; pointer-events: none; }
 .exclusion-card-search { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid #526581; border-radius: 10px; background: #0b172c; color: #fff; font: inherit; }
 .exclusion-card-list { max-height: 44dvh; min-height: 140px; overflow-y: auto; overscroll-behavior: contain; margin-top: 12px; }
 .exclusion-card-list > p { color: #b9c7da; font-size: .85rem; }
@@ -886,3 +896,11 @@ body.is-squad-active { height: auto; overflow: auto; }
 }
 .detail-player:hover, .detail-player:focus-visible { border-color: #63e6be; color: #63e6be; background: #183c40; outline: 2px solid #63e6be; outline-offset: 1px; }
 @media (max-width: 560px) { .slot-card-actions { left: 2px; right: 2px; } .slot-card-actions > button { width: 18px; height: 18px; } }
+
+.exclusion-ovr-rule { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; padding: 14px 16px; border: 1px solid #e9ab63; border-radius: 12px; background: #382a1e; color: #ffe0b8; }
+.exclusion-ovr-rule strong { font-size: .85rem; }
+.exclusion-ovr-rule button { flex-shrink: 0; }
+
+#exclusion-panel-search > .exclusion-card-list { min-height: 0; margin: 6px 0 12px; }
+#exclusion-panel-search > .exclusion-card-list > p { margin: 6px 0; line-height: 1.5; }
+.exclusion-ovr > p { margin: 8px 0 0; font-size: .8rem; line-height: 1.5; }

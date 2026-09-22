@@ -66,7 +66,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       }
       const snapshot = getSquadSnapshot();
       const exclusionSnapshot = excludedCardVersionsStore.getState();
-      const options = { currentSquad, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], budgetAllocations: { ...budgetAllocations }, maxSpecialCards: specialMode === 'unlimited' ? null : specialMode === 'none' ? 0 : specialCount };
+      const options = { currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], budgetAllocations: { ...budgetAllocations }, maxSpecialCards: specialMode === 'unlimited' ? null : specialMode === 'none' ? 0 : specialCount };
       getCandidateBudgetPlan(totalBudget, budgetAllocations, formation, isThreeBack, options);
       const candidates = await fetchCandidatePlayers(totalBudget, { ...budgetAllocations }, formation, isThreeBack, supabase, options);
       const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, considerManager, options);

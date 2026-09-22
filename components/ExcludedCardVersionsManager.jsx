@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { excludedCardVersionsStore } from '../utils/excludedCardVersions.js';
+import { excludedCardVersionsStore, getExcludedCardManagementCount, isSquadOvrRangeCustom } from '../utils/excludedCardVersions.js';
 import { searchExclusionCards, fetchExcludedCardDetails, EXCLUSION_SEARCH_PAGE_SIZE,
   exclusionCardName, exclusionCardLabel } from '../utils/exclusionCardSearch.js';
 
@@ -18,9 +18,14 @@ function CardSummary({ card, id, fallbackName }) {
 }
 
 function ExclusionDialog({ supabase, onClose }) {
-  const { excludedCardVersionIds: ids, excludedCardVersionNames: names } = useSyncExternalStore(
+  const exclusionState = useSyncExternalStore(
     excludedCardVersionsStore.subscribe, excludedCardVersionsStore.getState);
+  const { excludedCardVersionIds: ids, excludedCardVersionNames: names, squadOvrRange } = exclusionState;
+  const totalCount = getExcludedCardManagementCount(exclusionState);
   const [tab, setTab] = useState('search');
+  const [minOvr, setMinOvr] = useState(squadOvrRange.min);
+  const [maxOvr, setMaxOvr] = useState(squadOvrRange.max);
+  const validRange = Number.isInteger(minOvr) && Number.isInteger(maxOvr) && minOvr >= 45 && maxOvr <= 99 && minOvr <= maxOvr;
   const [keyword, setKeyword] = useState('');
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState([]);
@@ -41,6 +46,19 @@ function ExclusionDialog({ supabase, onClose }) {
   const selectAll = useRef(null);
   const selectedIds = ids.filter(id => selected.includes(id));
   const idsKey = JSON.stringify(ids);
+  const hasOvrRule = isSquadOvrRangeCustom(squadOvrRange);
+  useEffect(() => {
+    setMinOvr(squadOvrRange.min);
+    setMaxOvr(squadOvrRange.max);
+  }, [squadOvrRange.min, squadOvrRange.max]);
+
+  function resetOvrRange() {
+    change(() => {
+      excludedCardVersionsStore.setSquadOvrRange({ min: 45, max: 99 });
+      setMinOvr(45);
+      setMaxOvr(99);
+    }, 'OVR 범위를 초기화했습니다.');
+  }
 
   useEffect(() => {
     const previousFocus = document.activeElement;
@@ -111,6 +129,21 @@ function ExclusionDialog({ supabase, onClose }) {
     catch (error) { setActionError(error.message); }
   }
 
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(''), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  function applyOvrRange(min = minOvr, max = maxOvr) {
+    if (!Number.isInteger(min) || !Number.isInteger(max) || min < 45 || max > 99 || min > max) return;
+    change(() => {
+      excludedCardVersionsStore.setSquadOvrRange({ min, max });
+      setMinOvr(min);
+      setMaxOvr(max);
+    }, '자동 생성 OVR 범위를 변경했습니다.');
+  }
+
   function handleKeyDown(event) {
     if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
     if (event.key !== 'Tab') return;
@@ -130,7 +163,7 @@ function ExclusionDialog({ supabase, onClose }) {
       </header>
       <p className="exclusion-manager-help">선택한 카드 버전만 제외합니다. 같은 선수의 다른 시즌 카드는 후보로 남습니다.</p>
       <div className="exclusion-manager-tabs" role="tablist" aria-label="제외 카드 관리 탭">
-        {[['search', '카드 검색 및 제외'], ['excluded', `현재 제외된 카드 목록 (${ids.length}개)`]].map(([key, label]) =>
+        {[['search', '카드 검색 및 제외'], ['excluded', `현재 제외 및 범위 설정 (${totalCount}개)`]].map(([key, label]) =>
           <button key={key} id={`exclusion-tab-${key}`} role="tab" type="button" aria-selected={tab === key}
             aria-controls={`exclusion-panel-${key}`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}
             onKeyDown={event => {
@@ -164,14 +197,47 @@ function ExclusionDialog({ supabase, onClose }) {
           {searchError && <p role="alert">{searchError} <button type="button" onClick={() => setSearchRetry(value => value + 1)}>다시 시도</button></p>}
           {hasMore && !searchError && <button type="button" className="exclusion-load-more" disabled={searchLoading} onClick={() => setPage(value => value + 1)}>더 보기</button>}
         </div>
+        <fieldset className="exclusion-ovr">
+          <legend>스쿼드 OVR 범위 설정</legend>
+          <div className="exclusion-ovr-fields">
+            {[['min', '최소 OVR', minOvr, setMinOvr], ['max', '최대 OVR', maxOvr, setMaxOvr]].map(([key, label, value, setValue]) =>
+              <div key={key}>
+                <label htmlFor={`exclusion-ovr-${key}`}>{label}</label>
+                <input id={`exclusion-ovr-${key}`} type="number" min="45" max="99" step="1" value={value}
+                  onChange={event => setValue(event.target.value === '' ? '' : Number(event.target.value))} />
+                <input type="range" aria-label={`${label} 슬라이더`} min="45" max="99" step="1"
+                  value={value === '' ? (key === 'min' ? 45 : 99) : value} onChange={event => {
+                    const next = Number(event.target.value);
+                    setValue(next);
+                    if (key === 'min' && next > maxOvr) setMaxOvr(next);
+                    if (key === 'max' && next < minOvr) setMinOvr(next);
+                  }} />
+              </div>)}
+          </div>
+          <div className="exclusion-ovr-chips">
+            {[[45, 64, 'OVR 64 이하만 (브론즈)'], [45, 74, 'OVR 74 이하만 (실버 이하)'], [75, 99, 'OVR 75 이상만 (골드 이상)']].map(([min, max, label]) =>
+              <button key={label} type="button" aria-pressed={squadOvrRange.min === min && squadOvrRange.max === max}
+                onClick={() => applyOvrRange(min, max)}>{label}</button>)}
+            <button type="button" onClick={resetOvrRange}>OVR 범위 초기화</button>
+          </div>
+          {!validRange && <p role="alert">45 ~ 99 사이의 정수를 입력하고, 최소 OVR을 최대 OVR 이하로 설정해 주세요.</p>}
+          <button type="button" className="exclusion-ovr-submit" disabled={!validRange} onClick={() => applyOvrRange()}>
+            해당 OVR 범위로 자동 완성 설정
+          </button>
+          <p>자동 생성 후보: OVR {squadOvrRange.min} ~ {squadOvrRange.max}. 새 범위 설정은 이전 범위를 대체합니다.</p>
+        </fieldset>
       </div>
       <div id="exclusion-panel-excluded" role="tabpanel" aria-labelledby="exclusion-tab-excluded" hidden={tab !== 'excluded'}>
+        {hasOvrRule && <div className="exclusion-ovr-rule" role="status">
+          <strong>🎯 OVR {squadOvrRange.min} ~ {squadOvrRange.max}만 스쿼드에 포함</strong>
+          <button type="button" aria-label="OVR 범위 설정 취소" onClick={resetOvrRange}>✕ 취소</button>
+        </div>}
         <label className="exclusion-select-all"><input ref={selectAll} type="checkbox" disabled={!ids.length}
           checked={ids.length > 0 && selectedIds.length === ids.length} onChange={event => setSelected(event.target.checked ? [...ids] : [])} /> 전체 선택 / 해제</label>
         {detailLoading && <p role="status">제외된 카드 정보를 불러오고 있습니다…</p>}
         {detailError && <p role="alert">{detailError} <button type="button" onClick={() => setDetailRetry(value => value + 1)}>다시 시도</button></p>}
         <div id="excluded-card-versions-list" className="exclusion-card-list">
-          {!ids.length && <p>제외된 카드가 없습니다.</p>}
+          {!ids.length && <p>{hasOvrRule ? '개별 제외된 카드는 없습니다.' : '제외된 카드가 없습니다.'}</p>}
           {ids.map(id => <div className="exclusion-card-row" key={id}>
             <input type="checkbox" aria-label={`${names[id]} 선택`} checked={selectedIds.includes(id)} onChange={event =>
               setSelected(previous => event.target.checked ? [...previous, id] : previous.filter(value => value !== id))} />
@@ -191,17 +257,18 @@ function ExclusionDialog({ supabase, onClose }) {
         </footer>
       </div>
       {actionError && <p className="exclusion-action-message" role="alert">{actionError}</p>}
-      <p className="exclusion-action-message" role="status">{notice}</p>
+      {notice && <p className="exclusion-action-message exclusion-toast" role="status">{notice}</p>}
     </section>
   </div>, document.body);
 }
 
 export function ExcludedCardVersionsManager({ supabase }) {
-  const { excludedCardVersionIds } = useSyncExternalStore(excludedCardVersionsStore.subscribe, excludedCardVersionsStore.getState);
+  const exclusionState = useSyncExternalStore(excludedCardVersionsStore.subscribe, excludedCardVersionsStore.getState);
+  const totalCount = getExcludedCardManagementCount(exclusionState);
   const [open, setOpen] = useState(false);
   return <section className="excluded-card-versions-manager">
     <button type="button" className="excluded-card-versions-toggle" aria-haspopup="dialog" aria-expanded={open}
-      onClick={() => setOpen(true)}>🚫 제외 카드 관리 ({excludedCardVersionIds.length})</button>
+      onClick={() => setOpen(true)}>🚫 제외 카드 관리 ({totalCount})</button>
     {open && <ExclusionDialog supabase={supabase} onClose={() => setOpen(false)} />}
   </section>;
 }

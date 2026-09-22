@@ -153,7 +153,7 @@ describe('Auto Build UI workflow', () => {
     await act(async () => { select.value = 'none'; select.dispatchEvent(new Event('change', { bubbles: true })); });
     await act(async () => container.querySelector('input[type="checkbox"]').click());
     await act(async () => button().click());
-    expect(generateOptimalSquad).toHaveBeenLastCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, false, { currentSquad, excludedCardVersionIds: [], budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: 0 });
+    expect(generateOptimalSquad).toHaveBeenLastCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, false, { currentSquad, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: 0 });
     await act(async () => container.querySelector('.auto-build-reset').click());
     expect(resetTargetBudget).toHaveBeenCalledOnce();
     expect(select.value).toBe('unlimited');
@@ -171,8 +171,8 @@ describe('Auto Build UI workflow', () => {
     await act(async () => button().click());
     expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
     await act(async () => resolve([{ id: 1 }]));
-    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, { FW: 333333, MF: 333333, DF: 333334 }, '4-3-3', false, props.supabase, { currentSquad: {}, excludedCardVersionIds: [], budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
-    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludedCardVersionIds: [], budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
+    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, { FW: 333333, MF: 333333, DF: 333334 }, '4-3-3', false, props.supabase, { currentSquad: {}, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
+    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(result, { snapshot: 'snapshot', formation: '4-3-3', totalBudget: 1000000 });
     expect(button().disabled).toBe(false);
     expect(container.querySelector('[role="status"]').textContent).toContain('완료');

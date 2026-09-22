@@ -6,9 +6,10 @@ import { calculate_base_score } from './metaScore.js';
 import { FORMATIONS } from './formations.js';
 import { PLAYER_CARD_SELECT } from './playerCards.js';
 import { getCardCoinPrice, calculateSquadTotalCost } from './squadCost.ts';
-import { getCardVersionId, normalizeExcludedCardVersionIds } from './excludedCardVersions.js';
+import { getCardVersionId, normalizeExcludedCardVersionIds, validateSquadOvrRange } from './excludedCardVersions.js';
 
 export interface AutoBuildOptions {
+  squadOvrRange?: { min: number; max: number };
   /** card_versions.id values: other versions of the same player remain eligible. */
   excludedCardVersionIds?: Array<string | number>;
   budgetAllocations?: BudgetAllocations;
@@ -108,6 +109,7 @@ export async function fetchCandidatePlayers(
 ): Promise<CandidatePlayer[]> {
   const plan = getCandidateBudgetPlan(totalBudget, budgetAllocations, formation, isThreeBack, options);
   const excluded = exclusionSet(options, formation);
+  const squadOvrRange = validateSquadOvrRange(options.squadOvrRange);
   const maxSpecial = specialLimit(options);
   const entries = Object.entries(options.currentSquad ?? {}).filter(([, entry]) => entry?.card);
   const locked = entries.filter(([, entry]) => entry!.isLocked);
@@ -120,7 +122,8 @@ export async function fetchCandidatePlayers(
     if (item.slotCount <= 0) return { group: item.group, rows: [] };
     const queryRows = async (cap: number | null, limit: number, cheapest = false, positions = item.positions) => {
       let query = supabase.from('card_versions').select(select)
-        .in('candidate_positions.positions.name', positions).gte('price', 0);
+        .in('candidate_positions.positions.name', positions)
+        .gte('overall', squadOvrRange.min).lte('overall', squadOvrRange.max).gte('price', 0);
       if (excluded.size) query = query.not('id', 'in', `(${[...excluded].join(',')})`);
       if (cap !== null) query = query.lte('price', cap);
       if (lockedSpecial >= maxSpecial) query = query.or('card_type.is.null,card_type.not.in.(ICON,SPECIAL_ICON,HERO,SPECIAL_HERO)');
@@ -156,7 +159,7 @@ export async function fetchCandidatePlayers(
   for (const [, entry] of entries) {
     if (!entry!.isOwned) continue;
     const card = rawEntryCard(entry!);
-    if (excluded.has(getCardVersionId(card))) continue;
+    if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
     if (isSpecialCard(card) && lockedSpecial >= maxSpecial && !entry!.isLocked) continue;
     const candidateGroups = plan.filter(item => item.positions.some(position => prepareCandidate(card, position, isThreeBack, true))).map(item => item.group);
     candidates.set(String(card.id), { ...card, candidateGroups, isOwned: true } as CandidatePlayer);
@@ -308,6 +311,7 @@ export async function generateOptimalSquad(
   if (!Number.isInteger(minChemistry) || minChemistry < 0 || minChemistry > 33) throw new RangeError('케미스트리는 0~33이어야 합니다.');
   const groups = Array.isArray(candidates) ? groupCandidatePlayers(candidates) : candidates;
   const excluded = exclusionSet(options, formation);
+  const squadOvrRange = validateSquadOvrRange(options.squadOvrRange);
   const threeBack = formation.startsWith('3');
   const maxSpecial = specialLimit(options);
   const existing = options.currentSquad ?? {};
@@ -329,7 +333,7 @@ export async function generateOptimalSquad(
     const unique = new Map<string, GeneratedPlayer>();
     const owned = Object.values(existing).filter(entry => entry?.isOwned).map(entry => rawEntryCard(entry!));
     for (const card of [...(groups[getPositionBudgetGroup(position, threeBack)] ?? []), ...owned]) {
-      if (excluded.has(getCardVersionId(card))) continue;
+      if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
       const prepared = prepareCandidate(card, position, threeBack, ownedIds.has(String(card.id)) || card.isOwned === true);
       if (prepared && (prepared.isIcon || prepared.isHero) && maxSpecial === 0) continue;
       if (prepared) unique.set(prepared.id, prepared);
