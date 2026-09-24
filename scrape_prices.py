@@ -183,7 +183,7 @@ def fetch_futgg_price(api_id: int):
                 continue
 
             if sign_res.status_code != 200:
-                return None, f"SIGN_FAIL_{sign_res.status_code}"
+                return None, f"SIGN_FAIL_{sign_res.status_code} ({sign_res.text[:60]})"
 
             signed_path = sign_res.json().get("data", {}).get("url")
             if not signed_path:
