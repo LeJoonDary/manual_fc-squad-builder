@@ -1,32 +1,42 @@
-name: Daily FUT Price Scraper
+name: FUT.GG Auto Price Scraper
 
 on:
   schedule:
-    # UTC 08:00 = KST(한국시간) 당일 오후 17:00 (오후 5시)
-    - cron: '0 8 * * *'
-  workflow_dispatch: # GitHub 웹에서 수동 실행 버튼 제공
+    # 매 4시간마다 정각에 자동 실행 (UTC 기준 0, 4, 8, 12, 16, 20시)
+    - cron: '0 */4 * * *'
+  workflow_dispatch: # 깃허브 웹 화면에서 'Run workflow' 수동 실행 버튼 활성화
 
 jobs:
-  scrape-and-update:
+  scrape:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 코드 체크아웃
+      - name: 저장소 체크아웃
         uses: actions/checkout@v4
 
-      - name: Python 환경 설정
+      - name: 파이썬 3.11 환경 설정
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: 의존성 패키지 설치
         run: |
           python -m pip install --upgrade pip
-          pip install requests supabase
+          pip install requests python-dotenv supabase playwright
+          playwright install --with-deps chromium
 
-      - name: 시세 수집 스크립트 실행
+      - name: 최신 Cloudflare 세션 쿠키 자동 발급
+        id: cookie_step
+        run: |
+          COOKIE=$(python get_cookie.py)
+          echo "::add-mask::$COOKIE"
+          echo "FUTGG_COOKIE=$COOKIE" >> $GITHUB_ENV
+
+      - name: 롤링 시세 수집 실행 (250장 / 2.0초 간격)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FUTGG_COOKIE: ${{ env.FUTGG_COOKIE }}
         run: |
-          python scrape_prices.py
+          python scrape_prices.py --batch 250 --delay 2.0

@@ -106,7 +106,8 @@ def get_target_cards(batch_limit: int = None):
     response = (
         supabase.table("card_versions")
         .select("id, api_id, overall, price, price_updated_at")
-        .gte("overall", 78)
+        .gte("overall", 80)
+        .neq("card_type", "SBC")
         .not_.is_("api_id", "null")
         .order("price_updated_at", desc=False, nullsfirst=True)
         .limit(batch_limit)
@@ -128,7 +129,8 @@ def get_target_cards(batch_limit: int = None):
       res = (
           supabase.table("card_versions")
           .select("id, api_id, overall, price, price_updated_at")
-          .gte("overall", 78)
+          .gte("overall", 80)
+          .neq("card_type", "SBC")
           .not_.is_("api_id", "null")
           .order("overall", desc=True)
           .range(offset, offset + page_size - 1)
@@ -162,68 +164,78 @@ def get_target_cards(batch_limit: int = None):
 
 
 def fetch_futgg_price(api_id: int):
-  sign_url = "https://www.fut.gg/api/fut/price-access/sign/"
-  target_path = (
-      f"/api/fut/player-prices/{GAME_VERSION}/{api_id}/?platform={PLATFORM}"
-  )
+    sign_url = "https://www.fut.gg/api/fut/price-access/sign/"
+    target_path = (
+        f"/api/fut/player-prices/{GAME_VERSION}/{api_id}/?platform={PLATFORM}"
+    )
 
-  retry_attempt = 0
-  while True:
-    try:
-      # 1. 서명 발급
-      sign_res = session.post(sign_url, json={"url": target_path}, timeout=10)
-      if sign_res.status_code == 429:
-        retry_attempt += 1
-        wait_sec = parse_retry_after(sign_res.headers.get("Retry-After")) or min(
-            60 * retry_attempt, 300
-        )
-        countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
-        continue
+    retry_attempt = 0
+    while True:
+        try:
+            # 1. 서명 발급
+            sign_res = session.post(sign_url, json={"url": target_path}, timeout=10)
+            if sign_res.status_code == 429:
+                retry_attempt += 1
+                wait_sec = parse_retry_after(sign_res.headers.get("Retry-After")) or min(
+                    60 * retry_attempt, 300
+                )
+                countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
+                continue
 
-      if sign_res.status_code != 200:
-        return None, f"SIGN_FAIL_{sign_res.status_code}"
+            if sign_res.status_code != 200:
+                return None, f"SIGN_FAIL_{sign_res.status_code}"
 
-      signed_path = sign_res.json().get("data", {}).get("url")
-      if not signed_path:
-        return None, "NO_SIGNED_URL"
+            signed_path = sign_res.json().get("data", {}).get("url")
+            if not signed_path:
+                return None, "NO_SIGNED_URL"
 
-      # 2. 가격 조회
-      price_res = session.get(f"https://www.fut.gg{signed_path}", timeout=10)
-      if price_res.status_code == 429:
-        retry_attempt += 1
-        wait_sec = parse_retry_after(
-            price_res.headers.get("Retry-After")
-        ) or min(60 * retry_attempt, 300)
-        countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
-        continue
+            # 2. 가격 조회
+            price_res = session.get(f"https://www.fut.gg{signed_path}", timeout=10)
+            if price_res.status_code == 429:
+                retry_attempt += 1
+                wait_sec = parse_retry_after(
+                    price_res.headers.get("Retry-After")
+                ) or min(60 * retry_attempt, 300)
+                countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
+                continue
 
-      if price_res.status_code == 404:
-        return None, "이적시장_미출시(404)"
-      elif price_res.status_code != 200:
-        return None, f"HTTP_{price_res.status_code}"
+            if price_res.status_code == 404:
+                return None, "이적시장_미출시(404)"
+            elif price_res.status_code != 200:
+                return None, f"HTTP_{price_res.status_code}"
 
-      price_data = price_res.json().get("data", {})
-      curr = price_data.get("currentPrice", {})
-      overview = price_data.get("overview", {})
-      updated_at = (
-          curr.get("priceUpdatedAt")
-          or datetime.datetime.now(datetime.timezone.utc).isoformat()
-      )
+            # 3. 가격 데이터 파싱 (진화 재료 및 멸종 카드 방어 로직)
+            price_data = price_res.json().get("data", {})
+            curr = price_data.get("currentPrice", {})
+            overview = price_data.get("overview", {})
+            prange = price_data.get("priceRange", {})
+            updated_at = (
+                curr.get("priceUpdatedAt")
+                or datetime.datetime.now(datetime.timezone.utc).isoformat()
+            )
 
-      price = curr.get("price")
-      if price is None or price == 0:
-        price = overview.get("averageBin") or overview.get("cheapestSale")
+            price = curr.get("price")
 
-      if price is not None:
-        return price, updated_at
-      else:
-        return None, "거래_내역_없음"
+            # 시장 매물이 마른 경우: 1순위 평균 체결가 -> 2순위 최저 체결가 -> 3순위 상한가(MaxPrice)
+            if price is None or price == 0:
+                price = (
+                    overview.get("averageBin")
+                    or overview.get("cheapestSale")
+                    or (prange.get("maxPrice") if curr.get("isExtinct") else None)
+                )
 
-    except Exception as e:
-      retry_attempt += 1
-      if retry_attempt > 4:
-        return None, f"ERROR_{str(e)}"
-      countdown_sleep(5, "네트워크 재시도 - ")
+            if price is not None and price > 0:
+                return price, updated_at
+            elif curr.get("isExtinct"):
+                return prange.get("maxPrice", 0), updated_at
+            else:
+                return None, "거래_내역_없음"
+
+        except Exception as e:
+            retry_attempt += 1
+            if retry_attempt > 4:
+                return None, f"ERROR_{str(e)}"
+            countdown_sleep(5, "네트워크 재시도 - ")
 
 
 def update_card_price(card_id: int, price: int, updated_at: str):
@@ -274,6 +286,15 @@ def main():
       print(
           f"[{idx}/{total}] Card ID {card_db_id} (API ID: {api_id}, OVR: {ovr})"
           f" -> 가격: {price:,} 코인"
+      )
+      success_count += 1
+    elif status_or_date == "이적시장_미출시(404)":
+      update_card_price(
+          card_db_id, 0, datetime.datetime.now(datetime.timezone.utc).isoformat()
+      )
+      print(
+          f"[{idx}/{total}] Card ID {card_db_id} (API ID: {api_id}) -> 미출시"
+          " 확인 (0원 저장 완료)"
       )
       success_count += 1
     else:
