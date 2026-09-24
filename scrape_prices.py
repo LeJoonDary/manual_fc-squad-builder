@@ -164,78 +164,102 @@ def get_target_cards(batch_limit: int = None):
 
 
 def fetch_futgg_price(api_id: int):
-    sign_url = "https://www.fut.gg/api/fut/price-access/sign/"
-    target_path = (
-        f"/api/fut/player-prices/{GAME_VERSION}/{api_id}/?platform={PLATFORM}"
-    )
+  sign_url = "https://www.fut.gg/api/fut/price-access/sign/"
+  target_path = (
+      f"/api/fut/player-prices/{GAME_VERSION}/{api_id}/?platform={PLATFORM}"
+  )
 
-    retry_attempt = 0
-    while True:
-        try:
-            # 1. 서명 발급
-            sign_res = session.post(sign_url, json={"url": target_path}, timeout=10)
-            if sign_res.status_code == 429:
-                retry_attempt += 1
-                wait_sec = parse_retry_after(sign_res.headers.get("Retry-After")) or min(
-                    60 * retry_attempt, 300
-                )
-                countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
-                continue
+  retry_attempt = 0
+  while True:
+    try:
+      # 1. 서명 발급 (브라우저 필수 헤더 동봉)
+      sign_headers = {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          "Origin": "https://www.fut.gg",
+          "Referer": "https://www.fut.gg/",
+      }
+      sign_res = session.post(
+          sign_url, json={"url": target_path}, headers=sign_headers, timeout=10
+      )
+      if sign_res.status_code == 429:
+        retry_attempt += 1
+        wait_sec = parse_retry_after(
+            sign_res.headers.get("Retry-After")
+        ) or min(60 * retry_attempt, 300)
+        countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
+        continue
 
-            if sign_res.status_code != 200:
-                return None, f"SIGN_FAIL_{sign_res.status_code} ({sign_res.text[:60]})"
+      if sign_res.status_code != 200:
+        return None, f"SIGN_FAIL_{sign_res.status_code} ({sign_res.text[:50]})"
 
-            signed_path = sign_res.json().get("data", {}).get("url")
-            if not signed_path:
-                return None, "NO_SIGNED_URL"
+      sign_json = sign_res.json()
+      sign_data = sign_json.get("data", {})
+      signed_path = sign_data.get("url")
 
-            # 2. 가격 조회
-            price_res = session.get(f"https://www.fut.gg{signed_path}", timeout=10)
-            if price_res.status_code == 429:
-                retry_attempt += 1
-                wait_sec = parse_retry_after(
-                    price_res.headers.get("Retry-After")
-                ) or min(60 * retry_attempt, 300)
-                countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
-                continue
+      # 서버가 캡차/보안 챌린지를 요구하는지 확인
+      if sign_data.get("challengeRequired"):
+        return None, "CHALLENGE_REQUIRED(봇차단)"
 
-            if price_res.status_code == 404:
-                return None, "이적시장_미출시(404)"
-            elif price_res.status_code != 200:
-                return None, f"HTTP_{price_res.status_code}"
+      if not signed_path:
+        return None, "NO_SIGNED_URL"
 
-            # 3. 가격 데이터 파싱 (진화 재료 및 멸종 카드 방어 로직)
-            price_data = price_res.json().get("data", {})
-            curr = price_data.get("currentPrice", {})
-            overview = price_data.get("overview", {})
-            prange = price_data.get("priceRange", {})
-            updated_at = (
-                curr.get("priceUpdatedAt")
-                or datetime.datetime.now(datetime.timezone.utc).isoformat()
-            )
+      # 2. 가격 조회 (출처 Referer 보강)
+      price_headers = {
+          "Accept": "application/json",
+          "Referer": "https://www.fut.gg/",
+          "Sec-Fetch-Dest": "empty",
+          "Sec-Fetch-Mode": "cors",
+          "Sec-Fetch-Site": "same-origin",
+      }
+      price_res = session.get(
+          f"https://www.fut.gg{signed_path}", headers=price_headers, timeout=10
+      )
+      if price_res.status_code == 429:
+        retry_attempt += 1
+        wait_sec = parse_retry_after(
+            price_res.headers.get("Retry-After")
+        ) or min(60 * retry_attempt, 300)
+        countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
+        continue
 
-            price = curr.get("price")
+      if price_res.status_code == 404:
+        return None, "이적시장_미출시(404)"
+      elif price_res.status_code != 200:
+        # 403 등 오류 시 서버가 보낸 본문 메시지를 직접 출력
+        error_msg = price_res.text.strip().replace("\n", " ")[:60]
+        return None, f"HTTP_{price_res.status_code} ({error_msg})"
 
-            # 시장 매물이 마른 경우: 1순위 평균 체결가 -> 2순위 최저 체결가 -> 3순위 상한가(MaxPrice)
-            if price is None or price == 0:
-                price = (
-                    overview.get("averageBin")
-                    or overview.get("cheapestSale")
-                    or (prange.get("maxPrice") if curr.get("isExtinct") else None)
-                )
+      # 3. 가격 데이터 파싱 (멸종 카드 방어)
+      price_data = price_res.json().get("data", {})
+      curr = price_data.get("currentPrice", {})
+      overview = price_data.get("overview", {})
+      prange = price_data.get("priceRange", {})
+      updated_at = (
+          curr.get("priceUpdatedAt")
+          or datetime.datetime.now(datetime.timezone.utc).isoformat()
+      )
 
-            if price is not None and price > 0:
-                return price, updated_at
-            elif curr.get("isExtinct"):
-                return prange.get("maxPrice", 0), updated_at
-            else:
-                return None, "거래_내역_없음"
+      price = curr.get("price")
+      if price is None or price == 0:
+        price = (
+            overview.get("averageBin")
+            or overview.get("cheapestSale")
+            or (prange.get("maxPrice") if curr.get("isExtinct") else None)
+        )
 
-        except Exception as e:
-            retry_attempt += 1
-            if retry_attempt > 4:
-                return None, f"ERROR_{str(e)}"
-            countdown_sleep(5, "네트워크 재시도 - ")
+      if price is not None and price > 0:
+        return price, updated_at
+      elif curr.get("isExtinct"):
+        return prange.get("maxPrice", 0), updated_at
+      else:
+        return None, "거래_내역_없음"
+
+    except Exception as e:
+      retry_attempt += 1
+      if retry_attempt > 4:
+        return None, f"ERROR_{str(e)}"
+      countdown_sleep(5, "네트워크 재시도 - ")
 
 
 def update_card_price(card_id: int, price: int, updated_at: str):
