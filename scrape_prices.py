@@ -3,9 +3,10 @@ import datetime
 import email.utils
 import os
 from pathlib import Path
+import random
 import sys
 import time
-import requests
+from curl_cffi import requests
 from dotenv import load_dotenv
 from supabase import Client, create_client
 
@@ -50,7 +51,7 @@ COOKIE_STRING = (
     "_ga_JBQ8V6N36N=GS2.1.s1790165593$o15$g1$t1790165622$j31$l0$h0"
 )
 
-session = requests.Session()
+session = requests.Session(impersonate="chrome124")
 session.headers.update({
     "accept": "application/json",
     "accept-language": "ko,en;q=0.9",
@@ -328,7 +329,8 @@ def main():
       )
       fail_count += 1
 
-    time.sleep(args.delay)
+      sleep_time = random.uniform(args.delay, args.delay + 1.5)
+      time.sleep(sleep_time)
 
   print(f"\n[완료] 총 {total}개 중 성공: {success_count}개, 실패: {fail_count}개")
 
