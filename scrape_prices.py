@@ -299,6 +299,9 @@ def main():
   success_count = 0
   fail_count = 0
 
+# for 반복문 바로 윗줄에 추가
+  processed_count = 0
+
   for idx, card in enumerate(cards, start=1):
     card_db_id = card["id"]
     api_id = card["api_id"]
@@ -329,11 +332,21 @@ def main():
       )
       fail_count += 1
 
-      sleep_time = random.uniform(args.delay, args.delay + 1.5)
-      time.sleep(sleep_time)
+    sleep_time = random.uniform(args.delay, args.delay + 1.5)
+    time.sleep(sleep_time)
+
+    # 수집 완료 건수 1 증가
+    processed_count += 1
+
+    # 50장마다 서버 부담을 줄이기 위한 추가 휴식
+    if processed_count % 50 == 0:
+      rest_time = random.uniform(8.0, 12.0)
+      print(
+          f"\n[안전 대기] 50건 수집 완료. 서버 휴식 중 ({rest_time:.1f}초)..."
+      )
+      time.sleep(rest_time)
 
   print(f"\n[완료] 총 {total}개 중 성공: {success_count}개, 실패: {fail_count}개")
-
 
 if __name__ == "__main__":
   main()

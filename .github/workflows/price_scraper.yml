@@ -39,4 +39,4 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           FUTGG_COOKIE: ${{ env.FUTGG_COOKIE }}
         run: |
-          python scrape_prices.py --batch 250 --delay 2.0
+          python -u scrape_prices.py --batch 250 --delay 2.0
