@@ -34,7 +34,8 @@ const layouts = {
 
 export const FORMATIONS = Object.entries(layouts).map(([name, outfield]) => {
   const rows = [...outfield, ['GK']];
-  return { name, height: rows.length > 4 ? 960 : 820, slots: rows.flatMap((row, index) =>
+  // Leave room for the enlarged card, its separate price capsule, and a row gap.
+  return { name, height: rows.length > 4 ? 1280 : 1040, slots: rows.flatMap((row, index) =>
     row.map((position, column) => ({ position,
       x: row.length === 1 ? 50 : 12 + column * 76 / (row.length - 1),
       y: 5 + index * 72 / (rows.length - 1),

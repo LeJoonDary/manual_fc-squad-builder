@@ -17,9 +17,11 @@ export function createPlayerCard(card, {
     }
   });
   const content = document.createElement('div');
-  content.className = 'browser-player-content w-full bg-cover bg-center bg-no-repeat relative p-3';
-  content.style.backgroundImage = card.raw?.background_url
-    ? `url(${JSON.stringify(card.raw.background_url)})` : 'none';
+  content.className = 'browser-player-content w-full bg-cover bg-top bg-no-repeat relative p-3';
+  const backgroundUrl = card.raw?.background_url || card.background_url;
+  article.classList.toggle('has-card-background', Boolean(backgroundUrl));
+  content.style.backgroundImage = backgroundUrl
+    ? `linear-gradient(to bottom, rgba(15,23,42,.2) 0%, rgba(15,23,42,.35) 45%, rgba(15,23,42,.75) 78%, #0f172a 100%), url(${JSON.stringify(backgroundUrl)})` : 'none';
   const identity = document.createElement('div');
   identity.className = 'browser-player-identity';
   const rating = document.createElement('span');

@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
 import { FORMATIONS, reassignFormation } from './utils/formations.js';
+import { fitPitchViewport } from './utils/pitchViewport.js';
 import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts';
 import { calculateBudgetStatus } from './utils/budget.ts';
 import { mountAutoBuildSettings } from './components/AutoBuildSettings.jsx';
@@ -137,6 +138,33 @@ document.querySelectorAll('.slot').forEach(bindSquadSlot);
 const formationPicker = document.querySelector('#formation-picker');
 const formationMenu = document.querySelector('#formation-menu');
 let currentFormation = '4-3-3';
+// Match the initial HTML slots to the same spacing used after formation changes.
+const initialFormation = FORMATIONS.find(formation => formation.name === currentFormation);
+document.querySelector('.pitch').style.setProperty('--formation-height', `${initialFormation.height}px`);
+initialFormation.slots.forEach(({ position, x, y }) => {
+  const slot = document.querySelector(`.slot[data-position="${position}"]`);
+  slot.style.left = `${x}%`;
+  slot.style.top = `${y}%`;
+});
+const pitchFrame = document.querySelector('.pitch-scroll');
+const squadWorkspace = document.querySelector('.squad-workspace');
+function updatePitchViewport() {
+  const pitch = pitchFrame.querySelector('.pitch');
+  const height = Number.parseFloat(pitch.style.getPropertyValue('--formation-height'));
+  if (!squadWorkspace.clientWidth || !pitchFrame.clientHeight) return;
+  const stacked = window.matchMedia('(max-width: 640px)').matches;
+  const panelWidth = document.querySelector('.chemistry-panel').offsetWidth;
+  const gap = Number.parseFloat(getComputedStyle(squadWorkspace).columnGap);
+  const availableWidth = stacked ? squadWorkspace.clientWidth : squadWorkspace.clientWidth - panelWidth - gap;
+  const fit = fitPitchViewport(availableWidth, pitchFrame.clientHeight, height);
+  pitch.style.setProperty('--pitch-width', `${fit.width}px`);
+  pitch.style.setProperty('--pitch-scale', fit.scale);
+  squadWorkspace.style.setProperty('--fitted-pitch-width', `${fit.width * fit.scale}px`);
+  squadWorkspace.style.setProperty('--fitted-pitch-height', `${fit.fittedHeight}px`);
+}
+const pitchResizeObserver = new ResizeObserver(updatePitchViewport);
+pitchResizeObserver.observe(squadWorkspace);
+updatePitchViewport();
 const updateAutoBuildFormation = mountAutoBuildSettings(
   document.querySelector('#auto-build-settings'), currentFormation, () => targetBudget,
   { budgetSection: document.querySelector('.budget-summary'), supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad: () => structuredClone(squad), resetTargetBudget },
@@ -194,6 +222,7 @@ function applyFormation(formation) {
   const pitch = document.querySelector('.pitch');
   pitch.querySelectorAll('.slot').forEach(slot => slot.remove());
   pitch.style.setProperty('--formation-height', `${formation.height}px`);
+  updatePitchViewport();
   formation.slots.forEach(({ position, x, y }) => {
     const slot = document.createElement('button');
     slot.type = 'button';
@@ -1421,10 +1450,20 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   squad[slot.dataset.position].isOwned = state.isOwned === true;
   slot.draggable = true;
   slot.classList.add('occupied');
-  const backgroundUrl = card.raw?.background_url ?? card.background_url;
-  slot.style.backgroundImage = backgroundUrl ? `url(${JSON.stringify(backgroundUrl)})` : 'none';
+  const backgroundUrl = card.raw?.background_url || card.background_url;
+  slot.style.removeProperty('background-image');
   slot.classList.remove('is-locked');
   slot.replaceChildren();
+  const body = document.createElement('span');
+  body.className = 'slot-card-body';
+  body.style.backgroundImage = backgroundUrl
+    ? `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)), url(${JSON.stringify(backgroundUrl)})` : 'none';
+  const top = document.createElement('span');
+  top.className = 'slot-card-top';
+  const bottom = document.createElement('span');
+  bottom.className = 'slot-card-bottom';
+  body.append(top, bottom);
+  slot.append(body);
 
   const cardActions = document.createElement('span');
   cardActions.className = 'slot-card-actions';
@@ -1456,7 +1495,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
     if (selectedCard) playerDetail.open(selectedCard);
   });
   cardActions.append(lockButton, ownedButton, detailButton, removeButton);
-  slot.append(cardActions);
+  top.append(cardActions);
   updateSlotLockUI(slot);
   updateSlotOwnedUI(slot);
 
@@ -1482,18 +1521,20 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
     affiliations.append(label);
     if (key === 'league') affiliations.append(nation);
   }
-  slot.append(affiliations);
+  top.append(affiliations);
   const nameElement = document.createElement('strong');
   nameElement.textContent = name;
   nameElement.title = name;
   const rarityElement = document.createElement('span');
   rarityElement.className = 'slot-rarity';
   rarityElement.textContent = card.version || 'Standard';
+  rarityElement.title = rarityElement.textContent;
   const skillFoot = document.createElement('span');
   skillFoot.className = 'slot-skill-foot-line';
   skillFoot.textContent = `SM ${card.sm ?? '-'}★ / WF ${card.wf ?? '-'}★`;
-  content.append(nameElement, rarityElement, skillFoot);
-  slot.append(content);
+  content.append(nameElement, rarityElement);
+  bottom.append(skillFoot);
+  body.insertBefore(content, bottom);
   const priceBadge = document.createElement('div');
   priceBadge.className = 'card-price-badge';
   slot.append(priceBadge);
@@ -1793,7 +1834,7 @@ function updateSquadChemistry() {
     badge.setAttribute('aria-label', `케미스트리 ${chemistry}점`);
     const diamonds = Array.from({ length: 3 }, (_, index) => `<i class="${index < chemistry ? 'is-filled' : ''}">◆</i>`).join('');
     badge.innerHTML = `${diamonds}<b>${chemistry}</b>`;
-    slot.append(badge);
+    slot.querySelector('.slot-card-bottom').append(badge);
   });
 }
 

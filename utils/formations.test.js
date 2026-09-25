@@ -11,6 +11,29 @@ test('every formation has eleven unique slots and one goalkeeper within the fiel
   }
 });
 
+test('enlarged cards and external prices fit without overlapping in every formation', () => {
+  const fieldWidth = 800 - 8; // Minimum pitch width, excluding its borders.
+  const cardWidth = 136;
+  const groupHeight = 190 + 6 + 28;
+  for (const formation of FORMATIONS) {
+    const fieldHeight = formation.height - 8;
+    const boxes = formation.slots.map(slot => ({
+      left: slot.x / 100 * fieldWidth - cardWidth / 2,
+      top: slot.y / 100 * fieldHeight,
+    }));
+    for (const [index, box] of boxes.entries()) {
+      expect(box.left).toBeGreaterThanOrEqual(0);
+      expect(box.left + cardWidth).toBeLessThanOrEqual(fieldWidth);
+      expect(box.top + groupHeight).toBeLessThanOrEqual(fieldHeight);
+      for (const other of boxes.slice(index + 1)) {
+        const overlaps = Math.abs(box.left - other.left) < cardWidth
+          && Math.abs(box.top - other.top) < groupHeight;
+        expect(overlaps, `${formation.name}: slots ${index} and ${boxes.indexOf(other)}`).toBe(false);
+      }
+    }
+  }
+});
+
 test('formation changes retain all cards, locks and ownership exactly once', () => {
   const original = FORMATIONS.find(f => f.name === '4-3-3');
   const squad = Object.fromEntries(original.slots.map(({ position }, i) => [position, {
