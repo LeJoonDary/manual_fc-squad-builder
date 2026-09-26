@@ -5,6 +5,14 @@ import { createPlayerDetailModal } from './PlayerDetailModal.js';
 import { excludedCardVersionsStore, EXCLUDED_CARD_VERSIONS_STORAGE_KEY } from '../utils/excludedCardVersions.js';
 
 let panels = [];
+test('SBC detail artwork corrects the legacy URL and clears when switching cards', async () => {
+  const detail = setup();
+  await detail.open({ id: 20051, name: 'A. Bouaddi', version: 'special_SBC',
+    background_url: 'https://example.com/card-templates/spcial_ones_to_watch_edited.png' });
+  expect(document.querySelector('.player-detail-artwork').style.backgroundImage).toContain('/special_ones_to_watch_edited.png');
+  await detail.open({ id: 790, name: 'A. Bouaddi', version: 'Gold' });
+  expect(document.querySelector('.player-detail-artwork')).toBeNull();
+});
 beforeEach(() => {
   for (const id of excludedCardVersionsStore.getState().excludedCardVersionIds) excludedCardVersionsStore.unban(id);
   document.body.innerHTML = html;

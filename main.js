@@ -1,4 +1,5 @@
 import { createPlayerCard } from './components/PlayerCard.js';
+import { getCardBackground } from './utils/cardBackground.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { createPlayerPagination } from './utils/playerPagination.js';
 import { createPlayerDetailModal } from './components/PlayerDetailModal.js';
@@ -1168,6 +1169,7 @@ function normalizePlayerCard(row) {
     league_short_name: unwrapRelation(cardVersion.leagues)?.short_name,
     league_id: cardVersion.league_id,
     image_url: cardVersion.image_url,
+    background_url: cardVersion.background_url,
     name: player.name,
     nation: unwrapRelation(player.nations)?.name,
     nation_flag_url: unwrapRelation(player.nations)?.flag_url,
@@ -1450,7 +1452,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   squad[slot.dataset.position].isOwned = state.isOwned === true;
   slot.draggable = true;
   slot.classList.add('occupied');
-  const backgroundUrl = card.raw?.background_url || card.background_url;
+  const backgroundUrl = getCardBackground(card);
   slot.style.removeProperty('background-image');
   slot.classList.remove('is-locked');
   slot.replaceChildren();

@@ -1,3 +1,5 @@
+import { getCardBackground } from '../utils/cardBackground.js';
+
 // Shared DOM card component for the Players tab and selection modal.
 export function createPlayerCard(card, {
   onActivate, actionLabel = '선수 상세 정보 보기', textAffiliations = false,
@@ -18,7 +20,7 @@ export function createPlayerCard(card, {
   });
   const content = document.createElement('div');
   content.className = 'browser-player-content w-full bg-cover bg-top bg-no-repeat relative p-3';
-  const backgroundUrl = card.raw?.background_url || card.background_url;
+  const backgroundUrl = getCardBackground(card);
   article.classList.toggle('has-card-background', Boolean(backgroundUrl));
   content.style.backgroundImage = backgroundUrl
     ? `linear-gradient(to bottom, rgba(15,23,42,.2) 0%, rgba(15,23,42,.35) 45%, rgba(15,23,42,.75) 78%, #0f172a 100%), url(${JSON.stringify(backgroundUrl)})` : 'none';

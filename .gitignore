@@ -5,3 +5,5 @@ supabase/.temp/
 .seed-deps/
 .seed-runtime/
 __pycache__/
+.sync-deps/
+sync_reports/

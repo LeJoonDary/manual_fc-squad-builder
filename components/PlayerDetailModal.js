@@ -1,4 +1,5 @@
 import { renderDetailStatGroups } from '../utils/detailStats.js';
+import { getCardBackground } from '../utils/cardBackground.js';
 import { PLAYER_CARD_SELECT } from '../utils/playerCards.js';
 import { excludedCardVersionsStore, getCardVersionId } from '../utils/excludedCardVersions.js';
 
@@ -91,14 +92,19 @@ export function createPlayerDetailModal({
     const positions = [card.primary_position, ...(card.secondary_positions ?? [])].filter(Boolean);
     playerDetailIdentity.replaceChildren();
     const image = getCardImage(card);
+    const background = getCardBackground(card);
+    const artwork = document.createElement('div');
+    artwork.className = 'player-detail-artwork';
+    if (background) artwork.style.backgroundImage = `url(${JSON.stringify(background)})`;
     if (image) {
       const portrait = document.createElement('img');
       portrait.className = 'player-detail-image';
       portrait.src = image;
       portrait.alt = '';
       portrait.addEventListener('error', () => portrait.remove());
-      playerDetailIdentity.append(portrait);
+      artwork.append(portrait);
     }
+    if (background || image) playerDetailIdentity.append(artwork);
     const heading = document.createElement('div');
     const eyebrow = document.createElement('p');
     eyebrow.className = 'eyebrow';

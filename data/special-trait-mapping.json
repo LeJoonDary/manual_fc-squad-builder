@@ -1,0 +1,244 @@
+{
+  "source": "https://assets.fut.gg/ts/assets/index-CRBXmESA.js",
+  "sha256": "28331abcca9ece70a7ade436da4e8d6eba43fc1e28cc91925b5b6520f9fec0a0",
+  "playstyles": {
+    "0": "Finesse Shot",
+    "1": "Chip Shot",
+    "2": "Power Shot",
+    "3": "Dead Ball",
+    "4": "Power Header",
+    "5": "Incisive Pass",
+    "6": "Pinged Pass",
+    "7": "Long Ball Pass",
+    "8": "Tiki Taka",
+    "9": "Whipped Pass",
+    "10": "Jockey",
+    "11": "Block",
+    "12": "Intercept",
+    "13": "Anticipate",
+    "14": "Slide Tackle",
+    "15": "Bruiser",
+    "16": "Technical",
+    "17": "Rapid",
+    "18": "Flair",
+    "19": "First Touch",
+    "20": "Trickster",
+    "21": "Press Proven",
+    "22": "Quick Step",
+    "23": "Relentless",
+    "24": "Trivela",
+    "25": "Acrobatic",
+    "26": "Long Throw",
+    "27": "Aerial",
+    "28": "Far Throw",
+    "29": "Footwork",
+    "30": "Cross Claimer",
+    "31": "Rush Out",
+    "32": "Far Reach",
+    "33": "Deflector",
+    "34": "Low Driven Shot",
+    "35": "Aerial Fortress",
+    "36": "Enforcer",
+    "37": "Gamechanger",
+    "38": "Inventive",
+    "39": "Precision Header"
+  },
+  "roles": {
+    "1": {
+      "position": "GK",
+      "name": "Goalkeeper"
+    },
+    "2": {
+      "position": "GK",
+      "name": "Sweeper Keeper"
+    },
+    "45": {
+      "position": "GK",
+      "name": "Ball Playing Keeper"
+    },
+    "3": {
+      "position": "RB",
+      "name": "Fullback"
+    },
+    "4": {
+      "position": "RB",
+      "name": "Falseback"
+    },
+    "5": {
+      "position": "RB",
+      "name": "Wingback"
+    },
+    "6": {
+      "position": "RB",
+      "name": "Attacking Wingback"
+    },
+    "46": {
+      "position": "RB",
+      "name": "Inverted Wingback"
+    },
+    "7": {
+      "position": "LB",
+      "name": "Fullback"
+    },
+    "8": {
+      "position": "LB",
+      "name": "Falseback"
+    },
+    "9": {
+      "position": "LB",
+      "name": "Wingback"
+    },
+    "10": {
+      "position": "LB",
+      "name": "Attacking Wingback"
+    },
+    "47": {
+      "position": "LB",
+      "name": "Inverted Wingback"
+    },
+    "11": {
+      "position": "CB",
+      "name": "Defender"
+    },
+    "12": {
+      "position": "CB",
+      "name": "Stopper"
+    },
+    "13": {
+      "position": "CB",
+      "name": "Ball Playing Defender"
+    },
+    "48": {
+      "position": "CB",
+      "name": "Wideback"
+    },
+    "14": {
+      "position": "CDM",
+      "name": "Holding"
+    },
+    "15": {
+      "position": "CDM",
+      "name": "Centre Half"
+    },
+    "16": {
+      "position": "CDM",
+      "name": "Deep Lying Playmaker"
+    },
+    "17": {
+      "position": "CDM",
+      "name": "Wide Half"
+    },
+    "49": {
+      "position": "CDM",
+      "name": "Box Crasher"
+    },
+    "18": {
+      "position": "CM",
+      "name": "Box To Box"
+    },
+    "19": {
+      "position": "CM",
+      "name": "Holding"
+    },
+    "20": {
+      "position": "CM",
+      "name": "Deep Lying Playmaker"
+    },
+    "21": {
+      "position": "CM",
+      "name": "Playmaker"
+    },
+    "22": {
+      "position": "CM",
+      "name": "Half Winger"
+    },
+    "23": {
+      "position": "RM",
+      "name": "Winger"
+    },
+    "24": {
+      "position": "RM",
+      "name": "Wide Midfielder"
+    },
+    "25": {
+      "position": "RM",
+      "name": "Wide Playmaker"
+    },
+    "26": {
+      "position": "RM",
+      "name": "Inside Forward"
+    },
+    "27": {
+      "position": "LM",
+      "name": "Winger"
+    },
+    "28": {
+      "position": "LM",
+      "name": "Wide Midfielder"
+    },
+    "29": {
+      "position": "LM",
+      "name": "Wide Playmaker"
+    },
+    "30": {
+      "position": "LM",
+      "name": "Inside Forward"
+    },
+    "31": {
+      "position": "CAM",
+      "name": "Playmaker"
+    },
+    "32": {
+      "position": "CAM",
+      "name": "Shadow Striker"
+    },
+    "33": {
+      "position": "CAM",
+      "name": "Half Winger"
+    },
+    "34": {
+      "position": "CAM",
+      "name": "Classic 10"
+    },
+    "35": {
+      "position": "RW",
+      "name": "Winger"
+    },
+    "36": {
+      "position": "RW",
+      "name": "Inside Forward"
+    },
+    "37": {
+      "position": "RW",
+      "name": "Wide Playmaker"
+    },
+    "38": {
+      "position": "LW",
+      "name": "Winger"
+    },
+    "39": {
+      "position": "LW",
+      "name": "Inside Forward"
+    },
+    "40": {
+      "position": "LW",
+      "name": "Wide Playmaker"
+    },
+    "41": {
+      "position": "ST",
+      "name": "Advanced Forward"
+    },
+    "42": {
+      "position": "ST",
+      "name": "Poacher"
+    },
+    "43": {
+      "position": "ST",
+      "name": "False 9"
+    },
+    "44": {
+      "position": "ST",
+      "name": "Target Forward"
+    }
+  }
+}
