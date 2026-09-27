@@ -1,7 +1,6 @@
 import { renderDetailStatGroups } from '../utils/detailStats.js';
 import { getCardBackground } from '../utils/cardBackground.js';
 import { PLAYER_CARD_SELECT } from '../utils/playerCards.js';
-import { excludedCardVersionsStore, getCardVersionId } from '../utils/excludedCardVersions.js';
 
 // Existing detail panel shared by the Players and Squad Builder tabs.
 export function createPlayerDetailModal({
@@ -18,44 +17,10 @@ export function createPlayerDetailModal({
   let playerDetailRequest = 0;
   let returnFocus = null;
   const PLAYER_DETAIL_SELECT = PLAYER_CARD_SELECT;
-  const excludeButton = playerDetailModal.querySelector('#player-detail-exclude');
-  const excludeStatus = playerDetailModal.querySelector('#player-detail-exclude-status');
-
-  function updateExcludeButton() {
-    const id = getCardVersionId(selectedPlayer);
-    const excluded = excludedCardVersionsStore.getState().excludedCardVersionIds.includes(id);
-    excludeButton.disabled = !id;
-    excludeButton.setAttribute('aria-pressed', String(excluded));
-    excludeButton.textContent = excluded ? '🚫 제외됨 · 해제하기' : '🚫 자동 생성에서 제외하기';
-  }
-  excludeButton.addEventListener('click', () => {
-    const id = getCardVersionId(selectedPlayer);
-    if (!id) return;
-    const excluded = excludedCardVersionsStore.getState().excludedCardVersionIds.includes(id);
-    try {
-      if (excluded) excludedCardVersionsStore.unban(id);
-      else {
-        const version = selectedPlayer.version ?? selectedPlayer.raw?.version;
-        const label = `${getCardName(selectedPlayer)} · ${version || '카드'} (#${id})`;
-        excludedCardVersionsStore.ban(id, label);
-      }
-      excludeStatus.textContent = excluded ? '자동 생성 후보에 다시 포함됩니다.' : '이 카드 버전을 자동 생성에서 제외했습니다.';
-    } catch (error) {
-      excludeStatus.textContent = error.message;
-    }
-  });
-  const unsubscribe = excludedCardVersionsStore.subscribe(() => {
-    if (!playerDetailModal.hidden) {
-      updateExcludeButton();
-      excludeStatus.textContent = '';
-    }
-  });
-
   async function openPlayerDetailModal(card) {
     if (playerDetailModal.hidden) returnFocus = document.activeElement;
     const requestId = ++playerDetailRequest;
     selectedPlayer = card;
-    excludeStatus.textContent = '';
     renderPlayerDetail(card);
     playerDetailModal.hidden = false;
     document.querySelector('#player-detail-close').focus();
@@ -88,7 +53,6 @@ export function createPlayerDetailModal({
   }
 
   function renderPlayerDetail(card) {
-    updateExcludeButton();
     const positions = [card.primary_position, ...(card.secondary_positions ?? [])].filter(Boolean);
     playerDetailIdentity.replaceChildren();
     const image = getCardImage(card);
@@ -199,7 +163,7 @@ export function createPlayerDetailModal({
   return {
     open: openPlayerDetailModal,
     close: closePlayerDetailModal,
-    destroy() { closePlayerDetailModal(); unsubscribe(); },
+    destroy() { closePlayerDetailModal(); },
     get isOpen() { return !playerDetailModal.hidden; },
   };
 }

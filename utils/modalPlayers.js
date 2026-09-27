@@ -5,11 +5,11 @@ export const MODAL_PLAYER_SELECT = `
   id,player_id,overall,price,image_url,background_url,version,card_type,club_id,league_id,
   sm,wf,preferred_foot,accele_type,body_type,
   players!inner(id,name,long_name,nation_id,height,weight,age,gender,nations(name,flag_url)),
-  clubs(name,short_name),leagues(name,short_name),
+  clubs(id,name),leagues(id,name),
   player_stats(pac,sho,pas,dri,def,phy,gk_reflexes,gk_diving,gk_positioning,gk_handling,reactions),
   card_positions(is_primary,positions(name)),
   card_roles(role_level,roles(position,role_name)),
-  card_playstyles(is_plus,playstyles(id,name))
+  card_playstyles(is_plus,playstyles(id,name,image_url,image_url_plus))
 `;
 
 export async function fetchModalPlayerPage(db, { position, keyword = '', offset = 0, signal }) {

@@ -5,9 +5,11 @@ Storage uses SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY / SUPABASE_KEY.
 A summary JSON is enriched from its exact FUT.GG card URL when details are absent.
 No player is inserted, no missing statistic is invented, and source JSON is untouched.
 The existing schema is preserved: foot is card_versions.preferred_foot;
-nation remains players.nation_id. Only players.height/weight are updated.
-Body types are inherited verbatim from the player's Gold card, including reruns.
-Templates are cropped, saved locally and uploaded to card-templates with upsert.
+nation remains players.nation_id. Only players.height/weight/foot are updated
+(foot on players only when that column exists).
+Non-NULL, non-Average Gold body types are inherited verbatim, including reruns.
+Existing local templates are uploaded unchanged. Only missing templates are
+downloaded, cropped and saved locally before upload to card-templates with upsert.
 New and existing promo cards are linked to the template's public background_url.
 """
 import io
@@ -308,6 +310,9 @@ def player_id(conn, card, nation_id):
 def body_type(code, height, gender):
     """Fallback only: gender 0=male, 1=female; never guess unknown codes."""
     code = number(code, 'bodytypeCode', 0, 30)
+    # The project's FUT.GG mapping reserves codes >= 10 for unique bodies.
+    if code >= 10:
+        return 'Unique'
     height = number(height, 'height', 100, 250)
     gender = number(gender, 'gender (0=male, 1=female)', 0, 1)
     builds = {
@@ -325,27 +330,35 @@ def resolve_body_type(conn, pid, card, height):
     gold = conn.execute(
         "SELECT id,body_type FROM card_versions WHERE player_id=%s AND lower(version)='gold' ORDER BY id",
         (pid,)).fetchall()
-    inherited = {row['body_type'] for row in gold if row['body_type'] is not None}
+    inherited = {row['body_type'] for row in gold
+                 if row['body_type'] is not None and row['body_type'] != 'Average'}
     if len(inherited) == 1:
         return inherited.pop()
     if len(inherited) > 1:
         raise ValueError(f'Conflicting Gold body types for player_id={pid}: {sorted(inherited)}')
-    if gold:
-        # Fallback is permitted only when there is no Gold card at all.
-        raise ValueError(f'Gold body_type is NULL for player_id={pid}; fix the Gold source first')
+    # Preserve already verified unique star players even without a usable Gold.
+    unique = conn.execute(
+        "SELECT id FROM card_versions WHERE player_id=%s AND body_type='Unique' LIMIT 1",
+        (pid,)).fetchone()
+    if unique:
+        return 'Unique'
+    # Missing Gold, NULL and the generic 'Average' carry no usable body detail.
     source = card if card.get('bodytypeCode') is not None else enrich(card, require_body=True)
     player = conn.execute('SELECT gender FROM players WHERE id=%s', (pid,)).fetchone()
     if player is None:
         raise ValueError(f'Missing existing player_id={pid}')
     # Use the DB's explicit Male/Female labels: source feeds may use different
     # numeric gender conventions. Numeric fallback follows the requested 0/1 rule.
-    gender = {'male': 0, 'female': 1}.get(str(player['gender']).strip().lower())
+    gender = {'male': 0, 'female': 1, '0': 0, '1': 1}.get(str(player['gender']).strip().lower())
     if gender is None:
         gender = source.get('gender')
     return body_type(source.get('bodytypeCode'), height, gender)
 
 
 def prepare(conn, cards, version, background):
+    player_columns = {row['column_name'] for row in conn.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_schema='public' AND table_name='players'").fetchall()}
     masters = {t: table_rows(conn, t) for t in ('clubs', 'leagues', 'nations', 'positions', 'roles', 'playstyles')}
     pos_ids = {r['name']: r['id'] for r in masters['positions']}
     role_ids = {(r['position'], norm(r['role_name'])): r['id'] for r in masters['roles']}
@@ -390,7 +403,7 @@ def prepare(conn, cards, version, background):
                   sm=number(card['skillMoves'], 'skillMoves', 1, 5), wf=number(card['weakFoot'], 'weakFoot', 1, 5),
                   preferred_foot=foot, card_type='SPECIAL')
         prepared.append(dict(name=card.get('commonName', str(card['eaId'])), cv=cv,
-            player=dict(height=height, weight=weight), stats=stats(card),
+            player=dict(height=height, weight=weight, **({'foot': foot} if 'foot' in player_columns else {})), stats=stats(card),
             card_roles=[dict(role_id=k, role_level=v) for k, v in sorted(role_values.items())],
             card_playstyles=[dict(playstyle_id=k, is_plus=v) for k, v in sorted(style_values.items())],
             card_positions=[dict(position_id=k, is_primary=v) for k, v in sorted(positions.items())]))
@@ -417,7 +430,9 @@ def write_rows(conn, prepared):
     created = 0
     for item in prepared:
         cv = item['cv']
-        update(conn, 'players', item['player'], 'id', cv['player_id'])
+        updated_players = update(conn, 'players', item['player'], 'id', cv['player_id'])
+        if len(updated_players) != 1:
+            raise ValueError(f'Missing or ambiguous existing player_id={cv["player_id"]}')
         existing = conn.execute('SELECT id,player_id FROM card_versions WHERE api_id=%s AND version=%s', (cv['api_id'], cv['version'])).fetchall()
         if len(existing) > 1 or (existing and existing[0]['player_id'] != cv['player_id']):
             raise ValueError(f'Conflicting existing card: {cv["api_id"]}')
@@ -526,16 +541,35 @@ def main():
         if mode == ['--verify']:
             print('VERIFIED', json.dumps(verify(conn, prepared)))
             return
-        png = template_bytes(cards)
+        folder = ROOT / 'card_backgrounds'
+        template_path = folder / f'{version}.png'
+        local_template = template_path.exists()
+        if local_template:
+            # Preserve manually edited PNG bytes: no download, crop or re-encoding.
+            png = template_path.read_bytes()
+            with Image.open(io.BytesIO(png)) as image:
+                image.verify()
+            print(f'Using existing local template unchanged: {template_path}')
+        else:
+            png = template_bytes(cards)
         print(f'VALIDATED {len(cards)} cards / 6 face + 29 in-game stats; version={version}')
         if mode == ['--check']:
             return
         key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
         if not key:
             raise ValueError('SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY required for Storage upload')
-        folder = ROOT / 'card_backgrounds'
-        folder.mkdir(exist_ok=True)
-        (folder / f'{version}.png').write_bytes(png)
+        if not local_template:
+            folder.mkdir(exist_ok=True)
+            # Never overwrite a manual file, including one created during download.
+            try:
+                with template_path.open('xb') as output:
+                    output.write(png)
+            except FileExistsError:
+                # A manual template created during download takes precedence too.
+                png = template_path.read_bytes()
+                with Image.open(io.BytesIO(png)) as image:
+                    image.verify()
+                print(f'Using existing local template unchanged: {template_path}')
         response = HTTP.post(f'{root_url}/storage/v1/object/card-templates/{version}.png', data=png,
             headers={'Authorization': f'Bearer {key}', 'apikey': key,
                      'Content-Type': 'image/png', 'x-upsert': 'true'}, timeout=30)

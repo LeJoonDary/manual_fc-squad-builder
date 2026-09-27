@@ -2,12 +2,13 @@ import { defaultStats, activeStats, applyStatQuery } from './statFilters.js';
 import { applyPhysicalQuery } from './physicalFilters.js';
 import { PLAYER_CARD_SELECT } from './playerCards.js';
 import { fetchPlayerPage } from './playerPagination.js';
+import { selectedPlaystyles } from './playstyleFilters.js';
 
 export function createDefaultFilters() {
   return {
     name: '', minOvr: '', maxOvr: '', minPrice: '', maxPrice: '', minSm: null, minWf: null,
     positions: new Set(), onlyPrimary: false, hasAllPositions: false,
-    selectedPlayStyles: [], requireAllPlaystyles: false,
+    selectedNormalIds: [], selectedPlusIds: [], requireAllPlaystyles: false,
     minPlaystyles: '', maxPlaystyles: '', minPlaystylesPlus: '', maxPlaystylesPlus: '',
     selectedRoles: [], hasAllRoles: false,
     acceleTypes: new Set(), preferredFoot: '', gender: '', bodyTypes: new Set(),
@@ -20,6 +21,7 @@ export function buildPlayerQuery(db, filters) {
   // JSON snapshot also prevents mutable UI state from changing an in-flight query.
   const relations = JSON.parse(JSON.stringify(filters, (_, value) => value instanceof Set ? [...value] : value));
   relations.name = relations.name.trim();
+  relations.selectedPlayStyles = selectedPlaystyles(filters);
   let query = db.rpc('filter_player_cards', { filters: relations })
     .select(`*, players!inner(id)${activeStats(filters.stats).length ? ', player_stats!inner(card_id)' : ''}`);
   const hasValue = value => value !== '' && value != null;

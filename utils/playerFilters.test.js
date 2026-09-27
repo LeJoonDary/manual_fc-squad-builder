@@ -27,7 +27,7 @@ test('combines all relationship predicates and scalar ranges in the same DB quer
   Object.assign(filters, {
     name: ' 손흥민 ', positions: new Set(['ST', 'LW']), onlyPrimary: true, hasAllPositions: true,
     selectedRoles: [{ position: 'ST', name: 'Poacher', level: 2 }], hasAllRoles: true,
-    selectedPlayStyles: [{ id: 7, level: 'plus' }], requireAllPlaystyles: true,
+    selectedNormalIds: [7], selectedPlusIds: [7, 8], requireAllPlaystyles: true,
     minPlaystyles: 0, maxPlaystyles: 4, minPlaystylesPlus: 1, maxPlaystylesPlus: 3,
     minOvr: 80, maxOvr: 95, minPrice: 0, maxPrice: 50000, minSm: 4, minWf: 5,
     nation: '1', league: '2', club: '3', gender: 'Male', preferredFoot: 'Right',
@@ -43,6 +43,10 @@ test('combines all relationship predicates and scalar ranges in the same DB quer
   expect(body.filters.positions).toEqual(['ST', 'LW']);
   expect(body.filters.name).toBe('손흥민');
   expect(body.filters.selectedRoles).toEqual([{ position: 'ST', name: 'Poacher', level: 2 }]);
+  expect(body.filters.selectedPlayStyles).toEqual([
+    { id: 7, level: 'normal' }, { id: 7, level: 'plus' }, { id: 8, level: 'plus' },
+  ]);
+  expect(body.filters.requireAllPlaystyles).toBe(true);
   expect(body.filters.maxPlaystylesPlus).toBe(3);
   expect(url.searchParams.getAll('overall')).toEqual(['gte.80', 'lte.95']);
   expect(url.searchParams.getAll('price')).toEqual(['gte.0', 'lte.50000']);

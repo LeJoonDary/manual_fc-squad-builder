@@ -31,30 +31,10 @@ function setup(supabase = null) {
   return panel;
 }
 
-test('detail button bans only its card version and reflects unban from another UI', async () => {
-  const detail = setup();
-  const button = document.querySelector('#player-detail-exclude');
-  await detail.open({ id: 100, name: 'Test Player', version: 'TOTY', raw: { id: 100, player_id: 7 } });
-  button.click();
-  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual(['100']);
-  expect(button.getAttribute('aria-pressed')).toBe('true');
-  expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).excludedCardVersionNames['100']).toBe('Test Player · TOTY (#100)');
-  detail.close();
-  await detail.open({ id: 101, name: 'Test Player', version: 'Gold', player_id: 7 });
-  expect(button.getAttribute('aria-pressed')).toBe('false');
-  button.click();
-  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual(['100', '101']);
-  expect(excludedCardVersionsStore.getState().excludedCardVersionNames['101']).toContain('Gold');
-  button.click();
-  await detail.open({ id: 100, name: 'Test Player', version: 'TOTY', player_id: 7 });
-  expect(button.textContent).toContain('제외됨');
-  excludedCardVersionsStore.unban(100);
-  expect(button.getAttribute('aria-pressed')).toBe('false');
-  button.click();
-  button.click();
-  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
-  await detail.open({ player_id: 7, name: 'Missing card identity' });
-  expect(button.disabled).toBe(true);
+test('detail excludes the old exclusion controls', async () => {
+  await setup().open({ id: 100, name: 'Test Player' });
+  expect(document.querySelector('#player-detail-exclude')).toBeNull();
+  expect(document.querySelector('.player-detail-exclusion')).toBeNull();
 });
 
 test('shared detail panel shows each selected card and closes with X or backdrop, restoring focus', async () => {

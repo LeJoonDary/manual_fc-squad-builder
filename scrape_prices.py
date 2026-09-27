@@ -309,6 +309,8 @@ def main():
 
     price, status_or_date = fetch_futgg_price(api_id)
 
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    
     if price is not None:
       update_card_price(card_db_id, price, status_or_date)
       print(
@@ -317,12 +319,19 @@ def main():
       )
       success_count += 1
     elif status_or_date == "이적시장_미출시(404)":
-      update_card_price(
-          card_db_id, 0, datetime.datetime.now(datetime.timezone.utc).isoformat()
-      )
+      update_card_price(card_db_id, 0, now_iso)
       print(
           f"[{idx}/{total}] Card ID {card_db_id} (API ID: {api_id}) -> 미출시"
           " 확인 (0원 저장 완료)"
+      )
+      success_count += 1
+    elif status_or_date == "거래_내역_없음":
+      # [핵심 개선] SBC/진화 카드는 기존 가격(있다면)을 유지하고 갱신 날짜만 최신으로 밀어 다음 롤링 순번으로 넘김
+      current_price = card.get("price") if card.get("price") is not None else 0
+      update_card_price(card_db_id, current_price, now_iso)
+      print(
+          f"[{idx}/{total}] Card ID {card_db_id} (API ID: {api_id}) -> 거래내역"
+          f" 없음/SBC (현재 {current_price:,}원 유지 및 순번 갱신)"
       )
       success_count += 1
     else:

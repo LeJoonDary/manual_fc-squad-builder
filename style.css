@@ -119,14 +119,21 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .rating-filter-list button:hover, .rating-filter-list button:focus-visible { border-color: #ffd43b; color: #fff; outline: none; }
 .rating-filter-list button.is-selected { border-color: #ffd43b; color: #211900; background: #ffd43b; }
 .rating-filter-help { margin: 9px 0 15px; color: #71829d; font-size: .65rem; }
-.playstyle-filter-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.playstyle-filter-item { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: rgba(5,15,33,.32); }
-.playstyle-filter-item p { grid-column: 1 / -1; overflow: hidden; margin: 0; color: #d9e2ff; font-size: .67rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
-.playstyle-filter-button { border: 1px solid rgba(192,201,214,.55); border-radius: 5px; padding: 5px 2px; color: #dfe6ef; background: rgba(192,201,214,.1); font-size: .62rem; font-weight: 800; cursor: pointer; }
-.playstyle-filter-button.is-plus { border-color: rgba(255,212,59,.65); color: #ffe88a; background: rgba(255,212,59,.1); }
-.playstyle-filter-button:hover, .playstyle-filter-button:focus-visible, .playstyle-filter-button.is-selected { outline: none; box-shadow: 0 0 0 2px rgba(255,255,255,.18); }
-.playstyle-filter-button.is-selected { border-color: #fff; background: rgba(255,255,255,.28); color: #fff; }
-.playstyle-filter-button.is-plus.is-selected { border-color: #ffd43b; background: #ffd43b; color: #211900; }
+.playstyle-filter-grid { display: grid; gap: 14px; min-width: 0; }
+.playstyle-filter-category { min-width: 0; }
+.playstyle-filter-category h3 { margin: 0 0 8px; color: #9fb0c9; font-size: 11px; font-weight: 700; }
+.playstyle-filter-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); gap: 8px 4px; }
+.playstyle-filter-item { display: grid; justify-items: center; grid-template-rows: 26px 32px 32px; gap: 6px; min-width: 0; }
+.playstyle-filter-item p { width: 100%; overflow: hidden; margin: 0; color: #d9e2ff; font-size: 10px; line-height: 13px; font-weight: 600; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.playstyle-filter-button { display: grid; place-items: center; width: 32px; height: 32px; padding: 1px; border: 1px solid transparent; border-radius: 6px; background: rgba(192,201,214,.06); color: #dfe6ef; opacity: .45; cursor: pointer; transition: opacity .15s, transform .15s, border-color .15s, box-shadow .15s; }
+.playstyle-filter-button img { width: 28px; height: 28px; object-fit: contain; }
+.playstyle-filter-button:hover:not(:disabled) { opacity: 1; transform: translateY(-2px); }
+.playstyle-filter-button:active:not(:disabled) { transform: scale(.92); }
+.playstyle-filter-button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; opacity: 1; }
+.playstyle-filter-button.is-selected { opacity: 1; border-color: #8ce6f5; box-shadow: 0 0 0 1px rgba(140,230,245,.4), 0 0 9px rgba(140,230,245,.2); }
+.playstyle-filter-button.is-plus.is-selected { border-color: #ffd43b; box-shadow: 0 0 0 1px rgba(255,212,59,.4), 0 0 9px rgba(255,212,59,.25); }
+.playstyle-filter-button:disabled { cursor: not-allowed; opacity: .2; }
+@media (prefers-reduced-motion: reduce) { .playstyle-filter-button { transition: none; } }
 .playstyle-require-all { margin: 15px 0; }
 .playstyle-count-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
 .playstyle-count-inputs label { display: grid; gap: 4px; color: #9fb0c9; font-size: .63rem; }
@@ -905,10 +912,13 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .slot-card-bottom { margin-top: auto; }
 .slot-card-body .slot-card-actions { position: relative; inset: auto; width: 100%; height: 24px; flex-shrink: 0; }
 .slot-card-body .slot-card-actions > button { width: 24px; height: 24px; }
-.slot-card-body .slot-affiliations { position: static; width: 100%; height: 18px; gap: 6px; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr); border-radius: 4px; background: rgba(0,0,0,.3); font-size: .69rem; }
+.slot-card-body .slot-affiliations { position: static; display: flex; justify-content: center; width: 100%; min-height: 18px; height: auto; gap: 4px; flex-wrap: wrap; border-radius: 4px; background: rgba(0,0,0,.3); font-size: .69rem; }
+.slot-card-body .slot-affiliations > span { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.slot-card-body .slot-affiliations .slot-nation { flex: 0 0 18px; }
+.slot-card-body .slot-icon-affiliation { color: rgba(255,255,255,.8); border: 1px solid rgba(255,255,255,.2); border-radius: 4px; padding: 1px 4px; background: rgba(255,255,255,.05); }
 .slot-card-body .slot-card-content { position: static; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 100%; margin: auto 0; padding: 4px 0; }
 .slot-card-body .slot-card-content strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; width: 100%; font-size: 1rem; line-height: 1.2; font-weight: 800; }
-.slot-card-body .slot-rarity { max-width: 100%; padding: 2px 5px; border-radius: 6px; background: rgba(0,0,0,.4); color: #fcd34d; font-size: .69rem; line-height: 1.2; font-weight: 500; }
+.slot-card-body .slot-rarity { max-width: 100%; padding: 2px 8px; border: 1px solid rgba(251,191,36,.3); border-radius: 999px; background: rgba(0,0,0,.4); color: #fcd34d; font-size: 11px; line-height: 1.3; font-weight: 700; letter-spacing: .025em; text-align: center; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
 .slot-card-body .slot-skill-foot-line { font-size: .75rem; line-height: 1.2; font-weight: 600; }
 .slot-card-body .slot-chemistry { position: static; height: 22px; gap: 3px; padding: 0 7px; border-radius: 999px; font-size: .65rem; }
 .slot-card-body .slot-chemistry b { font-size: .65rem; }
@@ -951,3 +961,149 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
   .app-shell.is-squad-active .squad-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1.6fr) minmax(0, 1fr); gap: 8px; }
   .app-shell.is-squad-active .chemistry-panel { grid-row: 2; height: 100%; }
 }
+.browser-player-card .playstyle-icons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.playstyle-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 34px; width: 34px; height: 34px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; cursor: help; }
+.playstyle-icon img { display: block; width: 32px; height: 32px; object-fit: contain; }
+.playstyle-icon:focus-visible { outline: 2px solid #8ce6f5; outline-offset: 2px; }
+.playstyle-icon-tooltip { position: fixed; z-index: 10000; max-width: calc(100vw - 16px); padding: 6px 9px; border: 1px solid rgba(159,176,201,.35); border-radius: 6px; background: #0b162c; color: #f7fbff; box-shadow: 0 4px 14px rgba(0,0,0,.35); font-size: 11px; line-height: 1.3; pointer-events: none; }
+.playstyle-icon-tooltip[hidden] { display: none; }
+
+.playstyle-icon.is-plus { border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.04); }
+.browser-player-physical { margin: 4px 0; color: #e5e7eb; font-size: 12px; font-weight: 500; line-height: 1.5; }
+.browser-player-elite-roles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.browser-player-elite-roles > span { padding: 2px 8px; border: 1px solid rgba(245,158,11,.4); border-radius: 4px; background: rgba(69,26,3,.4); color: #fde68a; font-size: 11px; line-height: 1.4; }
+.browser-player-card .browser-player-affiliations > .browser-player-icon-emblem { display: inline-flex; align-items: center; justify-content: center; color: rgba(255,255,255,.8); border: 1px solid rgba(255,255,255,.2); border-radius: 6px; background: rgba(255,255,255,.05); padding: 3px; }
+.browser-player-card .browser-player-logo { width: 20px; height: 20px; object-fit: contain; border-radius: 3px; }
+/* Compact pitch-only card; actions, chemistry and price keep their existing containers. */
+.pitch-mini-content { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; min-width: 0; }
+.pitch-mini-badges { display: grid; grid-template-columns: minmax(0,1fr) auto; grid-template-rows: auto auto; align-items: start; gap: 4px; width: 100%; min-height: 58px; }
+.pitch-mini-rating { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; align-items: flex-start; color: #fcd34d; font-size: 16px; font-weight: 800; line-height: 1.05; }
+.pitch-mini-secondary { grid-column: 2; grid-row: 1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; max-width: 64px; }
+.pitch-mini-secondary > span { padding: 1px 4px; border: 1px solid rgba(20,184,166,.4); border-radius: 4px; color: #5eead4; background: rgba(0,0,0,.6); font-size: 10px; line-height: 1.2; }
+.pitch-mini-skills { grid-column: 2; grid-row: 2; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.pitch-mini-skills > span { padding: 1px 4px; border: 1px solid rgba(255,255,255,.2); border-radius: 4px; color: #f3f4f6; background: rgba(0,0,0,.6); font-size: 9px; line-height: 1.2; }
+.pitch-mini-plus { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 3px; }
+.pitch-mini-plus .playstyle-icon { flex: 0 0 22px; width: 22px; height: 22px; border-radius: 4px; }
+.pitch-mini-plus .playstyle-icon img { width: 20px; height: 20px; }
+.pitch-mini-name { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: 14px; font-weight: 700; line-height: 1.2; color: #fff; }
+.pitch-mini-promo { max-width: 100%; padding: 2px 8px; border: 1px solid rgba(251,191,36,.3); border-radius: 999px; color: #fcd34d; background: rgba(0,0,0,.5); font-size: 10px; font-weight: 600; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+.pitch-mini-stats { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 2px; width: 100%; padding: 4px 0; border-top: 1px solid rgba(255,255,255,.12); border-bottom: 1px solid rgba(255,255,255,.12); }
+.pitch-mini-stats > span { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+.pitch-mini-stats small { font-size: 8px; color: #9ca3af; }
+.pitch-mini-stats b { font-size: 10px; font-weight: 700; color: #fff; }
+.pitch-mini-affiliations { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 4px; width: 100%; font-size: 9px; line-height: 1.2; color: #e5e7eb; }
+.pitch-mini-affiliations img { width: 16px; height: 11px; object-fit: contain; }
+.pitch-mini-affiliations > span { overflow-wrap: anywhere; }
+.pitch-mini-icon-label { padding: 1px 3px; border: 1px solid rgba(255,255,255,.2); border-radius: 3px; background: rgba(255,255,255,.05); }
+/* Reference layout: a fixed card canvas with separate controls and footer. */
+.pitch .slot { width: 144px; }
+.pitch .slot.occupied { gap: 5px; }
+.slot.occupied > .slot-card-top { height: 24px; }
+.slot.occupied > .slot-card-top .slot-card-actions { position: static; width: 100%; height: 24px; }
+.slot.occupied > .slot-card-top .slot-card-actions > button { width: 24px; height: 24px; }
+.slot.occupied > .slot-card-body { position: relative; display: block; width: 144px; height: 195px; min-height: 195px; aspect-ratio: auto; padding: 0; overflow: visible; }
+.slot.occupied > .slot-card-bottom { margin: 0; height: 22px; }
+.slot.occupied > .slot-card-bottom .slot-chemistry { position: static; height: 22px; gap: 3px; padding: 0 7px; border-radius: 999px; font-size: 10px; }
+.slot.occupied > .card-price-badge { flex-shrink: 0; min-height: 26px; margin: 0; font-size: 11px; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; }
+.pitch-mini-content { position: relative; height: 100%; display: flex; flex-direction: column; gap: 4px; padding: 8px 5px 6px; }
+.pitch-mini-header { display: flex; gap: 5px; width: 100%; align-items: flex-start; }
+.pitch-mini-rating { flex: 0 0 25px; font-size: 18px; font-weight: 900; line-height: 1.05; }
+.pitch-mini-identity { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; flex: 1; }
+.pitch-mini-content.has-secondary .pitch-mini-header { padding-right: 22px; }
+.pitch-mini-name { font-size: 12px; text-align: left; }
+.pitch-mini-promo { font-size: 9px; padding: 2px 6px; background: rgba(0,0,0,.6); border-color: rgba(251,191,36,.4); line-height: 1.2; }
+.pitch-mini-badges { display: contents; }
+.pitch-mini-secondary { position: absolute; right: 4px; top: 8px; display: flex; flex-direction: column; gap: 3px; max-width: 25px; }
+.pitch-mini-secondary > span { padding: 2px 3px; color: #5eead4; border-color: #2dd4bf; background: rgba(4,47,46,.8); font-size: 9px; font-weight: 700; }
+.pitch-mini-skills { position: absolute; right: 4px; top: 56px; gap: 4px; }
+.pitch-mini-skills > span { padding: 2px 4px; text-align: center; border-color: rgba(255,255,255,.3); background: rgba(0,0,0,.7); font-size: 9px; }
+.pitch-mini-plus { position: absolute; left: 4px; top: 56px; flex-direction: column; gap: 4px; }
+.pitch-mini-plus .playstyle-icon { flex: 0 0 20px; width: 20px; height: 20px; }
+.pitch-mini-plus .playstyle-icon img { width: 18px; height: 18px; }
+.pitch-mini-stats { margin-top: auto; flex-shrink: 0; padding: 4px 0; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 1px; background: rgba(0,0,0,.4); }
+.pitch-mini-stats small { font-size: 7px; }
+.pitch-mini-stats b { font-size: 10px; }
+.pitch-mini-affiliations { flex-shrink: 0; flex-wrap: nowrap; gap: 3px; min-height: 15px; font-size: 8px; }
+.pitch-mini-affiliations > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Readable slot-sized cards, with badges crossing the artwork border. */
+.pitch-scroll { overflow: auto; overscroll-behavior: contain; }
+.pitch-scroll::before { content: ''; display: block; width: var(--scroll-pitch-width, 900px); height: var(--scroll-pitch-height, 1600px); pointer-events: none; }
+.app-shell.is-squad-active .pitch { top: 0; left: 0; transform: scale(var(--pitch-scale, 1)); transform-origin: top left; }
+.pitch .slot { width: 144px; min-width: 130px; height: 190px; overflow: visible; }
+.pitch .slot.occupied { overflow: visible; }
+.slot.occupied > .slot-card-body { position: relative; width: 100%; min-width: 130px; height: 190px; min-height: 170px; overflow: visible; }
+.pitch-mini-content { overflow: visible; }
+.pitch-mini-content.has-secondary .pitch-mini-header { padding-right: 0; }
+.pitch-mini-rating { font-size: 18px; font-weight: 900; line-height: 1; }
+.pitch-mini-identity { flex: 1; min-width: 0; }
+.pitch-mini-name { font-size: 12px; font-weight: 800; }
+.pitch-mini-secondary { right: -8px; top: 12px; z-index: 10; max-width: 32px; }
+.pitch-mini-secondary > span { padding: 2px 6px; background: #134e4a; color: #99f6e4; border-color: #2dd4bf; font-size: 10px; font-weight: 700; box-shadow: 0 2px 5px #0008; }
+.pitch-mini-skills { right: -8px; top: 56px; z-index: 10; gap: 4px; }
+.pitch-mini-skills > span { background: rgba(0,0,0,.8); box-shadow: 0 2px 5px #0008; }
+.pitch-mini-plus { left: -10px; top: 48px; z-index: 10; }
+.pitch-mini-plus .playstyle-icon { flex: 0 0 26px; width: 26px; height: 26px; filter: drop-shadow(0 2px 3px #0009); }
+.pitch-mini-plus .playstyle-icon img { width: 24px; height: 24px; }
+.pitch-mini-stats b { font-size: 10px; font-weight: 700; }
+.pitch-mini-affiliations { font-size: 9px; }
+.slot.occupied > .slot-card-bottom { flex-shrink: 0; margin-top: 2px; }
+.slot.occupied > .card-price-badge { margin-top: 2px; }
+/* Half-overlap anchors and centered promo identity. */
+.pitch-mini-secondary { right: 0; top: 12px; transform: translateX(50%); z-index: 20; }
+.pitch-mini-secondary > span { background: rgba(4,47,46,.9); box-shadow: 0 4px 8px #0008; }
+.pitch-mini-skills { right: 0; top: 64px; transform: translateX(50%); z-index: 20; align-items: center; gap: 4px; }
+.pitch-mini-skills > span { padding: 2px 6px; background: rgba(0,0,0,.85); color: #fff; font-size: 9px; font-weight: 700; box-shadow: 0 4px 8px #0008; }
+.pitch-mini-plus { left: 0; top: 56px; transform: translateX(-50%); z-index: 20; }
+.pitch-mini-header { align-items: flex-start; }
+.pitch-mini-name { padding-left: 4px; font-size: 14px; font-weight: 900; letter-spacing: -.025em; line-height: 1.2; }
+.pitch-mini-center { display: flex; flex: 1; justify-content: center; align-items: center; width: 100%; min-height: 0; padding: 4px 8px; }
+.pitch-mini-center .pitch-mini-promo { padding: 4px 12px; border-color: rgba(251,191,36,.5); border-radius: 999px; background: rgba(0,0,0,.6); color: #fcd34d; font-size: 12px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; box-shadow: 0 0 10px rgba(251,191,36,.2); }
+.pitch-mini-stats { margin-top: 0; }
+.pitch-mini-stats small { font-size: 8px; }
+/* Header alignment and independent top/bottom badge anchors. */
+.pitch-mini-header { align-items: center; }
+.pitch-mini-rating { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+.pitch-mini-name { padding-left: 6px; font-size: 14px; font-weight: 900; letter-spacing: -.025em; }
+.pitch-mini-affiliations { justify-content: center; align-items: center; gap: 4px; margin-top: 4px; font-size: 10px; color: #e5e7eb; }
+.pitch-mini-center .pitch-mini-promo { margin: auto 0; padding: 2px 10px; border-color: rgba(251,191,36,.4); font-size: 10px; font-weight: 700; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,.3); }
+.pitch-mini-secondary { top: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pitch-mini-secondary > span { padding: 2px 4px; font-size: 8px; line-height: 1.2; }
+.pitch-mini-skills { top: auto; bottom: 44px; align-items: center; gap: 4px; }
+/* Chemistry is anchored to the artwork, never part of the price flow. */
+.pitch-chemistry-badge { position: absolute; left: 0; bottom: 10px; transform: translateX(-50%); z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 28px; height: 28px; padding: 4px; border: 1px solid rgba(51,65,85,.8); border-radius: 50%; background: rgba(2,6,23,.9); box-shadow: 0 4px 8px #0008; }
+.pitch-chemistry-row { display: flex; justify-content: center; gap: 3px; }
+.pitch-chemistry-row i { display: block; width: 5px; height: 5px; transform: rotate(45deg); background: rgba(51,65,85,.6); }
+.pitch-chemistry-row i.is-filled { background: #22d3ee; box-shadow: 0 0 6px rgba(34,211,238,.8); }
+.pitch-mini-stats { padding-left: 16px; padding-right: 4px; }
+.slot.occupied > .card-price-badge { margin-top: 0; }
+.pitch .slot.occupied { gap: 3px; }
+.pitch-scroll { overflow: hidden; }
+.pitch-scroll::before { display: none; }
+.app-shell.is-squad-active .pitch { top: 50%; left: 50%; overflow: hidden; transform: translate(-50%, -50%) scale(var(--pitch-scale, 0)); transform-origin: center; }
+.slot-card-actions { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.slot-card-actions > .exclude-player { grid-column: 3; grid-row: 1; justify-self: center; }
+.slot-card-actions > .detail-player { grid-column: 4; }
+.slot-card-actions > .remove-player { grid-column: 5; }
+.exclude-player { position: relative; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid rgba(255,255,255,.3); border-radius: 50%; background: rgba(4,12,31,.76); color: #9ca3af; cursor: pointer; }
+.exclude-player svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.exclude-player:hover { color: #f87171; background: rgba(69,10,10,.4); }
+.exclude-player[aria-pressed="true"] { color: #ef4444; background: rgba(69,10,10,.8); border-color: rgba(239,68,68,.5); }
+.exclude-player:focus-visible { outline: 2px solid #f87171; outline-offset: 2px; }
+#pitch-action-toast { position: fixed; right: 20px; bottom: 24px; z-index: 10001; max-width: min(420px, calc(100vw - 40px)); padding: 14px 18px; border: 1px solid #64748b; border-radius: 12px; background: #0f172af5; color: #f1f5f9; box-shadow: 0 8px 24px #0006; font-size: 13px; line-height: 1.5; }
+#pitch-action-toast[hidden] { display: none; }
+.pitch-mini-stats { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 4px 8px; margin-bottom: 34px; }
+.pitch-mini-stats small { font-size: 8px; font-weight: 600; color: #9ca3af; }
+.pitch-mini-stats b { font-size: 10px; font-weight: 800; color: #fff; }
+/* Exclusion feedback and clear, symmetric bottom stats. */
+.pitch .slot.occupied.is-excluded > .slot-card-body { border-color: rgba(239,68,68,.8); box-shadow: 0 0 12px rgba(239,68,68,.35); }
+.exclude-player[aria-pressed="true"] { border-color: rgba(239,68,68,.6); }
+#pitch-action-toast[data-tone="warning"] { color: #fecaca; border-color: rgba(239,68,68,.6); background: rgba(69,10,10,.96); }
+#pitch-action-toast[data-tone="success"] { color: #d1fae5; border-color: rgba(52,211,153,.5); background: rgba(6,46,35,.96); }
+.pitch-chemistry-badge, .pitch-mini-skills { bottom: 48px; }
+.pitch-mini-content { padding-bottom: 0; }
+.pitch-mini-stats { margin-bottom: 0; padding: 2px 8px 6px; }
+.pitch-chemistry-badge { bottom: 28px; }
+.pitch-mini-stats { margin-bottom: 6px; padding-bottom: 4px; }
+.pitch-mini-secondary > span { padding: 2px 6px; font-size: 11px; font-weight: 900; letter-spacing: -.025em; }
+.pitch-mini-rating > b { font-weight: 900; }
+.pitch-mini-rating > b:last-child { font-size: 12px; }

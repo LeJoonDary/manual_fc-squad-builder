@@ -47,22 +47,23 @@ export function createPlayerCard(card, {
     affiliations.append(flag);
   }
   for (const key of ['league', 'club']) {
-    const shortName = card[`${key}_short_name`];
-    const fullName = card[key];
-    const entity = affiliationCatalog[`${key}s`]?.find(row => String(row.id) === String(card[`${key}_id`]));
-    const logoUrl = getChemistryEntityLogo(card, key) || entity?.logo_url;
-    if (!shortName && !fullName && !logoUrl) continue;
+    const relation = unwrapRelation(card.raw?.[`${key}s`] ?? card[`${key}s`]);
+    const entity = affiliationCatalog[`${key}s`]?.find(row => String(row.id) === String(card[`${key}_id`] ?? relation?.id));
+    const fullName = (typeof card[key] === 'string' ? card[key] : card[key]?.name) || relation?.name || entity?.name;
+    const shortName = card[`${key}_short_name`] || entity?.short_name;
+    const clubRelation = unwrapRelation(card.raw?.clubs ?? card.clubs);
+    const isIcon = /icon/i.test(fullName ?? '')
+      || String(card.club_id ?? card.club?.id ?? clubRelation?.id) === '112658';
+    if (!shortName && !fullName && !isIcon) continue;
     const label = document.createElement('span');
     label.textContent = shortName || fullName || '';
     label.title = fullName ?? shortName ?? '';
-    if (logoUrl && !textAffiliations) {
-      const logo = document.createElement('img');
-      logo.className = 'browser-player-logo';
-      logo.src = logoUrl;
-      logo.alt = fullName || shortName || key;
-      logo.loading = 'lazy';
-      logo.addEventListener('error', () => label.replaceChildren(shortName || fullName || ''));
-      label.replaceChildren(logo);
+    if (isIcon) {
+      label.className = 'browser-player-icon-emblem';
+      label.title = 'ICON';
+      label.setAttribute('role', 'img');
+      label.setAttribute('aria-label', 'ICON');
+      label.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2 21 5v7c0 5-5 8-9 10-4-2-9-5-9-10V5Z" fill="currentColor" fill-opacity=".05" stroke="currentColor" stroke-width="1.5"/><path d="m12 6 1.6 3.3 3.7.5-2.7 2.6.6 3.6-3.2-1.7L8.8 16l.6-3.6-2.7-2.6 3.7-.5Z" fill="currentColor"/></svg>';
     }
     affiliations.append(label);
   }
@@ -92,8 +93,41 @@ export function createPlayerCard(card, {
   score.textContent = card.meta_score === null ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
   score.title = card.score_position ? `${card.score_position} 기준 · 3백 미적용` : '이 포지션의 가중치가 아직 없습니다.';
   affiliations.append(score);
-  content.append(identity, positions, affiliations,
-    createPlaystyleBadges(card, Infinity, 'browser-player-playstyles playstyle-badges'));
+  content.append(identity, positions, affiliations);
+  const player = unwrapRelation(card.raw?.players) ?? {};
+  const height = card.height ?? player.height;
+  const weight = card.weight ?? player.weight;
+  const validMeasurement = value => (typeof value === 'number' || typeof value === 'string')
+    && String(value).trim() !== '' && Number.isFinite(Number(value)) && Number(value) > 0;
+  if (validMeasurement(height) && validMeasurement(weight)) {
+    const physical = document.createElement('p');
+    physical.className = 'browser-player-physical';
+    const bodyType = card.body_type ?? card.raw?.body_type;
+    physical.textContent = `${Number(height)}cm · ${Number(weight)}kg${
+      typeof bodyType === 'string' && bodyType.trim() ? ` | ${bodyType.trim()}` : ''}`;
+    content.append(physical);
+  }
+  const roleRows = card.card_roles ?? card.raw?.card_roles;
+  const eliteRoles = new Map();
+  for (const row of Array.isArray(roleRows) ? roleRows : []) {
+    if (!row || !(Number(row.role_level) === 2 || row.role_level === '++')) continue;
+    const role = unwrapRelation(row.roles);
+    if (typeof role?.role_name !== 'string' || !role.role_name.trim()) continue;
+    const name = role.role_name.trim().replace(/\+{1,2}$/, '').trim();
+    const position = typeof role.position === 'string' ? role.position.trim() : '';
+    eliteRoles.set(`${position}|${name}`, `${position ? `${position} · ` : ''}${name}++`);
+  }
+  if (eliteRoles.size) {
+    const roles = document.createElement('div');
+    roles.className = 'browser-player-elite-roles';
+    for (const label of [...eliteRoles.values()].slice(0, 4)) {
+      const badge = document.createElement('span');
+      badge.textContent = label;
+      roles.append(badge);
+    }
+    content.append(roles);
+  }
+  content.append(createPlaystyleBadges(card, Infinity, 'browser-player-playstyles playstyle-badges'));
   const foot = String(card.preferred_foot ?? '').trim();
   const footLabel = /^(right|r|오른발)$/i.test(foot) ? 'Right'
     : /^(left|l|왼발)$/i.test(foot) ? 'Left' : foot || '-';

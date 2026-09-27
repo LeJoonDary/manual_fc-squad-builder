@@ -1,5 +1,13 @@
 import { expect, test } from 'vitest';
-import { fetchPlayerCards } from './playerCards.js';
+import { fetchPlayerCards, PLAYER_CARD_SELECT } from './playerCards.js';
+import { MODAL_PLAYER_SELECT } from './modalPlayers.js';
+
+test('card queries only request supported club and league columns', () => {
+  for (const select of [PLAYER_CARD_SELECT, MODAL_PLAYER_SELECT]) {
+    expect(select.match(/clubs\s*\(([^)]+)\)/)[1].replace(/\s/g, '')).toBe('id,name');
+    expect(select.match(/leagues\s*\(([^)]+)\)/)[1].replace(/\s/g, '')).toBe('id,name');
+  }
+});
 
 function database(pages) {
   const offsets = [];

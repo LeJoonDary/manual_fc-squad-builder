@@ -1,4 +1,8 @@
 import { createPlayerCard } from './components/PlayerCard.js';
+import { createPitchExcludeButton, syncPitchExclusions } from './components/PitchExcludeButton.js';
+import { excludedCardVersionsStore } from './utils/excludedCardVersions.js';
+import { createPitchChemistryBadge } from './components/PitchChemistryBadge.js';
+import { createPitchMiniCard } from './components/PitchMiniCard.js';
 import { getCardBackground } from './utils/cardBackground.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { createPlayerPagination } from './utils/playerPagination.js';
@@ -6,6 +10,8 @@ import { createPlayerDetailModal } from './components/PlayerDetailModal.js';
 import { STAT_KEYS, defaultStats, activeStats, renderStatInputs } from './utils/statFilters.js';
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
 import { fetchPlaystyleOptions } from './utils/playstyleFilters.js';
+import { createPlaystyleIcons } from './components/PlaystyleIcons.js';
+import { renderPlaystyleGrid } from './components/PlaystyleFilterGrid.js';
 import { PLAYER_CARD_SELECT } from './utils/playerCards.js';
 import { createDefaultFilters, fetchPlayers } from './utils/playerFilters.js';
 import { scoreSearchResults, scoreModalPlayers, getValueScoreGrade } from './utils/playerSearch.js';
@@ -160,8 +166,10 @@ function updatePitchViewport() {
   const fit = fitPitchViewport(availableWidth, pitchFrame.clientHeight, height);
   pitch.style.setProperty('--pitch-width', `${fit.width}px`);
   pitch.style.setProperty('--pitch-scale', fit.scale);
-  squadWorkspace.style.setProperty('--fitted-pitch-width', `${fit.width * fit.scale}px`);
-  squadWorkspace.style.setProperty('--fitted-pitch-height', `${fit.fittedHeight}px`);
+  squadWorkspace.style.setProperty('--fitted-pitch-width', `${Math.min(availableWidth, fit.width * fit.scale)}px`);
+  squadWorkspace.style.setProperty('--fitted-pitch-height', `${Math.min(pitchFrame.clientHeight, fit.fittedHeight)}px`);
+  pitchFrame.style.setProperty('--scroll-pitch-width', `${fit.width * fit.scale}px`);
+  pitchFrame.style.setProperty('--scroll-pitch-height', `${fit.fittedHeight}px`);
 }
 const pitchResizeObserver = new ResizeObserver(updatePitchViewport);
 pitchResizeObserver.observe(squadWorkspace);
@@ -707,7 +715,7 @@ function updateCommandSummaries() {
       : (filters.minPrice !== '' || filters.maxPrice !== '' ? '가격 설정' : ''),
     'sm-wf': filters.minSm || filters.minWf
       ? `SM ${filters.minSm || '–'} · WF ${filters.minWf || '–'}` : '',
-    playstyles: filters.selectedPlayStyles.length ? `${filters.selectedPlayStyles.length}` : '',
+    playstyles: (filters.selectedNormalIds.length + filters.selectedPlusIds.length) || '',
     affiliation: [filters.nation, filters.league, filters.club].filter(Boolean).length || '',
     rarity: filters.rarities.size || '',
     stats: activeStats(filters.stats).length || '',
@@ -780,37 +788,7 @@ async function loadPlaystyleFilterOptions() {
 }
 
 function renderPlaystyleFilterButtons(options) {
-  playstyleFilterGrid.replaceChildren();
-  options.forEach(({ id, name }) => {
-    const item = document.createElement('div');
-    item.className = 'playstyle-filter-item';
-    const label = document.createElement('p');
-    label.textContent = name;
-    item.append(label);
-    ['normal', 'plus'].forEach((level) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = level === 'plus' ? 'playstyle-filter-button is-plus' : 'playstyle-filter-button';
-      button.textContent = level === 'plus' ? 'Plus' : 'Normal';
-      button.setAttribute('aria-pressed', 'false');
-      button.setAttribute('aria-label', name + ' ' + button.textContent);
-      button.addEventListener('click', () => togglePlaystyleFilter(id, level, button));
-      item.append(button);
-    });
-    playstyleFilterGrid.append(item);
-  });
-}
-
-function togglePlaystyleFilter(id, level, button) {
-  const selectedIndex = filters.selectedPlayStyles.findIndex(
-    (playstyle) => playstyle.id === id && playstyle.level === level,
-  );
-  if (selectedIndex >= 0) filters.selectedPlayStyles.splice(selectedIndex, 1);
-  else filters.selectedPlayStyles.push({ id, level });
-  const isSelected = selectedIndex < 0;
-  button.classList.toggle('is-selected', isSelected);
-  button.setAttribute('aria-pressed', String(isSelected));
-  searchPlayers();
+  renderPlaystyleGrid(playstyleFilterGrid, options, filters, () => searchPlayers());
 }
 
 function replaceSelectOptions(select, placeholder, values, selectedValue = '') {
@@ -1163,9 +1141,11 @@ function normalizePlayerCard(row) {
     wf: cardVersion.wf,
     price: cardVersion.price,
     club: unwrapRelation(cardVersion.clubs)?.name,
+    clubs: unwrapRelation(cardVersion.clubs),
     club_short_name: unwrapRelation(cardVersion.clubs)?.short_name,
     club_id: cardVersion.club_id,
     league: unwrapRelation(cardVersion.leagues)?.name,
+    leagues: unwrapRelation(cardVersion.leagues),
     league_short_name: unwrapRelation(cardVersion.leagues)?.short_name,
     league_id: cardVersion.league_id,
     image_url: cardVersion.image_url,
@@ -1264,7 +1244,8 @@ function normalizePlaystyles(...records) {
 
       if (typeof safeEntry === 'string') {
         const name = safeEntry.trim();
-        if (name) normalized.set(`${name.toLowerCase()}|${Boolean(forcedPlus)}`, { name, isPlus: Boolean(forcedPlus) });
+        const key = `${name.toLowerCase()}|${Boolean(forcedPlus)}`;
+        if (name && !normalized.has(key)) normalized.set(key, { name, isPlus: Boolean(forcedPlus) });
         return;
       }
       if (!safeEntry || typeof safeEntry !== 'object') return;
@@ -1287,9 +1268,13 @@ function normalizePlaystyles(...records) {
       );
       const cleanName = name.trim().replace(/\+$/, '').trim();
       const plusFromName = /\+$/.test(name.trim());
-      normalized.set(`${cleanName.toLowerCase()}|${isPlus || plusFromName}`, {
+      const key = `${cleanName.toLowerCase()}|${isPlus || plusFromName}`;
+      const previous = normalized.get(key);
+      normalized.set(key, {
         name: cleanName,
         isPlus: isPlus || plusFromName,
+        image_url: sourceObject.image_url || previous?.image_url,
+        image_url_plus: sourceObject.image_url_plus || previous?.image_url_plus,
       });
     });
   };
@@ -1387,7 +1372,7 @@ function renderFilteredPlayerList() {
   modalPlayerCards.forEach(card => {
     const article = buildPlayerCard(card, {
       actionLabel: '선수 선택',
-      textAffiliations: true,
+      textAffiliations: false,
       onActivate: () => {
         if (!activeSlot) return;
         placeCard(activeSlot, card);
@@ -1438,6 +1423,7 @@ function resetSlot(slot, shouldUpdate = true) {
   slot.replaceChildren();
 
   const positionLabel = document.createElement('span');
+  slot.classList.remove('is-excluded');
   positionLabel.textContent = slotKey;
   slot.append(positionLabel);
   if (shouldUpdate) updateSquadChemistry();
@@ -1462,10 +1448,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
     ? `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)), url(${JSON.stringify(backgroundUrl)})` : 'none';
   const top = document.createElement('span');
   top.className = 'slot-card-top';
-  const bottom = document.createElement('span');
-  bottom.className = 'slot-card-bottom';
-  body.append(top, bottom);
-  slot.append(body);
+  slot.append(top, body);
 
   const cardActions = document.createElement('span');
   cardActions.className = 'slot-card-actions';
@@ -1496,47 +1479,13 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
     const selectedCard = squad[slot.dataset.position]?.card;
     if (selectedCard) playerDetail.open(selectedCard);
   });
-  cardActions.append(lockButton, ownedButton, detailButton, removeButton);
+  cardActions.append(lockButton, ownedButton, createPitchExcludeButton(card), detailButton, removeButton);
   top.append(cardActions);
+  syncPitchExclusions();
   updateSlotLockUI(slot);
   updateSlotOwnedUI(slot);
 
-  const content = document.createElement('span');
-  content.className = 'slot-card-content';
-  const affiliations = document.createElement('small');
-  affiliations.className = 'slot-affiliations';
-  const nation = document.createElement('span');
-  nation.className = 'slot-nation';
-  if (card.nation_flag_url?.trim()) {
-    const flag = document.createElement('img');
-    flag.src = card.nation_flag_url;
-    flag.alt = card.nation || '국기';
-    flag.title = card.nation || '국기';
-    flag.addEventListener('error', () => flag.remove(), { once: true });
-    nation.append(flag);
-  }
-  for (const key of ['league', 'club']) {
-    const label = document.createElement('span');
-    label.className = `slot-${key}`;
-    label.textContent = card[`${key}_short_name`]?.trim() || '—';
-    label.title = card[key] || `${key === 'league' ? '리그' : '클럽'} 정보 없음`;
-    affiliations.append(label);
-    if (key === 'league') affiliations.append(nation);
-  }
-  top.append(affiliations);
-  const nameElement = document.createElement('strong');
-  nameElement.textContent = name;
-  nameElement.title = name;
-  const rarityElement = document.createElement('span');
-  rarityElement.className = 'slot-rarity';
-  rarityElement.textContent = card.version || 'Standard';
-  rarityElement.title = rarityElement.textContent;
-  const skillFoot = document.createElement('span');
-  skillFoot.className = 'slot-skill-foot-line';
-  skillFoot.textContent = `SM ${card.sm ?? '-'}★ / WF ${card.wf ?? '-'}★`;
-  content.append(nameElement, rarityElement);
-  bottom.append(skillFoot);
-  body.insertBefore(content, bottom);
+  body.append(createPitchMiniCard(card, getPlayStyles(card), affiliationCatalog));
   const priceBadge = document.createElement('div');
   priceBadge.className = 'card-price-badge';
   slot.append(priceBadge);
@@ -1813,7 +1762,7 @@ function updateSquadChemistry() {
 
   document.querySelectorAll('.slot').forEach((slot) => {
     const card = squad[slot.dataset.position]?.card;
-    slot.querySelector('.slot-chemistry')?.remove();
+    slot.querySelector('.pitch-chemistry-badge')?.remove();
     const positionElement = slot.querySelector('.slot-position');
     if (!card) {
       slot.classList.remove('is-out-of-position');
@@ -1831,12 +1780,7 @@ function updateSquadChemistry() {
         : `${slot.dataset.position} ⚠`;
     }
 
-    const badge = document.createElement('span');
-    badge.className = `slot-chemistry chem-${chemistry}`;
-    badge.setAttribute('aria-label', `케미스트리 ${chemistry}점`);
-    const diamonds = Array.from({ length: 3 }, (_, index) => `<i class="${index < chemistry ? 'is-filled' : ''}">◆</i>`).join('');
-    badge.innerHTML = `${diamonds}<b>${chemistry}</b>`;
-    slot.querySelector('.slot-card-bottom').append(badge);
+    slot.querySelector('.slot-card-body').append(createPitchChemistryBadge(chemistry));
   });
 }
 
@@ -2052,6 +1996,9 @@ function createRoleBadges(card, maxCount = Infinity, className = 'role-badges') 
 }
 
 function createPlaystyleBadges(card, maxCount = Infinity, className = 'playstyle-badges') {
+  if (className.includes('browser-player-playstyles')) {
+    return createPlaystyleIcons(getPlayStyles(card), className);
+  }
   const container = document.createElement('span');
   container.className = className;
   const playstyles = getPlayStyles(card);
@@ -2121,3 +2068,5 @@ function getCardStats(card, includeAll = false) {
 }
 
 updateSquadChemistry();
+
+excludedCardVersionsStore.subscribe(syncPitchExclusions);
