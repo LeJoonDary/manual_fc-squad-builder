@@ -4,7 +4,10 @@ export function detailStatGroups(card) {
   const isKeeper = String(card.primary_position ?? card.position ?? '').trim().toUpperCase() === 'GK';
   const stats = Array.isArray(card.raw?.player_stats) ? card.raw.player_stats[0] : card.raw?.player_stats;
   return Object.entries(STAT_GROUPS).filter(([group]) => isKeeper ? group === 'GOALKEEPING' : group !== 'GOALKEEPING')
-    .map(([group, keys]) => ({ group, stats: keys.map(key => ({ key, value: stats?.[key] ?? null })) }));
+    .map(([group, keys]) => ({ group, stats: keys.map(key => ({
+      key,
+      value: key === 'dribbling_sub' ? stats?.dribbling ?? stats?.dribbling_sub ?? 0 : stats?.[key] ?? null,
+    })) }));
 }
 
 export function renderDetailStatGroups(mount, card) {
@@ -22,7 +25,7 @@ export function renderDetailStatGroups(mount, card) {
     for (const { key, value } of group.stats) {
       const row = document.createElement('div'); row.className = 'detail-substat'; row.dataset.stat = key;
       const label = document.createElement('span');
-      label.textContent = key.length === 3 ? key.toUpperCase() : key.replace(/^gk_/, '').replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+      label.textContent = key === 'dribbling_sub' ? 'Dribbling' : key.length === 3 ? key.toUpperCase() : key.replace(/^gk_/, '').replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
       const number = document.createElement('strong'); number.textContent = value == null ? '—' : String(value);
       row.append(label, number);
       if (value != null && Number.isFinite(Number(value))) {
