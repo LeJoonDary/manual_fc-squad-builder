@@ -5,7 +5,7 @@ function database(response = { data: [], error: null }) {
   const queries = [];
   const db = { from: vi.fn(table => {
     const query = { table };
-    for (const method of ['select', 'or', 'order', 'in', 'range', 'gte', 'lte']) query[method] = vi.fn(() => query);
+    for (const method of ['select', 'or', 'order', 'in', 'range', 'gte', 'lte', 'limit']) query[method] = vi.fn(() => query);
     query.abortSignal = vi.fn(async () => Array.isArray(response) ? response.shift() : response);
     queries.push(query);
     return query;
@@ -13,18 +13,18 @@ function database(response = { data: [], error: null }) {
   return { db, queries };
 }
 
-test('search filters card versions by both joined names before pagination, with quoted input', async () => {
-  const { db, queries } = database({ data: [{ id: 10 }], error: null });
+test('search treats punctuation literally through normalized client filtering', async () => {
+  const card = { id: 10, players: { name: 'A,%_(B)"' } };
+  const { db, queries } = database([{ data: [card] }, { data: [] }]);
   const signal = new AbortController().signal;
   const keyword = '  A,%_(B)"  ';
-  expect(await searchExclusionCards(db, { keyword, offset: 30, signal })).toEqual([{ id: 10 }]);
+  expect(await searchExclusionCards(db, { keyword, signal })).toEqual([card]);
   const query = queries[0];
   expect(query.table).toBe('card_versions');
   expect(query.select.mock.calls[0][0]).toContain('players!inner(id,name,long_name)');
   expect(query.select.mock.calls[0][0]).toContain('image_url,background_url');
-  const pattern = JSON.stringify('%A,\\%\\_(B)"%');
-  expect(query.or).toHaveBeenCalledWith(`name.ilike.${pattern},long_name.ilike.${pattern}`, { referencedTable: 'players' });
-  expect(query.range).toHaveBeenCalledWith(30, 59);
+  expect(query.or).not.toHaveBeenCalled();
+  expect(query.range).toHaveBeenCalledWith(0, 499);
   expect(query.abortSignal).toHaveBeenCalledWith(signal);
   expect(query.order.mock.calls.map(call => call[0])).toEqual(['overall', 'id']);
 });

@@ -9,6 +9,7 @@ import { getCardCoinPrice, calculateSquadTotalCost } from './squadCost.ts';
 import { getCardVersionId, normalizeExcludedCardVersionIds, validateSquadOvrRange } from './excludedCardVersions.js';
 
 export interface AutoBuildOptions {
+  excludeZeroPriceCards?: boolean;
   squadOvrRange?: { min: number; max: number };
   /** card_versions.id values: other versions of the same player remain eligible. */
   excludedCardVersionIds?: Array<string | number>;
@@ -21,6 +22,9 @@ function specialLimit(options: AutoBuildOptions): number {
   const limit = options.maxSpecialCards ?? 11;
   if (!Number.isInteger(limit) || limit < 0 || limit > 11) throw new RangeError('아이콘 / 히어로 제한은 0~11명이어야 합니다.');
   return limit;
+}
+function passesMarketPriceFilter(card: Record<string, any>, options: AutoBuildOptions): boolean {
+  return options.excludeZeroPriceCards !== true || (card.price != null && Number.isFinite(Number(card.price)) && Number(card.price) > 0);
 }
 function rawEntryCard(entry: NonNullable<NonNullable<AutoBuildOptions['currentSquad']>[string]>) {
   return entry.card.raw ?? entry.card;
@@ -99,7 +103,7 @@ export type CandidatePlayer = Record<string, unknown> & {
  * Returns raw UI-compatible card_versions rows, retaining full card_positions and relations.
  * candidateGroups records which group's price/position constraints the card passed.
  * Overall is the persisted ranking metric; metaScore is currently computed client-side.
- * Price 0 is allowed; null/negative prices are excluded. Exhausted budgets use a
+ * Price 0 is allowed only when its exclusion toggle is off; null/negative prices are excluded. Exhausted budgets use a
  * row-limited cheapest-card fallback. This is not a guarantee of a feasible squad.
  */
 export async function fetchCandidatePlayers(
@@ -124,6 +128,7 @@ export async function fetchCandidatePlayers(
       let query = supabase.from('card_versions').select(select)
         .in('candidate_positions.positions.name', positions)
         .gte('overall', squadOvrRange.min).lte('overall', squadOvrRange.max).gte('price', 0);
+      if (options.excludeZeroPriceCards === true) query = query.gt('price', 0);
       if (excluded.size) query = query.not('id', 'in', `(${[...excluded].join(',')})`);
       if (cap !== null) query = query.lte('price', cap);
       if (lockedSpecial >= maxSpecial) query = query.or('card_type.is.null,card_type.not.in.(ICON,SPECIAL_ICON,HERO,SPECIAL_HERO)');
@@ -148,7 +153,7 @@ export async function fetchCandidatePlayers(
   const candidates = new Map<string, CandidatePlayer>();
   for (const { group, rows } of results) {
     for (const row of rows) {
-      if (excluded.has(getCardVersionId(row))) continue;
+      if (excluded.has(getCardVersionId(row)) || !passesMarketPriceFilter(row, options)) continue;
       const { candidate_positions: _matchedPositions, ...card } = row;
       const existing = candidates.get(String(card.id));
       if (existing) existing.candidateGroups.push(group);
@@ -159,6 +164,7 @@ export async function fetchCandidatePlayers(
   for (const [, entry] of entries) {
     if (!entry!.isOwned) continue;
     const card = rawEntryCard(entry!);
+    if (!passesMarketPriceFilter(card, options)) continue;
     if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
     if (isSpecialCard(card) && lockedSpecial >= maxSpecial && !entry!.isLocked) continue;
     const candidateGroups = plan.filter(item => item.positions.some(position => prepareCandidate(card, position, isThreeBack, true))).map(item => item.group);
@@ -333,6 +339,8 @@ export async function generateOptimalSquad(
     const unique = new Map<string, GeneratedPlayer>();
     const owned = Object.values(existing).filter(entry => entry?.isOwned).map(entry => rawEntryCard(entry!));
     for (const card of [...(groups[getPositionBudgetGroup(position, threeBack)] ?? []), ...owned]) {
+      // Locked slots are restored separately via fixedPlayers, never filtered here.
+      if (!passesMarketPriceFilter(card, options)) continue;
       if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
       const prepared = prepareCandidate(card, position, threeBack, ownedIds.has(String(card.id)) || card.isOwned === true);
       if (prepared && (prepared.isIcon || prepared.isHero) && maxSpecial === 0) continue;

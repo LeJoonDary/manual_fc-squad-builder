@@ -49,6 +49,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
   };
   const [minChemistry, setMinChemistry] = useState(33);
   const [considerManager, setConsiderManager] = useState(true);
+  const [excludeZeroPriceCards, setExcludeZeroPriceCards] = useState(true);
   const [specialMode, setSpecialMode] = useState('unlimited');
   const [specialCount, setSpecialCount] = useState(1);
   const isThreeBack = formation.startsWith('3');
@@ -67,6 +68,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       const snapshot = getSquadSnapshot();
       const exclusionSnapshot = excludedCardVersionsStore.getState();
       const options = { currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], budgetAllocations: { ...budgetAllocations }, maxSpecialCards: specialMode === 'unlimited' ? null : specialMode === 'none' ? 0 : specialCount };
+      options.excludeZeroPriceCards = excludeZeroPriceCards;
       getCandidateBudgetPlan(totalBudget, budgetAllocations, formation, isThreeBack, options);
       const candidates = await fetchCandidatePlayers(totalBudget, { ...budgetAllocations }, formation, isThreeBack, supabase, options);
       const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, considerManager, options);
@@ -94,6 +96,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
     setAllocationState({ basis: remaining, amounts: { FW: amount, MF: amount, DF: remaining - amount * 2 } });
     setMinChemistry(33);
     setConsiderManager(true);
+    setExcludeZeroPriceCards(true);
     setSpecialMode('unlimited');
     setSpecialCount(1);
     setFeedback(null);
@@ -151,6 +154,11 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
             <input id="min-chemistry" type="range" min="0" max="33" step="1" value={minChemistry} disabled={isAutoBuilding}
               onChange={event => setMinChemistry(Number(event.target.value))} />
           </div>
+          <label className="filter-switch auto-build-price-switch">
+            <input id="exclude-zero-price-cards" type="checkbox" checked={excludeZeroPriceCards} disabled={isAutoBuilding} onChange={event => setExcludeZeroPriceCards(event.target.checked)} />
+            <span className="filter-switch-control" aria-hidden="true" />
+            <span>가격 0원(미등록/SBC) 카드 제외</span>
+          </label>
           <label className="filter-switch auto-build-manager-switch">
             <input type="checkbox" checked={considerManager} disabled={isAutoBuilding} onChange={event => setConsiderManager(event.target.checked)} />
             <span className="filter-switch-control" aria-hidden="true" />

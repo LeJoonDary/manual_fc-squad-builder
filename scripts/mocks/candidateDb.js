@@ -8,6 +8,7 @@ export function createCandidateMockDb(rows, error = null) {
       calls.push(call);
       const query = {
         select(value) { call.select = value; return query; },
+        gt(column, value) { call.gt = { column, value }; return query; },
         in(column, values) { call.positionColumn = column; call.positions = values; return query; },
         gte(column, value) { if (column === 'overall') { call.ovrMin = value; return query; } call.minColumn = column; call.min = value; return query; },
         lte(column, value) { if (column === 'overall') { call.ovrMax = value; return query; } call.maxColumn = column; call.max = value; return query; },
@@ -20,6 +21,7 @@ export function createCandidateMockDb(rows, error = null) {
             && (!call.not || !call.not.value.slice(1, -1).split(',').includes(String(row[call.not.column])))
             && row.overall >= call.ovrMin && row.overall <= call.ovrMax
             && row.price != null && row.price >= call.min && (call.max === undefined || row.price <= call.max)
+            && (!call.gt || row[call.gt.column] > call.gt.value)
             && row.card_positions.some(item => call.positions.includes(item.positions.name)))
             .sort((a, b) => {
               for (const order of call.orders) {

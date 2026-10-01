@@ -7,6 +7,19 @@ const allocations = { FW: 400000, MF: 350000, DF: 250000 };
 const client = (db: ReturnType<typeof createCandidateMockDb>) => db as unknown as SupabaseClient;
 
 describe('candidate pruning', () => {
+  it.each([0, 1000000])('filters unpriced cards before limits and owned injection (budget %s)', async budget => {
+    const free = mockCandidate(1, ['ST'], 0, 99);
+    const missing = mockCandidate(2, ['ST'], null, 99);
+    const paid = mockCandidate(3, ['ST'], 100, 80);
+    const db = createCandidateMockDb([free, missing, paid]);
+    const cards = await fetchCandidatePlayers(budget, allocations, '4-3-3', false, client(db), {
+      excludeZeroPriceCards: true, currentSquad: { ST: { card: free, isOwned: true }, LW: { card: missing, isOwned: true } },
+    });
+    expect(cards.map(card => card.id)).toEqual([3]);
+    expect(db.calls.every(call => call.gt?.column === 'price' && call.gt.value === 0)).toBe(true);
+    const allowed = await fetchCandidatePlayers(budget, allocations, '4-3-3', false, client(createCandidateMockDb([free, paid])), { excludeZeroPriceCards: false });
+    expect(allowed.map(card => card.id)).toContain(1);
+  });
   it.each([0, 1000000])('excludes only the selected version in every query and owned-card path (budget %s)', async budget => {
     const banned = { ...mockCandidate(100, ['ST', 'CM', 'CB'], 0, 99), player_id: 7 };
     const variant = { ...banned, id: 101 };

@@ -27,10 +27,7 @@
           <p class="eyebrow">SQUAD BUILDER</p>
           <h1>4-3-3 스쿼드</h1>
         </div>
-        <details id="formation-picker" class="formation-picker">
-          <summary aria-label="포메이션 선택">포메이션 <strong id="formation-current">4-3-3</strong><span aria-hidden="true">⌄</span></summary>
-          <div id="formation-menu" class="formation-menu" role="group" aria-label="포메이션 목록"></div>
-        </details>
+
         </header>
 
         <p id="status" class="status" aria-live="polite">포지션 슬롯을 선택해 선수를 배치하세요.</p>
@@ -41,6 +38,10 @@
             <button id="manager-slot" class="manager-slot" type="button" aria-haspopup="dialog">
               <span class="manager-empty"><b>＋</b> 감독 추가</span>
             </button>
+        <details id="formation-picker" class="formation-picker">
+          <summary aria-label="포메이션 선택">포메이션 <strong id="formation-current">4-3-3</strong><span aria-hidden="true">⌄</span></summary>
+          <div id="formation-menu" class="formation-menu" role="group" aria-label="포메이션 목록"></div>
+        </details>
             <div class="formation-label">4-3-3</div>
             <button class="slot forward left" data-position="LW" type="button"><span>LW</span></button>
             <button class="slot forward center" data-position="ST" type="button"><span>ST</span></button>
@@ -94,6 +95,7 @@
         </header>
         <div class="players-layout">
           <section class="players-results" aria-labelledby="players-results-title">
+            <div class="players-sticky-header">
             <div class="players-results-header">
               <div>
                 <h2 id="players-results-title">Player Results</h2>
@@ -106,6 +108,7 @@
               </label>
             </div>
             <div id="filter-bar-mount" aria-live="off"></div>
+            </div>
             <div id="players-grid" class="players-grid" aria-live="polite"></div>
             <div class="players-pagination">
               <p id="players-pagination-status" role="status"></p>
@@ -387,6 +390,7 @@
     <div id="player-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
       <div class="modal-backdrop" data-close-modal></div>
       <section class="modal-panel">
+        <div class="player-select-header">
         <header class="modal-header">
           <div>
             <p class="eyebrow">PLAYER SELECT</p>
@@ -400,8 +404,11 @@
           <input id="modal-player-search-input" type="text" placeholder="선수 이름 검색 (예: Mbappe, Salah...)" autocomplete="off" autofocus />
           <button id="modal-player-search-clear" class="modal-player-search-clear" type="button" aria-label="검색어 전체 지우기" hidden>×</button>
         </div>
+        </div>
+        <div class="player-select-results">
         <div id="player-list" class="player-list" aria-live="polite"></div>
         <button id="modal-load-more" type="button" class="secondary-button" hidden>더 보기 (30명)</button>
+        </div>
       </section>
     </div>
 

@@ -16,6 +16,7 @@ vi.mock('../components/AutoBuildSettings.jsx', () => ({ mountAutoBuildSettings: 
 } }));
 
 beforeAll(async () => {
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
   vi.stubEnv('VITE_SUPABASE_URL', '');
   vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
   document.documentElement.innerHTML = readFileSync('index.html', 'utf8');
@@ -26,6 +27,20 @@ beforeAll(async () => {
 });
 
 describe('auto build pitch integration', () => {
+  it('keeps a fixed canvas, moves the picker inside it and normalizes only display labels', () => {
+    const pitch = document.querySelector('.pitch');
+    expect(pitch.contains(document.querySelector('#formation-picker'))).toBe(true);
+    const select = name => [...document.querySelectorAll('#formation-menu button')].find(button => button.textContent === name).click();
+    const height = pitch.style.getPropertyValue('--formation-height');
+    select('4-3-3 (2)');
+    expect(pitch.style.getPropertyValue('--formation-height')).toBe(height);
+    expect(pitch.querySelector('[data-position="CDM"]').style.top).toBe('57%');
+    expect(pitch.querySelector('[data-position="LCM"]').textContent).toBe('CM');
+    select('4-4-2');
+    expect(pitch.querySelector('[data-position="LS"]').textContent).toBe('ST');
+    expect(pitch.querySelector('[data-position="LCB"]').textContent).toBe('CB');
+    select('4-3-3');
+  });
   it('renders all cards, manager and totals using the real application bridge', async () => {
     const rows = createSquadCandidateRows().map(row => ({ ...row,
       candidateGroups: [getPositionBudgetGroup(row.card_positions[0].positions.name, false)] }));

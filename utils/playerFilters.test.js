@@ -41,7 +41,7 @@ test('combines all relationship predicates and scalar ranges in the same DB quer
   await query;
   const { url, body } = requests[0];
   expect(body.filters.positions).toEqual(['ST', 'LW']);
-  expect(body.filters.name).toBe('손흥민');
+  expect(body.filters.name).toBe('');
   expect(body.filters.selectedRoles).toEqual([{ position: 'ST', name: 'Poacher', level: 2 }]);
   expect(body.filters.selectedPlayStyles).toEqual([
     { id: 7, level: 'normal' }, { id: 7, level: 'plus' }, { id: 8, level: 'plus' },
@@ -59,21 +59,37 @@ test('combines all relationship predicates and scalar ranges in the same DB quer
   expect(url.searchParams.get('select')).toContain('player_stats!inner');
 });
 
-test('fetches only matching card details and retains database rank', async () => {
-  const { db, requests } = database([[{ id: 9001 }, { id: 8001 }], [{ id: 8001 }, { id: 9001 }]]);
-  const signal = new AbortController().signal;
-  expect(await fetchPlayers(db, createDefaultFilters(), signal)).toEqual([{ id: 9001 }, { id: 8001 }]);
-  expect(requests).toHaveLength(2);
-  expect(requests[1].url.searchParams.get('id')).toBe('in.(9001,8001)');
-  expect(requests.every(request => request.signal === signal)).toBe(true);
+test('default and name queries are bounded, and repeats use the result cache', async () => {
+  const card = { id: 1, players: { name: 'Mbappé' } };
+  const { db, requests } = database([[card], [{ id: 100, name: 'Mbappé' }], [card]]);
+  const filters = createDefaultFilters();
+  expect((await fetchPlayers(db, filters)).map(row => row.id)).toEqual([1]);
+  expect((await fetchPlayers(db, { ...filters, name: 'mbappe' })).map(row => row.id)).toEqual([1]);
+  expect(requests).toHaveLength(3);
+  await fetchPlayers(db, { ...filters, name: 'mbappe' });
+  expect(requests).toHaveLength(3);
+  expect(requests.every(request => !request.url.pathname.includes('/rpc/'))).toBe(true);
 });
 
-test('no matches skips the details request', async () => {
-  const { db, requests } = database([[]]);
-  expect(await fetchPlayers(db, createDefaultFilters())).toEqual([]);
-  expect(requests).toHaveLength(1);
+test('advanced filters use the existing RPC with a 50-card limit and preserve inner stat filters', async () => {
+  const card = { id: 1, players: { name: 'Mbappé' } };
+  const { db, requests } = database([[{ id: 100, name: 'Mbappé' }], [card], [card]]);
+  const filters = { ...createDefaultFilters(), name: 'mbappe', minOvr: 80 };
+  filters.stats.pac = { min: 80, max: 99 };
+  expect((await fetchPlayers(db, filters)).map(row => row.id)).toEqual([1]);
+  expect(requests).toHaveLength(3);
+  expect(requests[1].url.pathname).toBe('/rest/v1/rpc/filter_player_cards');
+  expect(requests[1].body.filters.name).toBe('');
+  expect(requests[1].url.searchParams.get('player_id')).toBe('in.(100)');
+  expect(requests[1].url.searchParams.get('limit')).toBe('50');
+  expect(requests[1].url.searchParams.get('select')).toContain('player_stats!inner');
+  expect(requests[1].url.searchParams.get('select')).not.toContain('player_stats!inner(pac');
+  expect(requests[2].url.pathname).toBe('/rest/v1/card_versions');
+  expect(requests[2].url.searchParams.get('id')).toBe('in.(1)');
+  expect(requests[2].url.searchParams.get('limit')).toBe('50');
+  await fetchPlayers(db, filters);
+  expect(requests).toHaveLength(3);
 });
-
 test('clear all resets nested state without retaining previous selections', () => {
   const filters = createDefaultFilters();
   filters.positions.add('GK');

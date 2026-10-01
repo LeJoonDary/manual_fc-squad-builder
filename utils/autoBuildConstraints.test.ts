@@ -11,6 +11,21 @@ function fixture() {
   return { rows, groups };
 }
 describe('owned, locked and special-card constraints', () => {
+  it.each([0, 100])('keeps zero-price locks and excludes free or null owned replacements even in fallback (budget %s)', async budget => {
+    const { rows, groups } = fixture();
+    const locked = { ...rows[0], id: 9001, price: 0 };
+    const free = { ...rows[3], id: 9002, price: 0 };
+    const missing = { ...rows[3], id: 9003, price: null };
+    groups.FW.push(free, missing);
+    const result = await generateOptimalSquad('4-3-3', groups, budget, 0, false, {
+      excludeZeroPriceCards: true,
+      currentSquad: { LW: { card: locked, isLocked: true }, ST: { card: free, isOwned: true }, RW: { card: missing, isOwned: true } },
+    });
+    expect(result.squad).toHaveLength(11);
+    expect(result.squad[0]).toMatchObject({ id: '9001', isLocked: true, price: 0 });
+    expect(result.squad.filter(p => !p.isLocked).every(p => Number(p.card.price) > 0)).toBe(true);
+    expect(result.status).toBe(budget === 0 ? 'success' : 'fallback');
+  });
   it('builds around a 3M locked defender using a separate 1M allowance for open DF slots', async () => {
     const { rows } = fixture();
     const locked = { ...rows.find(row => row.card_positions[0].positions.name === 'CB')!, price: 3000000 };

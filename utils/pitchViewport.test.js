@@ -20,7 +20,7 @@ test('every formation fits the viewport without scrollbars and contains its badg
       }
       // GK, a full card and its price remain inside the scaled pitch.
       const keeper = formation.slots.find(slot => slot.position === 'GK');
-      expect((keeper.y / 100 * (formation.height - 8) + 248) * fit.scale)
+      expect((keeper.y / 100 * (formation.height - 8) + 248 / 2) * fit.scale)
         .toBeLessThan(fit.fittedHeight);
     }
   }

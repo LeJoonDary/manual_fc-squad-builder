@@ -1,7 +1,7 @@
 import { defaultStats, activeStats, applyStatQuery } from './statFilters.js';
 import { applyPhysicalQuery } from './physicalFilters.js';
-import { PLAYER_CARD_SELECT } from './playerCards.js';
-import { fetchPlayerPage } from './playerPagination.js';
+import { fetchPlayerListPage, cachedPlayerPage, fetchPlayerListByIds, applyPlayerNameQuery, findPlayerNameIds } from './playerCatalog.js';
+import { matchesPlayerName } from './playerSearch.js';
 import { selectedPlaystyles } from './playstyleFilters.js';
 
 export function createDefaultFilters() {
@@ -20,10 +20,11 @@ export function createDefaultFilters() {
 export function buildPlayerQuery(db, filters) {
   // JSON snapshot also prevents mutable UI state from changing an in-flight query.
   const relations = JSON.parse(JSON.stringify(filters, (_, value) => value instanceof Set ? [...value] : value));
-  relations.name = relations.name.trim();
+  // Name matching happens in playerSearch.js, before the visible result limit.
+  relations.name = '';
   relations.selectedPlayStyles = selectedPlaystyles(filters);
   let query = db.rpc('filter_player_cards', { filters: relations })
-    .select(`*, players!inner(id)${activeStats(filters.stats).length ? ', player_stats!inner(card_id)' : ''}`);
+    .select(`*, players!inner(id,name,long_name)${activeStats(filters.stats).length ? ', player_stats!inner(card_id)' : ''}`);
   const hasValue = value => value !== '' && value != null;
   for (const [column, minimum, maximum] of [
     ['overall', filters.minOvr, filters.maxOvr], ['price', filters.minPrice, filters.maxPrice],
@@ -46,9 +47,32 @@ export function buildPlayerQuery(db, filters) {
   return query.order('overall', { ascending: false, nullsFirst: false }).order('id').limit(50);
 }
 
+const filterKey = filters => JSON.stringify({ ...filters, name: '' }, (_, value) => value instanceof Set ? [...value].sort() : value);
+
 export async function fetchPlayers(db, filters, signal) {
   if (!db) throw new Error('Supabase 연결 정보가 없습니다.');
-  const query = buildPlayerQuery(db, filters).abortSignal(signal);
-  return fetchPlayerPage(query, 0, ids => db.from('card_versions')
-    .select(PLAYER_CARD_SELECT).in('id', ids).limit(50).abortSignal(signal));
+  filters = structuredClone(filters);
+  signal?.throwIfAborted();
+  const hasFilters = filterKey(filters) !== filterKey(createDefaultFilters());
+  if (!hasFilters) return fetchPlayerListPage(db, { keyword: filters.name, signal });
+  return cachedPlayerPage(db, JSON.stringify(['filters', filterKey(filters), filters.name.trim()]), async () => {
+    const rows = [];
+    const playerIds = filters.name.trim() ? await findPlayerNameIds(db, filters.name) : null;
+    if (playerIds?.length === 0) return [];
+    for (let offset = 0; rows.length < 50;) {
+      // The existing RPC filters candidates. Retrieve display stats from the
+      // actual table afterward; embedding them in the RPC fails in PostgREST.
+      const base = buildPlayerQuery(db, filters);
+      const query = playerIds ? base.in('player_id', playerIds) : applyPlayerNameQuery(base, filters.name);
+      const { data, error } = await query.range(offset, offset + 49).limit(50);
+      if (error) throw error;
+      for (const row of data ?? []) {
+        const player = Array.isArray(row.players) ? row.players[0] : row.players;
+        if (matchesPlayerName(player ?? {}, filters.name)) rows.push({ ...row, summary_only: true });
+      }
+      if (!data?.length || data.length < 50) break;
+      offset += data.length;
+    }
+    return fetchPlayerListByIds(db, rows.slice(0, 50).map(row => row.id));
+  }, signal);
 }

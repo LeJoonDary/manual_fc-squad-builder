@@ -2,7 +2,7 @@ import { getCardBackground } from '../utils/cardBackground.js';
 
 // Shared DOM card component for the Players tab and selection modal.
 export function createPlayerCard(card, {
-  onActivate, actionLabel = '선수 상세 정보 보기', textAffiliations = false,
+  onActivate, onShowDetails = onActivate, actionLabel = '선수 상세 정보 보기', textAffiliations = false,
   getCardName, getCardRating, getCardPosition, getChemistryEntityLogo,
   createPlaystyleBadges, unwrapRelation, affiliationCatalog,
 }) {
@@ -88,11 +88,13 @@ export function createPlayerCard(card, {
     badge.title = '부 포지션';
     positions.append(badge);
   }
-  const score = document.createElement('div');
-  score.className = 'browser-player-meta-score bg-slate-950/85 text-emerald-400 border border-emerald-500/50 font-extrabold px-2 py-0.5 rounded-md';
-  score.textContent = card.meta_score === null ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
-  score.title = card.score_position ? `${card.score_position} 기준 · 3백 미적용` : '이 포지션의 가중치가 아직 없습니다.';
-  affiliations.append(score);
+  if (!card.summary_only) {
+    const score = document.createElement('div');
+    score.className = 'browser-player-meta-score bg-slate-950/85 text-emerald-400 border border-emerald-500/50 font-extrabold px-2 py-0.5 rounded-md';
+    score.textContent = card.meta_score == null ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
+    score.title = card.score_position ? `${card.score_position} 기준 · 3백 미적용` : '이 포지션의 가중치가 아직 없습니다.';
+    affiliations.append(score);
+  }
   content.append(identity, positions, affiliations);
   const player = unwrapRelation(card.raw?.players) ?? {};
   const height = card.height ?? player.height;
@@ -110,20 +112,40 @@ export function createPlayerCard(card, {
   const roleRows = card.card_roles ?? card.raw?.card_roles;
   const eliteRoles = new Map();
   for (const row of Array.isArray(roleRows) ? roleRows : []) {
-    if (!row || !(Number(row.role_level) === 2 || row.role_level === '++')) continue;
+    if (!row) continue;
     const role = unwrapRelation(row.roles);
     if (typeof role?.role_name !== 'string' || !role.role_name.trim()) continue;
     const name = role.role_name.trim().replace(/\+{1,2}$/, '').trim();
     const position = typeof role.position === 'string' ? role.position.trim() : '';
-    eliteRoles.set(`${position}|${name}`, `${position ? `${position} · ` : ''}${name}++`);
+    const level = row.role_level === '++' ? 2 : row.role_level === '+' ? 1 : Number(row.role_level) || 0;
+    const key = `${position}|${name}`;
+    if (!eliteRoles.has(key) || eliteRoles.get(key).level < level) {
+      eliteRoles.set(key, { name, position, level });
+    }
   }
   if (eliteRoles.size) {
     const roles = document.createElement('div');
     roles.className = 'browser-player-elite-roles';
-    for (const label of [...eliteRoles.values()].slice(0, 4)) {
+    const ranked = [...eliteRoles.values()].sort((a, b) => b.level - a.level
+      || Number(b.position === card.primary_position) - Number(a.position === card.primary_position));
+    for (const role of ranked.slice(0, 2)) {
       const badge = document.createElement('span');
-      badge.textContent = label;
+      badge.textContent = `${role.position ? `${role.position} · ` : ''}${role.name}${role.level >= 2 ? '++' : role.level === 1 ? '+' : ''}`;
       roles.append(badge);
+    }
+    if (ranked.length > 2) {
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'browser-player-roles-more';
+      more.textContent = `+${ranked.length - 2}`;
+      more.title = '상세정보에서 전체 역할 보기';
+      more.setAttribute('aria-label', `추가 역할 ${ranked.length - 2}개 · 전체 역할 보기`);
+      more.addEventListener('click', event => {
+        event.stopPropagation();
+        onShowDetails(card);
+      });
+      more.addEventListener('keydown', event => event.stopPropagation());
+      roles.append(more);
     }
     content.append(roles);
   }
@@ -150,15 +172,7 @@ export function createPlayerCard(card, {
     }
     return '-';
   };
-  const isGoalkeeper = String(card.primary_position || card.position || '').trim().toUpperCase() === 'GK';
-  const displayedStats = isGoalkeeper ? [
-    ['DIV', statValue('goalkeeping_diving', 'gk_diving', 'pace', 'pac')],
-    ['HAN', statValue('goalkeeping_handling', 'gk_handling', 'shooting', 'sho')],
-    ['KIC', statValue('goalkeeping_kicking', 'gk_kicking', 'passing', 'pas')],
-    ['REF', statValue('goalkeeping_reflexes', 'gk_reflexes', 'dribbling', 'dri')],
-    ['SPD', statValue('defending', 'def', 'movement_sprint_speed', 'sprint_speed')],
-    ['POS', statValue('goalkeeping_positioning', 'gk_positioning', 'physicality', 'phy')],
-  ] : [
+  const displayedStats = [
     ['PAC', statValue('pace', 'pac')],
     ['SHO', statValue('shooting', 'sho')],
     ['PAS', statValue('passing', 'pas')],

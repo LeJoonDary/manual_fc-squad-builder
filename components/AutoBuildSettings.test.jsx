@@ -25,6 +25,21 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 
 describe('Auto Build UI workflow', () => {
+  it('defaults the zero-price toggle on, passes changes through and restores it on reset', async () => {
+    const toggle = container.querySelector('#exclude-zero-price-cards');
+    expect(toggle.checked).toBe(true);
+    expect(toggle.closest('label').nextElementSibling.textContent).toContain('감독 효과 포함');
+    await act(async () => button().click());
+    expect(fetchCandidatePlayers.mock.calls[0][5].excludeZeroPriceCards).toBe(true);
+    expect(generateOptimalSquad.mock.calls[0][5].excludeZeroPriceCards).toBe(true);
+    await act(async () => toggle.click());
+    await act(async () => button().click());
+    expect(fetchCandidatePlayers.mock.calls[1][5].excludeZeroPriceCards).toBe(false);
+    expect(generateOptimalSquad.mock.calls[1][5].excludeZeroPriceCards).toBe(false);
+    await act(async () => container.querySelector('.auto-build-heading').click());
+    await act(async () => container.querySelector('.auto-build-reset').click());
+    expect(toggle.checked).toBe(true);
+  });
   it('shows excluded names, passes exclusions to generation and lets the user unban', async () => {
     await act(async () => excludedCardVersionsStore.ban(77, 'Excluded Player'));
     const toggle = container.querySelector('.excluded-card-versions-toggle');
@@ -151,13 +166,13 @@ describe('Auto Build UI workflow', () => {
     await act(async () => container.querySelector('.auto-build-heading').click());
     const select = container.querySelector('#auto-build-special-mode');
     await act(async () => { select.value = 'none'; select.dispatchEvent(new Event('change', { bubbles: true })); });
-    await act(async () => container.querySelector('input[type="checkbox"]').click());
+    await act(async () => container.querySelector('.auto-build-manager-switch input').click());
     await act(async () => button().click());
-    expect(generateOptimalSquad).toHaveBeenLastCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, false, { currentSquad, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: 0 });
+    expect(generateOptimalSquad).toHaveBeenLastCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, false, { currentSquad, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: 0 });
     await act(async () => container.querySelector('.auto-build-reset').click());
     expect(resetTargetBudget).toHaveBeenCalledOnce();
     expect(select.value).toBe('unlimited');
-    expect(container.querySelector('input[type="checkbox"]').checked).toBe(true);
+    expect(container.querySelector('.auto-build-manager-switch input').checked).toBe(true);
     expect(container.querySelector('#min-chemistry').value).toBe('33');
     expect(['FW', 'MF', 'DF'].map(group => container.querySelector(`#budget-allocation-${group}`).value)).toEqual(['333,333', '333,333', '333,334']);
   });
@@ -171,8 +186,8 @@ describe('Auto Build UI workflow', () => {
     await act(async () => button().click());
     expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
     await act(async () => resolve([{ id: 1 }]));
-    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, { FW: 333333, MF: 333333, DF: 333334 }, '4-3-3', false, props.supabase, { currentSquad: {}, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
-    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
+    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, { FW: 333333, MF: 333333, DF: 333334 }, '4-3-3', false, props.supabase, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
+    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(result, { snapshot: 'snapshot', formation: '4-3-3', totalBudget: 1000000 });
     expect(button().disabled).toBe(false);
     expect(container.querySelector('[role="status"]').textContent).toContain('완료');

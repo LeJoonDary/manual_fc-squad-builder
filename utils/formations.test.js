@@ -3,23 +3,24 @@ import { FORMATIONS, reassignFormation } from './formations.js';
 import { calculateChemistry } from './chemistry.ts';
 
 test('every formation has eleven unique slots and one goalkeeper within the field', () => {
+  expect(new Set(FORMATIONS.map(f => f.height))).toEqual(new Set([1120]));
   for (const formation of FORMATIONS) {
     expect(formation.slots).toHaveLength(11);
     expect(new Set(formation.slots.map(s => s.position)).size).toBe(11);
     expect(formation.slots.filter(s => s.position === 'GK')).toHaveLength(1);
-    expect(formation.slots.every(s => s.x >= 12 && s.x <= 88 && s.y >= 5 && s.y <= 77)).toBe(true);
+    expect(formation.slots.every(s => s.x >= 12 && s.x <= 88 && s.y >= 5 && s.y <= 88)).toBe(true);
   }
 });
 
 test('enlarged cards and external prices fit without overlapping in every formation', () => {
-  const fieldWidth = 800 - 8; // Minimum pitch width, excluding its borders.
-  const cardWidth = 136;
-  const groupHeight = 190 + 6 + 28;
+  const fieldWidth = 900 - 8; // Minimum pitch width, excluding its borders.
+  const cardWidth = 144;
+  const groupHeight = 248;
   for (const formation of FORMATIONS) {
     const fieldHeight = formation.height - 8;
     const boxes = formation.slots.map(slot => ({
       left: slot.x / 100 * fieldWidth - cardWidth / 2,
-      top: slot.y / 100 * fieldHeight,
+      top: slot.y / 100 * fieldHeight - groupHeight / 2,
     }));
     for (const [index, box] of boxes.entries()) {
       expect(box.left).toBeGreaterThanOrEqual(0);

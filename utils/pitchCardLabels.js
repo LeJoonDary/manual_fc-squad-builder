@@ -1,3 +1,8 @@
+export function formatSlotPosition(position) {
+  return { LCM: 'CM', RCM: 'CM', LS: 'ST', RS: 'ST', LCB: 'CB', RCB: 'CB',
+    LDM: 'CDM', RDM: 'CDM', LAM: 'CAM', RAM: 'CAM' }[position] ?? position;
+}
+
 export function formatCardVersion(version) {
   const value = String(version ?? '').trim().replace(/^special_/i, '');
   if (!value) return 'Standard';

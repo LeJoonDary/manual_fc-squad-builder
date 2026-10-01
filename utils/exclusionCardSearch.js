@@ -1,4 +1,5 @@
 import { normalizeExcludedCardVersionIds } from './excludedCardVersions.js';
+import { fetchNameFilteredPage } from './playerSearch.js';
 
 export const EXCLUSION_SEARCH_PAGE_SIZE = 30;
 export const EXCLUSION_CARD_SELECT = 'id,overall,version,image_url,background_url,players!inner(id,name,long_name)';
@@ -27,13 +28,9 @@ export async function searchExclusionCards(db, { keyword, offset = 0, signal }) 
   const term = keyword.trim();
   if (!term) return [];
   if (!db) throw new Error('Supabase 연결 설정이 없습니다.');
-  const pattern = JSON.stringify(`%${term.replace(/[\\%_]/g, '\\$&')}%`);
-  const { data, error } = await db.from('card_versions').select(EXCLUSION_CARD_SELECT)
-    .or(`name.ilike.${pattern},long_name.ilike.${pattern}`, { referencedTable: 'players' })
-    .order('overall', { ascending: false, nullsFirst: false }).order('id')
-    .range(offset, offset + EXCLUSION_SEARCH_PAGE_SIZE - 1).abortSignal(signal);
-  if (error) throw error;
-  return data ?? [];
+  return fetchNameFilteredPage(() => db.from('card_versions').select(EXCLUSION_CARD_SELECT)
+    .order('overall', { ascending: false, nullsFirst: false }).order('id'),
+  term, offset, EXCLUSION_SEARCH_PAGE_SIZE, signal);
 }
 
 export async function fetchExcludedCardDetails(db, ids, signal) {

@@ -1,6 +1,6 @@
 import { renderDetailStatGroups } from '../utils/detailStats.js';
 import { getCardBackground } from '../utils/cardBackground.js';
-import { PLAYER_CARD_SELECT } from '../utils/playerCards.js';
+import { loadPlayerDetail } from '../utils/playerCatalog.js';
 
 // Existing detail panel shared by the Players and Squad Builder tabs.
 export function createPlayerDetailModal({
@@ -16,7 +16,6 @@ export function createPlayerDetailModal({
   let selectedPlayer = null;
   let playerDetailRequest = 0;
   let returnFocus = null;
-  const PLAYER_DETAIL_SELECT = PLAYER_CARD_SELECT;
   async function openPlayerDetailModal(card) {
     if (playerDetailModal.hidden) returnFocus = document.activeElement;
     const requestId = ++playerDetailRequest;
@@ -27,14 +26,14 @@ export function createPlayerDetailModal({
 
     if (!supabase) return;
 
-    const { data: cardDetail, error } = await supabase
-      .from('card_versions')
-      .select(PLAYER_DETAIL_SELECT)
-      .eq('id', card.id)
-      .single();
-
-
-    if (error || requestId !== playerDetailRequest || selectedPlayer?.id !== card.id) return;
+    let cardDetail;
+    try {
+      cardDetail = await loadPlayerDetail(supabase, card.id);
+    } catch {
+      if (requestId === playerDetailRequest) playerDetailStats.textContent = '상세 정보를 불러오지 못했습니다. 다시 열어 주세요.';
+      return;
+    }
+    if (requestId !== playerDetailRequest || selectedPlayer?.id !== card.id) return;
 
     const detailedCard = normalizeBrowserPlayerCard(cardDetail);
     if (!detailedCard) return;

@@ -1,5 +1,13 @@
 import { test, expect } from 'vitest';
-import { formatCardVersion, pitchAffiliation } from './pitchCardLabels.js';
+import { formatCardVersion, pitchAffiliation, formatSlotPosition } from './pitchCardLabels.js';
+
+test('normalizes directional slot labels without changing football positions', () => {
+  for (const [slot, label] of Object.entries({ LCM: 'CM', RCM: 'CM', LS: 'ST', RS: 'ST',
+    LCB: 'CB', RCB: 'CB', LDM: 'CDM', RDM: 'CDM', LAM: 'CAM', RAM: 'CAM',
+    LB: 'LB', RB: 'RB', LW: 'LW', RW: 'RW', GK: 'GK' })) {
+    expect(formatSlotPosition(slot)).toBe(label);
+  }
+});
 
 test('formats promo slugs and preserves special acronyms', () => {
   for (const [input, output] of Object.entries({

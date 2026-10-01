@@ -1,3 +1,4 @@
+import { formatSlotPosition } from './utils/pitchCardLabels.js';
 import { createPlayerCard } from './components/PlayerCard.js';
 import { createPitchExcludeButton, syncPitchExclusions } from './components/PitchExcludeButton.js';
 import { excludedCardVersionsStore } from './utils/excludedCardVersions.js';
@@ -5,6 +6,7 @@ import { createPitchChemistryBadge } from './components/PitchChemistryBadge.js';
 import { createPitchMiniCard } from './components/PitchMiniCard.js';
 import { getCardBackground } from './utils/cardBackground.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
+import { loadPlayerDetail } from './utils/playerCatalog.js';
 import { createPlayerPagination } from './utils/playerPagination.js';
 import { createPlayerDetailModal } from './components/PlayerDetailModal.js';
 import { STAT_KEYS, defaultStats, activeStats, renderStatInputs } from './utils/statFilters.js';
@@ -14,7 +16,7 @@ import { createPlaystyleIcons } from './components/PlaystyleIcons.js';
 import { renderPlaystyleGrid } from './components/PlaystyleFilterGrid.js';
 import { PLAYER_CARD_SELECT } from './utils/playerCards.js';
 import { createDefaultFilters, fetchPlayers } from './utils/playerFilters.js';
-import { scoreSearchResults, scoreModalPlayers, getValueScoreGrade } from './utils/playerSearch.js';
+import { getValueScoreGrade } from './utils/playerSearch.js';
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
@@ -123,6 +125,7 @@ let suppressSlotClick = false;
 const squad = {};
 let affiliationCatalog = { nations: [], leagues: [], clubs: [] };
 let modalRequest = 0;
+let modalSelectionRequest = 0;
 let modalSearchTimer;
 let modalAbort;
 const modalPager = createPlayerPagination(MODAL_PAGE_SIZE);
@@ -152,6 +155,8 @@ initialFormation.slots.forEach(({ position, x, y }) => {
   const slot = document.querySelector(`.slot[data-position="${position}"]`);
   slot.style.left = `${x}%`;
   slot.style.top = `${y}%`;
+  if (slot.firstElementChild) slot.firstElementChild.textContent = formatSlotPosition(position);
+  slot.setAttribute('aria-label', `${formatSlotPosition(position)} 선수 선택`);
 });
 const pitchFrame = document.querySelector('.pitch-scroll');
 const squadWorkspace = document.querySelector('.squad-workspace');
@@ -239,7 +244,7 @@ function applyFormation(formation) {
     slot.dataset.position = position;
     slot.style.left = `${x}%`;
     slot.style.top = `${y}%`;
-    slot.setAttribute('aria-label', `${position} 선수 선택`);
+    slot.setAttribute('aria-label', `${formatSlotPosition(position)} 선수 선택`);
     bindSquadSlot(slot);
     pitch.append(slot);
     const entry = nextSquad[position];
@@ -520,7 +525,7 @@ function schedulePlayerSearch() {
   playerLoadMore.disabled = true;
   playerGrid.setAttribute('aria-busy', 'true');
   setPlayerGridLoading();
-  playerSearchTimer = window.setTimeout(searchPlayers, 300);
+  playerSearchTimer = window.setTimeout(searchPlayers, 200);
 }
 
 function setupDualRangeControls() {
@@ -749,12 +754,9 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
   try {
     const rows = await fetchPlayers(supabase, filters, signal);
     if (requestId !== playerSearchRequest) return;
-    const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean);
-    const scored = scoreSearchResults(cards, [...filters.positions], filters.onlyPrimary);
-    // Score annotations must not replace the database's overall-descending order.
-    const byId = new Map(scored.map(card => [String(card.id), card]));
-    renderPlayerGrid(cards.map(card => byId.get(String(card.id))), scrollPositions);
-    playerResultCount.textContent = cards.length + '명 표시 · 전체 DB 검색';
+    const cards = rows.slice(0, 50).map(normalizeBrowserPlayerCard).filter(Boolean);
+    renderPlayerGrid(cards, scrollPositions);
+    playerResultCount.textContent = cards.length + '명 표시';
     playerPaginationStatus.textContent = '모든 조건을 만족하는 카드 중 오버롤 상위 50개까지 표시합니다.';
   } catch (error) {
     if (requestId !== playerSearchRequest || signal.aborted) return;
@@ -972,6 +974,7 @@ function normalizeBrowserPlayerCard(cardVersion) {
 
   return {
     ...card,
+    summary_only: cardVersion.summary_only === true,
     primary_position: primaryPosition,
     alt_positions: positionRows.filter(row => row !== primaryRow).map(row => unwrapRelation(row.positions)?.name).filter(Boolean),
     secondary_positions: [...new Set(
@@ -1002,7 +1005,7 @@ function renderPlayerGrid(cards, scrollPositions = null) {
     return;
   }
 
-  cards.forEach((card) => {
+  cards.slice(0, 50).forEach((card) => {
     playerGrid.append(buildPlayerCard(card, { onActivate: playerDetail.open }));
   });
   restorePlayerPanelScrollPositions(scrollPositions);
@@ -1055,7 +1058,7 @@ async function openPlayerModal(slot) {
   const position = slot.dataset.position;
   modal.hidden = false;
   requestAnimationFrame(() => modalPlayerSearchInput.focus());
-  modalTitle.textContent = `${position} 선수 선택`;
+  modalTitle.textContent = `${formatSlotPosition(position)} 선수 선택`;
   modalDescription.textContent = `${position} 포지션 카드를 불러오는 중…`;
   renderMessage('선수 목록을 불러오는 중입니다…');
 
@@ -1092,8 +1095,8 @@ async function loadModalPlayerPage() {
     const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean)
       .filter(card => !selectedCardIds.has(String(card.id)));
     if (!modalPager.complete(ticket, rows, cards)) return;
-    modalDescription.textContent = `${normalizePosition(position)} · ${modalPager.state.cards.length}개 표시 · 주/보조 포지션 포함`;
-    renderPlayerList(modalPager.state.cards, normalizePosition(position));
+    modalDescription.textContent = `${normalizePosition(position)} · ${modalPager.state.cards.length}개 표시 · 주 포지션 기준`;
+    renderPlayerList(modalPager.state.cards);
     if (!modalPager.state.cards.length) renderMessage(modalPager.state.hasMore
       ? '현재 페이지에 선택 가능한 선수가 없습니다. 더 보기를 눌러 주세요.'
       : '조건에 맞는 선수가 없습니다.');
@@ -1349,21 +1352,21 @@ function getRoles(player) {
   return [...normalized.values()];
 }
 
-function renderPlayerList(cards, targetPosition) {
-  modalPlayerCards = scoreModalPlayers(cards, targetPosition);
+function renderPlayerList(cards) {
+  modalPlayerCards = cards;
   renderFilteredPlayerList();
 }
 
 function updateModalPlayerSearch() {
   modalPlayerSearchClear.hidden = !modalPlayerSearchInput.value;
   resetModalSearch();
-  modalSearchTimer = setTimeout(() => loadModalPlayerPage(), 300);
+  modalSearchTimer = setTimeout(() => loadModalPlayerPage(), 200);
 }
 
 function buildPlayerCard(card, options) {
   return createPlayerCard(card, {
     getCardName, getCardRating, getCardPosition, getChemistryEntityLogo,
-    createPlaystyleBadges, unwrapRelation, affiliationCatalog, ...options,
+    createPlaystyleBadges, unwrapRelation, affiliationCatalog, onShowDetails: playerDetail.open, ...options,
   });
 }
 
@@ -1373,11 +1376,24 @@ function renderFilteredPlayerList() {
     const article = buildPlayerCard(card, {
       actionLabel: '선수 선택',
       textAffiliations: false,
-      onActivate: () => {
+      onActivate: async () => {
         if (!activeSlot) return;
-        placeCard(activeSlot, card);
-        status.textContent = `${getCardName(card)} 선수를 ${activeSlot.dataset.position} 슬롯에 배치했습니다.`;
-        closeModal();
+        const slot = activeSlot;
+        const requestId = modalRequest;
+        const selectionId = ++modalSelectionRequest;
+        article.setAttribute('aria-busy', 'true');
+        try {
+          const detail = normalizeBrowserPlayerCard(await loadPlayerDetail(supabase, card.id));
+          if (selectionId !== modalSelectionRequest || requestId !== modalRequest || activeSlot !== slot || modal.hidden) return;
+          if (!detail) throw new Error('선수 정보를 불러오지 못했습니다.');
+          placeCard(slot, detail);
+          status.textContent = `${getCardName(detail)} 선수를 ${slot.dataset.position} 슬롯에 배치했습니다.`;
+          closeModal();
+        } catch (error) {
+          if (selectionId === modalSelectionRequest && requestId === modalRequest) modalDescription.textContent = `선수 정보를 불러오지 못했습니다. 다시 선택해 주세요. (${error.message})`;
+        } finally {
+          article.removeAttribute('aria-busy');
+        }
       },
     });
     playerList.append(article);
@@ -1424,7 +1440,7 @@ function resetSlot(slot, shouldUpdate = true) {
 
   const positionLabel = document.createElement('span');
   slot.classList.remove('is-excluded');
-  positionLabel.textContent = slotKey;
+  positionLabel.textContent = formatSlotPosition(slotKey);
   slot.append(positionLabel);
   if (shouldUpdate) updateSquadChemistry();
 }

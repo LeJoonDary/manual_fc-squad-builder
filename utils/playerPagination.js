@@ -40,6 +40,10 @@ export async function fetchPlayerPage(query, offset, fetchDetails) {
   const { data, error } = await query.limit(PLAYER_PAGE_SIZE).range(offset, offset + PLAYER_PAGE_SIZE - 1);
   if (error) throw error;
   const page = data ?? [];
+  return fetchPlayerDetails(page, fetchDetails);
+}
+
+export async function fetchPlayerDetails(page, fetchDetails) {
   if (!fetchDetails || !page.length) return page;
   const { data: details, error: detailError } = await fetchDetails(page.map(row => row.id));
   if (detailError) throw detailError;

@@ -1,3 +1,8 @@
+const pinnedLeagueIds = ['3', '2', '4', '12', '5', '6', '1', '8'];
+const leagueRank = row => {
+  const index = pinnedLeagueIds.indexOf(String(row.id));
+  return index < 0 ? Infinity : index;
+};
 const priorities = {
   nations: ['France', 'England', 'Germany', 'Spain', 'Argentina', 'Brazil', 'Portugal', 'Netherlands', 'Italy'],
   leagues: ['Premier League', 'La Liga', 'Bundesliga', 'Serie A', 'Ligue 1'],
@@ -8,9 +13,8 @@ export function sortAffiliations(rows, table) {
   const rank = name => { const i = preferred.indexOf(canonical(name)); return i < 0 ? Infinity : i; };
   const rowRank = row => {
     if (table !== 'leagues') return rank(row.name);
-    // Names are shared with Russian, Austrian and Ecuadorian leagues.
-    const i = ['EPL', 'LAL', 'BL1', 'SA', 'FL1'].indexOf(row.short_name);
-    return i < 0 ? Infinity : i;
+    // Stable IDs distinguish leagues with identical names or renamed sponsors.
+    return leagueRank(row);
   };
   return [...rows].sort((a, b) => (rowRank(a) - rowRank(b)) || a.name.localeCompare(b.name, 'en'));
 }
@@ -91,8 +95,23 @@ export function renderSearchableSelect(select, rows) {
   const renderOptions = () => {
     const term = input.value.trim().toLowerCase();
     const filtered = optionsData.filter(row => !row.id || row.name.toLowerCase().includes(term));
+    if (kind === 'league') filtered.sort((a, b) => {
+      if (!a.id || !b.id) return a.id ? 1 : b.id ? -1 : 0;
+      return (!term && (leagueRank(a) - leagueRank(b))) || a.name.localeCompare(b.name, 'en');
+    });
     options.replaceChildren();
+    let pinnedShown = false;
+    let dividerShown = false;
     for (const row of filtered) {
+      if (kind === 'league' && !term && row.id) {
+        if (Number.isFinite(leagueRank(row))) pinnedShown = true;
+        else if (pinnedShown && !dividerShown) {
+          const divider = document.createElement('hr');
+          divider.className = 'league-options-divider';
+          options.append(divider);
+          dividerShown = true;
+        }
+      }
       const button = document.createElement('button'); button.type = 'button';
       button.setAttribute('aria-pressed', String(select.value === row.id));
       content(button, row);

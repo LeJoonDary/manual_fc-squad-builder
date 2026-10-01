@@ -1,5 +1,5 @@
-import { expect, test } from 'vitest';
-import { matchesPlayerName, scoreSearchResults, scoreModalPlayers, getValueScoreGrade } from './playerSearch.js';
+import { expect, test, vi } from 'vitest';
+import { matchesPlayerName, preparePlayerSearch, createPlayerNameMatcher, playerNamePattern, scoreSearchResults, scoreModalPlayers, getValueScoreGrade } from './playerSearch.js';
 
 const card = { name: 'K. Mbappé', long_name: 'Kylian Mbappé' };
 const attacker = { id: 1, primary_position: 'CM', secondary_positions: ['ST', 'LM'], overall: 70, pac: 90, sho: 80, pas: 70, dri: 60, def: 50, phy: 40, wf: 5, sm: 4, price: 100 };
@@ -72,8 +72,47 @@ test('matches either database name, ignoring case, accents and outer whitespace'
   expect(matchesPlayerName(card, 'Bellingham')).toBe(false);
 });
 
+test('matches sharp s as ss regardless of case', () => {
+  const player = { name: 'Pascal Groß', long_name: 'Pascal Groß' };
+  for (const query of ['gross', 'GROSS', 'Groß', 'pascal gross']) {
+    expect(matchesPlayerName(player, query)).toBe(true);
+  }
+});
+
 test('handles empty names and does not consult the obsolete short_name field', () => {
   expect(matchesPlayerName({ name: null, long_name: 'Kylian' }, 'kylian')).toBe(true);
   expect(matchesPlayerName({ short_name: 'Kylian' }, 'kylian')).toBe(false);
   expect(matchesPlayerName({}, '')).toBe(true);
+});
+
+test('precomputes names once and reuses them across searches and refreshed objects', () => {
+  const player = { name: 'Cache Groß', long_name: 'Cache Kylian Mbappé' };
+  const normalize = vi.spyOn(String.prototype, 'normalize');
+  try {
+    preparePlayerSearch(player);
+    expect(player.normalized_name).toBe('cache gross');
+    expect(player.normalized_long_name).toBe('cache kylian mbappe');
+    expect(normalize).toHaveBeenCalledTimes(2);
+    preparePlayerSearch(player);
+    const refreshed = preparePlayerSearch({ name: player.name, long_name: player.long_name });
+    expect(normalize).toHaveBeenCalledTimes(2);
+    const matcher = createPlayerNameMatcher(' MBAPPE ');
+    for (let i = 0; i < 1000; i++) expect(matcher(refreshed)).toBe(true);
+    expect(normalize).toHaveBeenCalledTimes(3);
+    player.name = 'Cache Ødegaard';
+    preparePlayerSearch(player);
+    expect(player.normalized_name).toBe('cache odegaard');
+    expect(normalize).toHaveBeenCalledTimes(4);
+  } finally {
+    normalize.mockRestore();
+  }
+});
+
+test.each([
+  ['gross', 'Groß'], ['GROSS', 'GROẞ'], ['mbappe', 'Mbappé'],
+  ['mbappe', 'Mbappe\u0301'], ['odegaard', 'Ødegaard'], ['aegir', 'Ægir'],
+  ['s', 'ß'], ['e', 'Æ'], ['A,%_(B)"', 'A,%_(B)"'], ['홍', '홍길동'],
+])('name prefilter preserves normalized match %s → %s', (query, name) => {
+  expect(matchesPlayerName({ name }, query)).toBe(true);
+  expect(new RegExp(playerNamePattern(query), 'iu').test(name)).toBe(true);
 });

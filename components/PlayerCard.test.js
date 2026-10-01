@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { test, expect, vi } from 'vitest';
 import { createPlayerCard } from './PlayerCard.js';
+import { createPlaystyleIcons } from './PlaystyleIcons.js';
 
 test('shared card renders the reference layout and selection works with keyboard and click', () => {
   const onActivate = vi.fn();
@@ -34,7 +35,17 @@ function renderCard(extra = {}) {
   });
 }
 
-test('renders valid measurements and at most four level-two roles, with safe emblem fallback', () => {
+test('cached summaries render six face stats without a portrait or unknown meta score', () => {
+  const card = renderCard({ summary_only: true, image_url: 'https://example.com/player.png',
+    raw: { player_stats: { pac: 91, sho: 82, pas: 73, dri: 84, def: 55, phy: 66 } } });
+  expect(card.querySelector('.browser-player-rating')).not.toBeNull();
+  expect(card.querySelector('img')).toBeNull();
+  expect(card.querySelector('.browser-player-meta-score')).toBeNull();
+  expect([...card.querySelectorAll('.browser-player-stat-label')].map(node => node.textContent)).toEqual(['PAC', 'SHO', 'PAS', 'DRI', 'DEF', 'PHY']);
+  expect([...card.querySelectorAll('.browser-player-stat-value')].map(node => node.textContent)).toEqual(['91', '82', '73', '84', '55', '66']);
+});
+
+test('renders two priority roles and the remaining count, with safe emblem fallback', () => {
   const card = renderCard({ height: '185', weight: 80, body_type: 'Lean',
     club: 'Example Club', club_short_name: 'EXC', league: 'Example League', league_short_name: 'EXL',
     raw: { clubs: { image_url: '/club.png' }, leagues: { image_url: '/league.png' } },
@@ -45,7 +56,8 @@ test('renders valid measurements and at most four level-two roles, with safe emb
     ],
   });
   expect(card.querySelector('.browser-player-physical').textContent).toBe('185cm · 80kg | Lean');
-  expect(card.querySelectorAll('.browser-player-elite-roles > span')).toHaveLength(4);
+  expect(card.querySelectorAll('.browser-player-elite-roles > span')).toHaveLength(2);
+  expect(card.querySelector('.browser-player-roles-more').textContent).toBe('+4');
   expect(card.querySelector('.browser-player-elite-roles').textContent).not.toContain('Ignored');
   expect(card.querySelectorAll('.browser-player-logo')).toHaveLength(0);
   expect(card.querySelector('.browser-player-affiliations').textContent).toContain('EXLEXC');
@@ -65,12 +77,44 @@ test('ICON names and club ID render shared shield emblems without raw text', () 
 
 test('omits missing or invalid measurements and empty elite roles without blank wrappers', () => {
   for (const extra of [{}, { height: 185 }, { height: 0, weight: 80 }, { height: 'unknown', weight: 80 },
-    { height: true, weight: 80 }, { height: 185, weight: -1 },
-    { card_roles: [{ role_level: 1, roles: { role_name: 'Poacher' } }] }]) {
+    { height: true, weight: 80 }, { height: 185, weight: -1 }]) {
     const card = renderCard(extra);
     expect(card.querySelector('.browser-player-physical')).toBeNull();
     expect(card.querySelector('.browser-player-elite-roles')).toBeNull();
   }
   expect(renderCard({ height: 180, weight: 75 }).querySelector('.browser-player-physical').textContent)
     .toBe('180cm · 75kg');
+});
+
+test.each([0, 1, 2, 3])('renders %s roles with overflow only beyond two', count => {
+  const card = renderCard({ card_roles: Array.from({ length: count }, (_, id) => ({
+    role_level: id % 3, roles: { role_name: `Role ${id}`, position: 'ST' },
+  })) });
+  expect(card.querySelectorAll('.browser-player-elite-roles > span')).toHaveLength(Math.min(count, 2));
+  expect(card.querySelector('.browser-player-roles-more')?.textContent ?? null).toBe(count > 2 ? '+1' : null);
+});
+
+test('overflow opens details without selecting the squad card; cached playstyle icons still render', () => {
+  const onActivate = vi.fn();
+  const onShowDetails = vi.fn();
+  const card = { summary_only: true, image_url: '/portrait.png',
+    card_roles: Array.from({ length: 3 }, (_, id) => ({ role_level: 2, roles: { role_name: `Role ${id}` } })),
+    raw: { card_playstyles: [
+      { is_plus: false, playstyles: { name: 'Rapid', image_url: '/rapid.png' } },
+      { is_plus: true, playstyles: { name: 'Finesse Shot', image_url_plus: '/finesse-plus.png' } },
+    ] },
+  };
+  const node = createPlayerCard(card, {
+    onActivate, onShowDetails, getCardName: () => 'Test', getCardRating: () => 90,
+    getCardPosition: () => 'ST', affiliationCatalog: {}, unwrapRelation: value => value,
+    createPlaystyleBadges: (value, limit, className) => createPlaystyleIcons(value.raw.card_playstyles.map(row => ({
+      ...row.playstyles, isPlus: row.is_plus,
+    })), className),
+  });
+  const more = node.querySelector('.browser-player-roles-more');
+  more.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  more.click();
+  expect(onActivate).not.toHaveBeenCalled();
+  expect(onShowDetails).toHaveBeenCalledWith(card);
+  expect([...node.querySelectorAll('img')].map(image => image.getAttribute('src'))).toEqual(['/finesse-plus.png', '/rapid.png']);
 });
