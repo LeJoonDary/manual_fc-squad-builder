@@ -58,10 +58,10 @@ test('GK receives the same numeric score in search results and the selection mod
 });
 
 test.each([
-  [0.12, '가성비 좋음'], [0.001, '가성비 좋음'],
-  [0.0009999, '가성비 보통'], [0.0001, '가성비 보통'],
-  [0.00009999, '가성비 좋지 않음'], [3.48e-5, '가성비 좋지 않음'],
-  [0, '가성비 좋지 않음'],
+  [0.12, 'Good Value'], [0.001, 'Good Value'],
+  [0.0009999, 'Average Value'], [0.0001, 'Average Value'],
+  [0.00009999, 'Poor Value'], [3.48e-5, 'Poor Value'],
+  [0, 'Poor Value'],
 ])('value score %s displays grade %s', (value, grade) => {
   expect(getValueScoreGrade(value)).toBe(grade);
 });

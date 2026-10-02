@@ -1,6 +1,7 @@
 import { defaultStats, activeStats, applyStatQuery } from './statFilters.js';
 import { applyPhysicalQuery } from './physicalFilters.js';
-import { fetchPlayerListPage, cachedPlayerPage, fetchPlayerListByIds, applyPlayerNameQuery, findPlayerNameIds } from './playerCatalog.js';
+import { PLAYER_LIST_SELECT, cachedPlayerPage, fetchPlayerListByIds, applyPlayerNameQuery, findPlayerNameIds } from './playerCatalog.js';
+import { PLAYER_PAGE_SIZE } from './playerPagination.js';
 import { matchesPlayerName } from './playerSearch.js';
 import { selectedPlaystyles } from './playstyleFilters.js';
 
@@ -23,7 +24,7 @@ export function buildPlayerQuery(db, filters) {
   // Name matching happens in playerSearch.js, before the visible result limit.
   relations.name = '';
   relations.selectedPlayStyles = selectedPlaystyles(filters);
-  let query = db.rpc('filter_player_cards', { filters: relations })
+  let query = db.rpc('filter_player_cards', { filters: relations }, { count: 'exact' })
     .select(`*, players!inner(id,name,long_name)${activeStats(filters.stats).length ? ', player_stats!inner(card_id)' : ''}`);
   const hasValue = value => value !== '' && value != null;
   for (const [column, minimum, maximum] of [
@@ -44,35 +45,56 @@ export function buildPlayerQuery(db, filters) {
   query = applyStatQuery(query, filters.stats);
   query = applyPhysicalQuery(query, filters.acceleTypes, filters.bodyTypes);
   // The actual schema calls overall_rating "overall".
-  return query.order('overall', { ascending: false, nullsFirst: false }).order('id').limit(50);
+  return query.order('overall', { ascending: false, nullsFirst: false }).order('id');
 }
 
 const filterKey = filters => JSON.stringify({ ...filters, name: '' }, (_, value) => value instanceof Set ? [...value].sort() : value);
 
 export async function fetchPlayers(db, filters, signal) {
-  if (!db) throw new Error('Supabase 연결 정보가 없습니다.');
+  return (await fetchPlayersPage(db, filters, { signal })).rows;
+}
+
+export async function fetchPlayersPage(db, filters, { offset = 0, signal } = {}) {
+  if (!db) throw new Error('Supabase connection is not configured.');
   filters = structuredClone(filters);
   signal?.throwIfAborted();
   const hasFilters = filterKey(filters) !== filterKey(createDefaultFilters());
-  if (!hasFilters) return fetchPlayerListPage(db, { keyword: filters.name, signal });
-  return cachedPlayerPage(db, JSON.stringify(['filters', filterKey(filters), filters.name.trim()]), async () => {
-    const rows = [];
+  const key = ['players-page', filterKey(filters), filters.name.trim()];
+  return cachedPlayerPage(db, JSON.stringify([...key, offset]), async () => {
     const playerIds = filters.name.trim() ? await findPlayerNameIds(db, filters.name) : null;
-    if (playerIds?.length === 0) return [];
-    for (let offset = 0; rows.length < 50;) {
-      // The existing RPC filters candidates. Retrieve display stats from the
-      // actual table afterward; embedding them in the RPC fails in PostgREST.
-      const base = buildPlayerQuery(db, filters);
-      const query = playerIds ? base.in('player_id', playerIds) : applyPlayerNameQuery(base, filters.name);
-      const { data, error } = await query.range(offset, offset + 49).limit(50);
-      if (error) throw error;
-      for (const row of data ?? []) {
-        const player = Array.isArray(row.players) ? row.players[0] : row.players;
-        if (matchesPlayerName(player ?? {}, filters.name)) rows.push({ ...row, summary_only: true });
-      }
-      if (!data?.length || data.length < 50) break;
-      offset += data.length;
+    if (playerIds?.length === 0) return { rows: [], total: 0 };
+    const makeQuery = (summary = false) => hasFilters ? buildPlayerQuery(db, filters)
+      : db.from('card_versions').select(summary ? 'id,players!inner(id,name,long_name)' : PLAYER_LIST_SELECT, { count: 'exact' })
+        .order('overall', { ascending: false, nullsFirst: false }).order('id');
+
+    // Broad name searches can produce regex false positives. Cache only the
+    // matching IDs, so totals and offsets use the same normalized name rules.
+    if (filters.name.trim() && playerIds === null) {
+      const ids = await cachedPlayerPage(db, JSON.stringify([...key, 'matching-ids']), async () => {
+        const matches = [];
+        for (let scanned = 0; ;) {
+          const { data, error, count } = await applyPlayerNameQuery(makeQuery(true), filters.name).range(scanned, scanned + 499);
+          if (error) throw error;
+          for (const row of data ?? []) {
+            const player = Array.isArray(row.players) ? row.players[0] : row.players;
+            if (matchesPlayerName(player ?? {}, filters.name)) matches.push(row.id);
+          }
+          scanned += data?.length ?? 0;
+          if (!data?.length || (count != null ? scanned >= count : data.length < 500)) break;
+        }
+        return matches;
+      });
+      return { rows: await fetchPlayerListByIds(db, ids.slice(offset, offset + PLAYER_PAGE_SIZE)), total: ids.length };
     }
-    return fetchPlayerListByIds(db, rows.slice(0, 50).map(row => row.id));
+    const query = makeQuery();
+    if (playerIds) query.in('player_id', playerIds);
+    const { data, error, count } = await query.range(offset, offset + PLAYER_PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    return {
+      rows: hasFilters ? await fetchPlayerListByIds(db, rows.map(row => row.id))
+        : rows.map(row => ({ ...row, summary_only: true })),
+      total: count ?? offset + rows.length,
+    };
   }, signal);
 }

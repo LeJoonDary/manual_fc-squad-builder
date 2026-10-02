@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { fetchModalPlayerPage } from './modalPlayers.js';
+import { PLAYER_LIST_SELECT } from './playerCatalog.js';
 
 test('ST default page fetches only 30 detailed cards and more uses the next offset', async () => {
   const requests = [];
@@ -14,6 +15,9 @@ test('ST default page fetches only 30 detailed cards and more uses the next offs
   await fetchModalPlayerPage(db, { position: 'ST', offset: 30 });
   expect(requests).toHaveLength(2);
   expect(requests[0].pathname).toBe('/rest/v1/card_versions');
+  expect(requests[0].searchParams.get('select')).toBe(
+    (PLAYER_LIST_SELECT + ',slot_positions:card_positions!inner(is_primary,positions!inner(name))').replace(/\s/g, ''),
+  );
   expect(requests[0].searchParams.get('slot_positions.is_primary')).toBe('eq.true');
   expect(requests[0].searchParams.get('slot_positions.positions.name')).toBe('eq.ST');
   expect(requests[0].searchParams.get('limit')).toBe('30');

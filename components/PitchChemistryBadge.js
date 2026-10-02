@@ -3,8 +3,8 @@ export function createPitchChemistryBadge(points) {
   const badge = document.createElement('span');
   badge.className = 'pitch-chemistry-badge';
   badge.setAttribute('role', 'img');
-  badge.setAttribute('aria-label', `케미스트리 ${score}점`);
-  badge.title = `케미스트리 ${score}/3`;
+  badge.setAttribute('aria-label', `Chemistry ${score} points`);
+  badge.title = `Chemistry ${score}/3`;
   let index = 0;
   for (const count of [1, 2]) {
     const row = document.createElement('span');

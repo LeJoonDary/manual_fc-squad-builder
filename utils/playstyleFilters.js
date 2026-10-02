@@ -1,5 +1,5 @@
 export async function fetchPlaystyleOptions(db) {
-  if (!db) throw new Error('Supabase 연결 설정이 없습니다.');
+  if (!db) throw new Error('Supabase connection is not configured.');
   const options = [];
   for (let offset = 0; ; ) {
     const { data, error } = await db.from('playstyles').select('id,name,image_url,image_url_plus,category')

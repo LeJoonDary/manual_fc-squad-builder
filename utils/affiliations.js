@@ -22,7 +22,7 @@ export function clubsForLeague(clubs, leagueId) {
   return clubs.filter(club => !leagueId || String(club.league_id) === String(leagueId));
 }
 export async function fetchAffiliations(db) {
-  if (!db) throw new Error('Supabase 연결 설정이 없습니다.');
+  if (!db) throw new Error('Supabase connection is not configured.');
   const entries = await Promise.all(['nations', 'leagues', 'clubs'].map(async table => {
     const rows = [];
     for (let offset = 0; ; ) {
@@ -39,7 +39,7 @@ export async function fetchAffiliations(db) {
 export function renderSearchableSelect(select, rows) {
   const pickerId = select.id.replace('-filter', '') + '-picker';
   const kind = select.id.replace('-filter', '').replace('manager-', '');
-  const label = { nation: '국가', league: '리그', club: '클럽' }[kind];
+  const label = { nation: 'Nation', league: 'League', club: 'Club' }[kind];
   let picker = document.getElementById(pickerId);
   if (!picker) {
     picker = document.createElement('details');
@@ -79,16 +79,16 @@ export function renderSearchableSelect(select, rows) {
       image.addEventListener('error', () => image.remove());
       element.append(image);
     }
-    element.append(document.createTextNode(row?.name ?? '전체 ' + label));
+    element.append(document.createTextNode(row?.name ?? 'All ' + label + 's'));
   };
   const summary = document.createElement('summary');
-  summary.setAttribute('aria-label', label + ' 선택');
+  summary.setAttribute('aria-label', 'Select ' + label);
   content(summary, optionsData.find(row => row.id === select.value));
   const panel = document.createElement('div');
   panel.className = 'searchable-select-panel';
   const input = document.createElement('input');
-  input.type = 'search'; input.placeholder = label + ' 검색...';
-  input.setAttribute('aria-label', label + ' 검색');
+  input.type = 'search'; input.placeholder = 'Search ' + label.toLowerCase() + 's...';
+  input.setAttribute('aria-label', 'Search ' + label.toLowerCase() + 's');
   input.autocomplete = 'off';
   const options = document.createElement('div');
   options.className = 'nation-options';
@@ -125,7 +125,7 @@ export function renderSearchableSelect(select, rows) {
       options.append(button);
     }
     if (filtered.length === 1 && term) {
-      const empty = document.createElement('p'); empty.textContent = '검색 결과가 없습니다.';
+      const empty = document.createElement('p'); empty.textContent = 'No results found.';
       empty.setAttribute('role', 'status'); options.append(empty);
     }
   };

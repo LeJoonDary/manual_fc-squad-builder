@@ -20,13 +20,13 @@ test('pins all eight IDs once with a divider and searches all leagues alphabetic
     { id: 99, name: 'Z League' }, { id: 98, name: 'A League' },
   ];
   expect(sortAffiliations(rows, 'leagues').map(row => Number(row.id))).toEqual([3, 2, 4, 12, 5, 6, 1, 8, 98, 99]);
-  document.body.innerHTML = '<select id="league-filter"><option value="">전체 리그</option></select>';
+  document.body.innerHTML = '<select id="league-filter"><option value="">All Leagues</option></select>';
   const select = document.querySelector('select');
   rows.forEach(row => select.add(new Option(row.name, row.id)));
   renderSearchableSelect(select, rows);
   const list = document.querySelector('.nation-options');
   expect([...list.querySelectorAll('button')].map(b => b.textContent)).toEqual([
-    '전체 리그', 'Premier League', 'LALIGA EA SPORTS', 'Bundesliga', 'Serie A Enilive',
+    'All Leagues', 'Premier League', 'LALIGA EA SPORTS', 'Bundesliga', 'Serie A Enilive',
     "Ligue 1 McDonald's", 'Liga F Moeve', 'Barclays WSL', 'NWSL', 'A League', 'Z League',
   ]);
   expect(list.querySelectorAll('hr')).toHaveLength(1);
@@ -34,7 +34,7 @@ test('pins all eight IDs once with a divider and searches all leagues alphabetic
   const input = document.querySelector('input');
   input.value = 'league';
   input.dispatchEvent(new Event('input'));
-  expect([...list.querySelectorAll('button')].map(b => b.textContent)).toEqual(['전체 리그', 'A League', 'Premier League', 'Z League']);
+  expect([...list.querySelectorAll('button')].map(b => b.textContent)).toEqual(['All Leagues', 'A League', 'Premier League', 'Z League']);
   expect(list.querySelector('hr')).toBeNull();
   list.querySelectorAll('button')[2].click();
   expect(select.value).toBe('3');

@@ -6,9 +6,9 @@ export const EXCLUSION_CARD_SELECT = 'id,overall,version,image_url,background_ur
 
 export async function fetchExclusionCardIdsByOvr(db, { minOvr, maxOvr, signal }) {
   if (!Number.isInteger(minOvr) || !Number.isInteger(maxOvr) || minOvr < 45 || maxOvr > 99 || minOvr > maxOvr) {
-    throw new Error('OVR 범위는 45 ~ 99 사이이며 최소값이 최대값 이하여야 합니다.');
+    throw new Error('OVR range must be between 45 and 99, with Min OVR no greater than Max OVR.');
   }
-  if (!db) throw new Error('Supabase 연결 설정이 없습니다.');
+  if (!db) throw new Error('Supabase connection is not configured.');
   const ids = [];
   // Continue until an empty page so server row limits cannot silently truncate results.
   for (let offset = 0; ; ) {
@@ -27,7 +27,7 @@ export async function fetchExclusionCardIdsByOvr(db, { minOvr, maxOvr, signal })
 export async function searchExclusionCards(db, { keyword, offset = 0, signal }) {
   const term = keyword.trim();
   if (!term) return [];
-  if (!db) throw new Error('Supabase 연결 설정이 없습니다.');
+  if (!db) throw new Error('Supabase connection is not configured.');
   return fetchNameFilteredPage(() => db.from('card_versions').select(EXCLUSION_CARD_SELECT)
     .order('overall', { ascending: false, nullsFirst: false }).order('id'),
   term, offset, EXCLUSION_SEARCH_PAGE_SIZE, signal);
@@ -36,7 +36,7 @@ export async function searchExclusionCards(db, { keyword, offset = 0, signal }) 
 export async function fetchExcludedCardDetails(db, ids, signal) {
   const uniqueIds = normalizeExcludedCardVersionIds(ids);
   if (!uniqueIds.length) return [];
-  if (!db) throw new Error('Supabase 연결 설정이 없습니다.');
+  if (!db) throw new Error('Supabase connection is not configured.');
   const cards = [];
   // Bounded requests avoid URL length and server row-limit truncation for large lists.
   for (let offset = 0; offset < uniqueIds.length; offset += 100) {
@@ -51,9 +51,9 @@ export async function fetchExcludedCardDetails(db, ids, signal) {
 
 export function exclusionCardName(card) {
   const player = Array.isArray(card?.players) ? card.players[0] : card?.players;
-  return player?.name || player?.long_name || '이름 정보 없음';
+  return player?.name || player?.long_name || 'Unknown Player';
 }
 
 export function exclusionCardLabel(card) {
-  return `${exclusionCardName(card)} · ${card.version || '카드'} (#${card.id})`;
+  return `${exclusionCardName(card)} · ${card.version || 'Card'} (#${card.id})`;
 }

@@ -1,19 +1,19 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FC 스쿼드 빌더</title>
+    <title>FC Squad Builder</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body class="is-squad-active">
     <header class="app-header">
       <div class="app-header-inner">
-        <a class="brand" href="#squad-builder" aria-label="FC Squad Builder 홈">
+        <a class="brand" href="#squad-builder" aria-label="FC Squad Builder home">
           <span class="brand-mark" aria-hidden="true">FC</span>
           <span>FC Squad Builder</span>
         </a>
-        <nav class="main-nav" aria-label="주요 메뉴" role="tablist">
+        <nav class="main-nav" aria-label="Main navigation" role="tablist">
           <button class="nav-tab" type="button" role="tab" aria-selected="false" aria-controls="players-page" data-tab="players">Players</button>
           <button class="nav-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="squad-builder-page" data-tab="squad-builder">Squad Builder</button>
         </nav>
@@ -25,22 +25,22 @@
         <header class="page-heading">
         <div>
           <p class="eyebrow">SQUAD BUILDER</p>
-          <h1>4-3-3 스쿼드</h1>
+          <h1>4-3-3 Squad</h1>
         </div>
 
         </header>
 
-        <p id="status" class="status" aria-live="polite">포지션 슬롯을 선택해 선수를 배치하세요.</p>
+        <p id="status" class="status" aria-live="polite">Select a position to add a player.</p>
 
         <div class="squad-workspace">
-          <div class="pitch-scroll" aria-label="화면 크기에 맞춘 포메이션 그라운드">
-          <section class="pitch" aria-label="4-3-3 포메이션">
+          <div class="pitch-scroll" aria-label="Responsive formation pitch">
+          <section class="pitch" aria-label="4-3-3 Formation">
             <button id="manager-slot" class="manager-slot" type="button" aria-haspopup="dialog">
-              <span class="manager-empty"><b>＋</b> 감독 추가</span>
+              <span class="manager-empty"><b>+</b> Add Manager</span>
             </button>
         <details id="formation-picker" class="formation-picker">
-          <summary aria-label="포메이션 선택">포메이션 <strong id="formation-current">4-3-3</strong><span aria-hidden="true">⌄</span></summary>
-          <div id="formation-menu" class="formation-menu" role="group" aria-label="포메이션 목록"></div>
+          <summary aria-label="Select formation">Formation <strong id="formation-current">4-3-3</strong><span aria-hidden="true">⌄</span></summary>
+          <div id="formation-menu" class="formation-menu" role="group" aria-label="Formations"></div>
         </details>
             <div class="formation-label">4-3-3</div>
             <button class="slot forward left" data-position="LW" type="button"><span>LW</span></button>
@@ -57,15 +57,15 @@
           </section>
           </div>
 
-          <aside class="chemistry-panel" aria-label="케미스트리 상세 현황">
+          <aside class="chemistry-panel" aria-label="Chemistry breakdown">
             <header class="chemistry-panel-header">
               <div class="squad-summary-bar">
                 <div class="total-cost-summary">
-                  <p>TOTAL COST</p><h2>총 비용</h2>
+                  <p>TOTAL COST</p><h2>TOTAL COST</h2>
                   <strong><output id="total-cost">0</output><small> C</small></strong>
                 </div>
                 <div class="chemistry-total-summary">
-                  <p>TEAM CHEMISTRY</p><h2>총 팀 케미스트리</h2>
+                  <p>TEAM CHEMISTRY</p><h2>TEAM CHEMISTRY</h2>
                   <strong><output id="total-chemistry">0</output><small> / 33</small></strong>
                 </div>
                 <button id="clear-squad" class="clear-squad" type="button">Clear All</button>
@@ -73,13 +73,13 @@
               <div id="auto-build-settings"></div>
               <section class="budget-summary" hidden aria-labelledby="budget-title">
                 <div class="budget-heading">
-                  <div><p>TARGET BUDGET</p><h2 id="budget-title">예산 상한</h2></div>
-                  <label class="budget-input-wrap"><input id="target-budget" type="text" inputmode="numeric" placeholder="예산 입력 (C)" autocomplete="off" aria-label="예산 상한" /><span>C</span></label>
+                  <div><p>TARGET BUDGET</p><h2 id="budget-title">Max Budget</h2></div>
+                  <label class="budget-input-wrap"><input id="target-budget" type="text" inputmode="numeric" placeholder="Enter budget (C)" autocomplete="off" aria-label="Max Budget" /><span>C</span></label>
                 </div>
-                <div class="budget-progress" role="progressbar" aria-label="예산 사용량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="budget-progress" role="progressbar" aria-label="Budget usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                   <span id="budget-progress-fill" class="budget-progress-fill"></span>
                 </div>
-                <div class="budget-progress-meta"><span id="budget-percentage">제한 없음</span><span id="budget-remaining"></span></div>
+                <div class="budget-progress-meta"><span id="budget-percentage">Unlimited</span><span id="budget-remaining"></span></div>
                 <p id="budget-warning" class="budget-warning" role="status" hidden></p>
               </section>
             </header>
@@ -99,12 +99,12 @@
             <div class="players-results-header">
               <div>
                 <h2 id="players-results-title">Player Results</h2>
-                <p id="players-result-count" aria-live="polite">필터를 적용해 선수를 검색하세요.</p>
+                <p id="players-result-count" aria-live="polite">Apply filters to find players.</p>
               </div>
               <label class="player-search">
-                <span class="sr-only">선수 이름 검색</span>
+                <span class="sr-only">Search players</span>
                 <span aria-hidden="true">⌕</span>
-                <input id="player-name-search" type="search" placeholder="Search players" autocomplete="off" />
+                <input id="player-name-search" type="search" placeholder="Search players..." autocomplete="off" />
               </label>
             </div>
             <div id="filter-bar-mount" aria-live="off"></div>
@@ -112,11 +112,11 @@
             <div id="players-grid" class="players-grid" aria-live="polite"></div>
             <div class="players-pagination">
               <p id="players-pagination-status" role="status"></p>
-              <button id="players-load-more" type="button" aria-controls="players-grid" hidden>더 보기 · 다음 50명</button>
+              <button id="players-load-more" type="button" aria-controls="players-grid" hidden>Load More (40 Players)</button>
             </div>
           </section>
 
-          <aside id="players-filters" class="players-filters" aria-label="선수 필터">
+          <aside id="players-filters" class="players-filters" aria-label="Player filters">
             <div class="filters-header">
               <div>
                 <p class="eyebrow">FILTERS</p>
@@ -158,7 +158,7 @@
                   <div><span class="mini-pitch-kicker">TACTICAL MAP</span><strong>Tap zones to combine</strong></div>
                   <span class="selection-hint"><i></i> Multi-select</span>
                 </div>
-                <div class="position-mini-pitch" role="group" aria-label="피치 위에서 포지션 선택">
+                <div class="position-mini-pitch" role="group" aria-label="Select positions on the pitch">
                   <span class="pitch-line pitch-halfway" aria-hidden="true"></span>
                   <span class="pitch-line pitch-circle" aria-hidden="true"></span>
                   <span class="pitch-line pitch-box-top" aria-hidden="true"></span>
@@ -209,7 +209,7 @@
                 </button>
                 <div id="sm-wf-filter-options" class="filter-accordion-content">
                   <p class="filter-label">Skill Moves</p>
-                  <div class="rating-filter-list" aria-label="개인기 최소 별점">
+                  <div class="rating-filter-list" aria-label="Minimum Skill Moves rating">
                     <button type="button" data-rating-filter="sm" data-rating-value="1">1</button>
                     <button type="button" data-rating-filter="sm" data-rating-value="2">2</button>
                     <button type="button" data-rating-filter="sm" data-rating-value="3">3</button>
@@ -224,7 +224,7 @@
                     <button type="button" data-rating-filter="wf" data-rating-value="4">4</button>
                     <button type="button" data-rating-filter="wf" data-rating-value="5">5</button>
                   </div>
-                  <p class="rating-filter-help">선택한 별점 이상</p>
+                  <p class="rating-filter-help">Selected rating or higher</p>
                 </div>
               </section>
               <section class="filter-accordion" data-filter-section="playstyles" data-filter-panel="style" hidden>
@@ -233,7 +233,7 @@
                   <span>PlayStyles</span>
                 </button>
                 <div id="playstyles-filter-options" class="filter-accordion-content">
-                  <div id="playstyle-filter-grid" class="playstyle-filter-grid" aria-label="플레이스타일 필터"></div>
+                  <div id="playstyle-filter-grid" class="playstyle-filter-grid" aria-label="PlayStyles filters"></div>
                   <label class="filter-switch playstyle-require-all">
                     <input id="require-all-playstyles" type="checkbox" />
                     <span class="filter-switch-control" aria-hidden="true"></span>
@@ -253,7 +253,7 @@
                   <span>Roles</span>
                 </button>
                 <div id="roles-filter-options" class="filter-accordion-content">
-                  <div id="role-filter-list" class="role-filter-list" aria-label="역할 필터"></div>
+                  <div id="role-filter-list" class="role-filter-list" aria-label="Role filters"></div>
                   <label class="filter-switch role-require-all">
                     <input id="has-all-selected-roles" type="checkbox" />
                     <span class="filter-switch-control" aria-hidden="true"></span>
@@ -263,24 +263,24 @@
               </section>
               <section class="filter-accordion" data-filter-section="affiliation" data-filter-panel="identity" hidden>
                 <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="affiliation-filter-options" data-filter-accordion="affiliation">
-                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Affiliation</span>
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Affiliations</span>
                 </button>
                 <div id="affiliation-filter-options" class="filter-accordion-content">
                   <div class="affiliation-select-grid">
-                    <label><span>국가</span><select id="nation-filter"><option value="">전체 국가</option></select></label>
-                    <label><span>리그</span><select id="league-filter"><option value="">전체 리그</option></select></label>
-                    <label><span>클럽</span><select id="club-filter"><option value="">전체 클럽</option></select></label>
+                    <label><span>Nation</span><select id="nation-filter"><option value="">All Nations</option></select></label>
+                    <label><span>League</span><select id="league-filter"><option value="">All Leagues</option></select></label>
+                    <label><span>Club</span><select id="club-filter"><option value="">All Clubs</option></select></label>
                   </div>
-                  <p class="filter-panel-help">리그를 선택하면 해당 리그의 클럽만 표시됩니다.</p>
+                  <p class="filter-panel-help">Select a league to filter clubs.</p>
                 </div>
               </section>
               <section class="filter-accordion" data-filter-section="rarity" data-filter-panel="identity" hidden>
                 <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="rarity-filter-options" data-filter-accordion="rarity">
-                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Rarity</span>
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Card Rarity</span>
                 </button>
                 <div id="rarity-filter-options" class="filter-accordion-content">
-                  <p class="filter-label">카드 등급 · 다중 선택</p>
-                  <div class="rarity-filter-grid" role="group" aria-label="카드 등급 필터">
+                  <p class="filter-label">Card Rarity · Multi-select</p>
+                  <div class="rarity-filter-grid" role="group" aria-label="Card Rarity filters">
                     <button type="button" data-rarity-filter="Gold" aria-pressed="false">Gold</button>
                     <button type="button" data-rarity-filter="Silver" aria-pressed="false">Silver</button>
                     <button type="button" data-rarity-filter="Bronze" aria-pressed="false">Bronze</button>
@@ -290,24 +290,24 @@
               </section>
               <section class="filter-accordion" data-filter-section="stats" data-filter-panel="performance" hidden>
                 <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="stats-filter-options" data-filter-accordion="stats">
-                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Stats</span>
+                  <span class="filter-accordion-icon" aria-hidden="true">^</span><span>Detailed Stats</span>
                 </button>
                 <div id="stats-filter-options" class="filter-accordion-content">
                   <form id="detailed-stats-form">
                     <div class="stats-filter-grid"></div>
                     <p id="stats-validation" role="alert"></p>
-                    <div class="stats-actions"><button type="submit">Filter (적용)</button><button type="button" id="clear-stats">Clear all (초기화)</button></div>
+                    <div class="stats-actions"><button type="submit">Filter</button><button type="button" id="clear-stats">Clear All</button></div>
                   </form>
                 </div>
               </section>
               <section class="filter-accordion" data-filter-section="miscellaneous" data-filter-panel="physical" hidden>
                 <button class="filter-accordion-trigger" type="button" aria-expanded="false" aria-controls="miscellaneous-filter-options" data-filter-accordion="miscellaneous">
                   <span class="filter-accordion-icon" aria-hidden="true">^</span>
-                  <span>Miscellaneous</span>
+                  <span>Physical & Attributes</span>
                 </button>
                 <div id="miscellaneous-filter-options" class="filter-accordion-content">
                   <p class="filter-label">Accelerate Type</p>
-                  <div class="misc-button-list" aria-label="가속 타입 필터">
+                  <div class="misc-button-list" aria-label="AcceleRATE filters">
                     <button type="button" data-misc-filter="accele" data-misc-value="Explosive">Explosive</button>
                     <button type="button" data-misc-filter="accele" data-misc-value="Lengthy">Lengthy</button>
                     <button type="button" data-misc-filter="accele" data-misc-value="Controlled">Controlled</button>
@@ -373,15 +373,15 @@
       <div class="modal-backdrop" data-close-manager-modal></div>
       <section class="modal-panel manager-modal-panel">
         <header class="modal-header">
-          <div><p class="eyebrow">MANAGER</p><h2 id="manager-modal-title">감독 설정</h2></div>
-          <button class="modal-close" type="button" aria-label="감독 설정 창 닫기" data-close-manager-modal>×</button>
+          <div><p class="eyebrow">MANAGER</p><h2 id="manager-modal-title">Manager Settings</h2></div>
+          <button class="modal-close" type="button" aria-label="Close Manager Settings" data-close-manager-modal>×</button>
         </header>
         <form id="manager-form" class="manager-form">
-          <div class="manager-field"><label for="manager-league">리그 선택</label><select id="manager-league"><option value="">리그를 선택하세요</option></select></div>
-          <div class="manager-field"><label for="manager-nation">국가 선택</label><select id="manager-nation"><option value="">국가를 선택하세요</option></select></div>
+          <div class="manager-field"><label for="manager-league">Select League</label><select id="manager-league"><option value="">Select a league</option></select></div>
+          <div class="manager-field"><label for="manager-nation">Select Nation</label><select id="manager-nation"><option value="">Select a nation</option></select></div>
           <div class="manager-form-actions">
-            <button id="remove-manager" class="remove-manager" type="button">감독 해제</button>
-            <button class="save-manager" type="submit">설정 저장</button>
+            <button id="remove-manager" class="remove-manager" type="button">Remove Manager</button>
+            <button class="save-manager" type="submit">Save Settings</button>
           </div>
         </form>
       </section>
@@ -394,20 +394,20 @@
         <header class="modal-header">
           <div>
             <p class="eyebrow">PLAYER SELECT</p>
-            <h2 id="modal-title">선수 선택</h2>
+            <h2 id="modal-title">Select Player</h2>
           </div>
-          <button class="modal-close" type="button" aria-label="선수 선택 창 닫기" data-close-modal>×</button>
+          <button class="modal-close" type="button" aria-label="Close Player Select" data-close-modal>×</button>
         </header>
         <p id="modal-description" class="modal-description"></p>
         <div class="modal-player-search">
-          <label class="sr-only" for="modal-player-search-input">선수 이름 검색</label>
-          <input id="modal-player-search-input" type="text" placeholder="선수 이름 검색 (예: Mbappe, Salah...)" autocomplete="off" autofocus />
-          <button id="modal-player-search-clear" class="modal-player-search-clear" type="button" aria-label="검색어 전체 지우기" hidden>×</button>
+          <label class="sr-only" for="modal-player-search-input">Search players</label>
+          <input id="modal-player-search-input" type="text" placeholder="Search player by name (e.g. Mbappe, Salah...)" autocomplete="off" autofocus />
+          <button id="modal-player-search-clear" class="modal-player-search-clear" type="button" aria-label="Clear search" hidden>×</button>
         </div>
         </div>
         <div class="player-select-results">
         <div id="player-list" class="player-list" aria-live="polite"></div>
-        <button id="modal-load-more" type="button" class="secondary-button" hidden>더 보기 (30명)</button>
+        <button id="modal-load-more" type="button" class="secondary-button" hidden>Load More (30 Players)</button>
         </div>
       </section>
     </div>
@@ -417,7 +417,7 @@
       <section class="modal-panel player-detail-panel">
         <header class="player-detail-header">
           <div id="player-detail-identity" class="player-detail-identity"></div>
-          <button id="player-detail-close" class="modal-close" type="button" aria-label="선수 상세 정보 닫기" data-close-detail-modal>×</button>
+          <button id="player-detail-close" class="modal-close" type="button" aria-label="Close player details" data-close-detail-modal>×</button>
         </header>
         <div class="player-detail-body">
           <div class="player-detail-left">

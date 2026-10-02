@@ -106,7 +106,7 @@ describe('owned, locked and special-card constraints', () => {
   it('rejects a locked special count exceeding the limit', async () => {
     const { rows, groups } = fixture();
     const currentSquad = { LW: { card: { ...rows[0], card_type: 'ICON' }, isLocked: true, isOwned: true } };
-    await expect(generateOptimalSquad('4-3-3', groups, 1000000, 0, false, { currentSquad, maxSpecialCards: 0 })).rejects.toThrow('잠긴');
+    await expect(generateOptimalSquad('4-3-3', groups, 1000000, 0, false, { currentSquad, maxSpecialCards: 0 })).rejects.toThrow('Locked');
   });
 
   it('keeps all 11 locked owned players at zero budget without any candidates', async () => {

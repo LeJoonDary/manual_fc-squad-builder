@@ -1,4 +1,5 @@
 import { PLAYER_CARD_SELECT } from './playerCards.js';
+import { PLAYER_PAGE_SIZE } from './playerPagination.js';
 import { playerNamePattern, createPlayerNameMatcher, preparePlayerSearch } from './playerSearch.js';
 
 // Related data is fetched only for a bounded visible page, never all cards.
@@ -15,7 +16,7 @@ const pageCaches = new WeakMap();
 
 // Share in-flight requests and keep a small cache of complete rendered pages.
 export async function cachedPlayerPage(db, key, load, signal) {
-  if (!db) throw new Error('Supabase 연결 설정이 없습니다.');
+  if (!db) throw new Error('Supabase connection is not configured.');
   signal?.throwIfAborted();
   if (!pageCaches.has(db)) pageCaches.set(db, new Map());
   const cache = pageCaches.get(db);
@@ -30,7 +31,7 @@ export async function cachedPlayerPage(db, key, load, signal) {
   return rows;
 }
 
-export function fetchPlayerListPage(db, { keyword = '', position = null, offset = 0, limit = 50, signal } = {}) {
+export function fetchPlayerListPage(db, { keyword = '', position = null, offset = 0, limit = PLAYER_PAGE_SIZE, signal } = {}) {
   const pageSize = Math.min(50, Math.max(1, limit));
   const term = keyword.trim();
   const key = JSON.stringify(['list', term, position, offset, pageSize]);
@@ -83,20 +84,20 @@ export function applyPlayerNameQuery(query, keyword) {
 }
 
 export function fetchPlayerListByIds(db, ids, signal) {
-  if (ids.length > 50) throw new Error('카드 상세 조회는 한 번에 최대 50개입니다.');
+  if (ids.length > 50) throw new Error('You can load up to 50 card details at a time.');
   return cachedPlayerPage(db, JSON.stringify(['cards', ids]), async () => {
     if (!ids.length) return [];
     const { data, error } = await db.from('card_versions').select(PLAYER_LIST_SELECT)
       .in('id', ids).limit(50);
     if (error) throw error;
     const byId = new Map((data ?? []).map(row => [String(row.id), { ...row, summary_only: true }]));
-    if (ids.some(id => !byId.has(String(id)))) throw new Error('일부 선수 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
+    if (ids.some(id => !byId.has(String(id)))) throw new Error('Unable to load some player details. Please try again.');
     return ids.map(id => byId.get(String(id)));
   }, signal);
 }
 // Full detail stats are fetched only after a user selects a search result.
 export function loadPlayerDetail(db, id) {
-  if (!db) return Promise.reject(new Error('Supabase 연결 설정이 없습니다.'));
+  if (!db) return Promise.reject(new Error('Supabase connection is not configured.'));
   if (!detailCaches.has(db)) detailCaches.set(db, new Map());
   const cache = detailCaches.get(db);
   const key = String(id);
@@ -104,7 +105,7 @@ export function loadPlayerDetail(db, id) {
     const loading = (async () => {
       const { data, error } = await db.from('card_versions').select(PLAYER_CARD_SELECT).eq('id', id).single();
       if (error) throw error;
-      if (!data) throw new Error('선수 정보를 불러오지 못했습니다.');
+      if (!data) throw new Error('Unable to load player details.');
       return data;
     })();
     cache.set(key, loading);

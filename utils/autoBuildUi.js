@@ -2,7 +2,7 @@
 export function autoBuildManagerState(manager, catalog, cards) {
   if (!manager) return null;
   const affiliation = (kind, key, records) => {
-    if (key == null || key === '') return { id: null, name: '미지정' };
+    if (key == null || key === '') return { id: null, name: 'Not Set' };
     const text = String(key);
     const idPrefix = `${kind}:id:`;
     const namePrefix = `${kind}:name:`;

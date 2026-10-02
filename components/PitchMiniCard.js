@@ -23,7 +23,7 @@ export function createPitchMiniCard(card, styles = [], catalog = {}) {
   if (footLabel) skills.append(element('span', '', footLabel));
   if (card.sm != null || card.wf != null) {
     const stars = element('span', '', `${card.sm ?? '–'}★${card.wf ?? '–'}`);
-    stars.title = `개인기 ${card.sm ?? '–'} / 약발 ${card.wf ?? '–'}`;
+    stars.title = `Skill Moves ${card.sm ?? '–'} / Weak Foot ${card.wf ?? '–'}`;
     skills.append(stars);
   }
   if (positions.childElementCount) badges.append(positions);
@@ -45,7 +45,7 @@ export function createPitchMiniCard(card, styles = [], catalog = {}) {
   if (card.nation_flag_url) {
     const flag = element('img', '');
     flag.src = card.nation_flag_url;
-    flag.alt = card.nation || '국가';
+    flag.alt = card.nation || 'Nation';
     flag.addEventListener('error', () => flag.remove());
     affiliations.append(flag);
   }

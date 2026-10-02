@@ -1,22 +1,22 @@
-export const PLAYER_PAGE_SIZE = 50;
+export const PLAYER_PAGE_SIZE = 40;
 
 // A page may contain no visible matches after client-side filters. Advance by
 // fetched rows, not visible rows, and keep the next-page action available.
 export function createPlayerPagination(pageSize = PLAYER_PAGE_SIZE) {
   let generation = 0;
-  const state = { offset: 0, hasMore: true, loading: false, cards: [] };
+  const state = { offset: 0, hasMore: true, loading: false, cards: [], total: null };
   return {
     state,
     reset() {
       generation += 1;
-      Object.assign(state, { offset: 0, hasMore: true, loading: false, cards: [] });
+      Object.assign(state, { offset: 0, hasMore: true, loading: false, cards: [], total: null });
     },
     begin() {
       if (state.loading || !state.hasMore) return null;
       state.loading = true;
       return { generation, offset: state.offset };
     },
-    complete(ticket, rows, cards) {
+    complete(ticket, rows, cards, total = null) {
       if (ticket.generation !== generation) return false;
       const seen = new Set(state.cards.map(card => String(card.id)));
       for (const card of cards) {
@@ -26,7 +26,8 @@ export function createPlayerPagination(pageSize = PLAYER_PAGE_SIZE) {
         }
       }
       state.offset += rows.length;
-      state.hasMore = rows.length === pageSize;
+      state.total = total;
+      state.hasMore = total === null ? rows.length === pageSize : state.offset < total;
       state.loading = false;
       return true;
     },
@@ -49,7 +50,7 @@ export async function fetchPlayerDetails(page, fetchDetails) {
   if (detailError) throw detailError;
   const byId = new Map((details ?? []).map(row => [String(row.id), row]));
   if (page.some(row => !byId.has(String(row.id)))) {
-    throw new Error('일부 선수의 상세 정보를 불러오지 못했습니다. 다시 시도해 주세요.');
+    throw new Error('Unable to load some player details. Please try again.');
   }
   return page.map(row => byId.get(String(row.id)));
 }

@@ -26,7 +26,7 @@ describe('generateOptimalSquad', () => {
     }
     await expect(generateOptimalSquad('4-3-3', groups(rows), 0, 0, false, {
       excludedCardVersionIds: [banned.id], currentSquad: { LW: { card: banned, isLocked: true } },
-    })).rejects.toThrow('제외된 카드가 스쿼드에 잠겨');
+    })).rejects.toThrow('An excluded card is locked in your squad');
     const lockedAlternative = await generateOptimalSquad('4-3-3', groups(rows), 0, 0, false, {
       excludedCardVersionIds: [banned.id], currentSquad: { LW: { card: versions[0], isLocked: true } },
     });

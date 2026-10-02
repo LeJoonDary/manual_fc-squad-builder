@@ -28,7 +28,7 @@ export function getExcludedCardManagementCount({ excludedCardVersionIds, squadOv
 
 export function validateSquadOvrRange(range = DEFAULT_SQUAD_OVR_RANGE) {
   if (!Number.isInteger(range?.min) || !Number.isInteger(range?.max) || range.min < 45 || range.max > 99 || range.min > range.max) {
-    throw new RangeError('자동 생성 OVR 범위는 45 ~ 99 사이여야 합니다.');
+    throw new RangeError('Auto build OVR range must be between 45 and 99.');
   }
   return { min: range.min, max: range.max };
 }
@@ -39,7 +39,7 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
     squadOvrRange: Object.freeze(validateSquadOvrRange(range)),
     excludedCardVersionIds: Object.freeze(normalizeExcludedCardVersionIds(ids)),
     excludedCardVersionNames: Object.freeze(Object.fromEntries(normalizeExcludedCardVersionIds(ids).map(id =>
-      [id, typeof names?.[id] === 'string' && names[id].trim() ? names[id] : `카드 ${id}`]))),
+      [id, typeof names?.[id] === 'string' && names[id].trim() ? names[id] : `Card ${id}`]))),
   });
   let state = makeState();
   try {
@@ -54,7 +54,7 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
       if (!storage) throw new Error('Storage unavailable');
       storage.setItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY, JSON.stringify(next));
     } catch {
-      throw new Error('제외 목록을 저장하지 못했습니다. 브라우저 저장 공간 및 설정을 확인해 주세요.');
+      throw new Error('Unable to save exclusions. Check your browser storage and settings.');
     }
     state = next;
     listeners.forEach(listener => listener());
@@ -72,7 +72,7 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
     },
     ban(id, name) {
       id = normalizeCardVersionId(id);
-      if (!id) throw new Error('카드 버전 ID를 확인할 수 없습니다.');
+      if (!id) throw new Error('Card version ID is unavailable.');
       if (state.excludedCardVersionIds.includes(id)) return;
       update([...state.excludedCardVersionIds, id], { ...state.excludedCardVersionNames, [id]: name });
     },

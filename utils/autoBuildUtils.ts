@@ -20,7 +20,7 @@ export interface AutoBuildOptions {
 }
 function specialLimit(options: AutoBuildOptions): number {
   const limit = options.maxSpecialCards ?? 11;
-  if (!Number.isInteger(limit) || limit < 0 || limit > 11) throw new RangeError('아이콘 / 히어로 제한은 0~11명이어야 합니다.');
+  if (!Number.isInteger(limit) || limit < 0 || limit > 11) throw new RangeError('Icon / Hero Limit must be between 0 and 11.');
   return limit;
 }
 function passesMarketPriceFilter(card: Record<string, any>, options: AutoBuildOptions): boolean {
@@ -35,7 +35,7 @@ function exclusionSet(options: AutoBuildOptions, formation: string): Set<string>
   for (const { position } of slots) {
     const entry = options.currentSquad?.[position];
     if (entry?.isLocked && excluded.has(getCardVersionId(entry.card))) {
-      throw new Error('제외된 카드가 스쿼드에 잠겨 있습니다. 해당 카드의 잠금 또는 제외를 해제한 뒤 다시 실행해 주세요.');
+      throw new Error('An excluded card is locked in your squad. Unlock it or remove its exclusion, then try again.');
     }
   }
   return excluded;
@@ -55,15 +55,15 @@ export function getPositionBudgetGroup(position: string, isThreeBack: boolean): 
   if (['LM', 'RM'].includes(normalized)) return isThreeBack ? 'MF' : 'FW';
   if (['CM', 'CDM'].includes(normalized)) return 'MF';
   if (['CB', 'LB', 'RB', 'LWB', 'RWB', 'GK'].includes(normalized)) return 'DF';
-  throw new Error(`지원하지 않는 포지션: ${position}`);
+  throw new Error(`Unsupported position: ${position}`);
 }
 
 /** Locked purchases consume the total budget, never the allocations for open slots. */
 export function getRemainingAutoBuildBudget(totalBudget: number | null | undefined, formation: string, options: AutoBuildOptions = {}) {
   totalBudget = totalBudget ?? 0;
-  if (!Number.isFinite(totalBudget) || totalBudget < 0) throw new RangeError('총예산은 0 이상의 유한한 숫자여야 합니다.');
+  if (!Number.isFinite(totalBudget) || totalBudget < 0) throw new RangeError('Total budget must be a finite number of 0 or more.');
   const layout = FORMATIONS.find(item => item.name === formation);
-  if (!layout) throw new Error(`지원하지 않는 포메이션: ${formation}`);
+  if (!layout) throw new Error(`Unsupported formation: ${formation}`);
   const lockedCost = layout.slots.reduce((sum, slot) => {
     const entry = options.currentSquad?.[slot.position];
     return sum + (entry?.isLocked && !entry.isOwned ? getCardCoinPrice(rawEntryCard(entry)) : 0);
@@ -79,10 +79,10 @@ export function getCandidateBudgetPlan(totalBudget: number | null | undefined, b
   const { remainingTotalBudget, distributableBudget, unlimited } = getRemainingAutoBuildBudget(totalBudget, formation, options);
   if (!unlimited && (groups.some(group => !Number.isFinite(budgetAllocations[group]) || budgetAllocations[group] < 0)
     || groups.reduce((sum, group) => sum + budgetAllocations[group], 0) > distributableBudget)) {
-    throw new RangeError('포지션별 예산은 0 이상이며 합계가 총 잔여 예산을 넘을 수 없습니다.');
+    throw new RangeError('Position budgets must be 0 or more and cannot exceed the remaining budget.');
   }
   const layout = FORMATIONS.find(item => item.name === formation)!;
-  if (isThreeBack !== formation.startsWith('3')) throw new Error('포메이션과 isThreeBack 값이 일치하지 않습니다.');
+  if (isThreeBack !== formation.startsWith('3')) throw new Error('Formation does not match the isThreeBack setting.');
   return groups.map(group => {
     const remaining = layout.slots.filter(slot => getPositionBudgetGroup(slot.position, isThreeBack) === group
       && !options.currentSquad?.[slot.position]?.isLocked);
@@ -118,8 +118,8 @@ export async function fetchCandidatePlayers(
   const entries = Object.entries(options.currentSquad ?? {}).filter(([, entry]) => entry?.card);
   const locked = entries.filter(([, entry]) => entry!.isLocked);
   const lockedSpecial = locked.filter(([, entry]) => isSpecialCard(rawEntryCard(entry!))).length;
-  if (lockedSpecial > maxSpecial) throw new Error('잠긴 아이콘 / 히어로 선수가 설정한 제한보다 많습니다. 잠금을 해제하거나 제한을 늘려주세요.');
-  if (!supabase) throw new Error('Supabase 연결 설정이 없습니다.');
+  if (lockedSpecial > maxSpecial) throw new Error('Locked Icons / Heroes exceed the limit. Unlock players or increase the limit.');
+  if (!supabase) throw new Error('Supabase connection is not configured.');
   // A separate inner-join alias filters parents without truncating the full position list.
   const select = `${PLAYER_CARD_SELECT}, candidate_positions:card_positions!inner(positions!inner(name))`;
   const results = await Promise.all(plan.map(async item => {
@@ -135,7 +135,7 @@ export async function fetchCandidatePlayers(
       if (cheapest) query = query.order('price', { ascending: true });
       const { data, error } = await query.order('overall', { ascending: false, nullsFirst: false })
         .order('id', { ascending: true }).limit(limit);
-      if (error) throw new Error(item.group + ' 후보 조회 실패: ' + error.message, { cause: error });
+      if (error) throw new Error(item.group + ' candidate search failed: ' + error.message, { cause: error });
       return data ?? [];
     };
     const exhausted = item.priceCap !== null && item.priceCap <= 0;
@@ -310,11 +310,11 @@ export async function generateOptimalSquad(
   options: AutoBuildOptions = {},
 ): Promise<GeneratedSquad> {
   const layout = FORMATIONS.find(item => item.name === formation);
-  if (!layout) throw new Error(`지원하지 않는 포메이션: ${formation}`);
+  if (!layout) throw new Error(`Unsupported formation: ${formation}`);
   totalBudget = totalBudget ?? 0;
-  if (!Number.isFinite(totalBudget) || totalBudget < 0) throw new RangeError('예산은 0 이상이어야 합니다.');
+  if (!Number.isFinite(totalBudget) || totalBudget < 0) throw new RangeError('Budget must be 0 or more.');
   const spendingLimit = totalBudget === 0 ? Infinity : totalBudget;
-  if (!Number.isInteger(minChemistry) || minChemistry < 0 || minChemistry > 33) throw new RangeError('케미스트리는 0~33이어야 합니다.');
+  if (!Number.isInteger(minChemistry) || minChemistry < 0 || minChemistry > 33) throw new RangeError('Chemistry must be between 0 and 33.');
   const groups = Array.isArray(candidates) ? groupCandidatePlayers(candidates) : candidates;
   const excluded = exclusionSet(options, formation);
   const squadOvrRange = validateSquadOvrRange(options.squadOvrRange);
@@ -329,12 +329,12 @@ export async function generateOptimalSquad(
     const entry = existing[position];
     if (!entry?.isLocked) return;
     const fixed = prepareCandidate(rawEntryCard(entry), position, threeBack, entry.isOwned === true, true);
-    if (!fixed) throw new Error('잠긴 선수의 가격 또는 카드 정보를 확인해 주세요.');
+    if (!fixed) throw new Error('Check the price and card details of your locked players.');
     fixedPlayers.set(index, fixed);
   });
   const specialCount = (players: GeneratedPlayer[]) => players.filter(p => p.isIcon || p.isHero).length;
-  if (specialCount([...fixedPlayers.values()]) > maxSpecial) throw new Error('잠긴 아이콘 / 히어로 선수가 설정한 제한보다 많습니다. 잠금을 해제하거나 제한을 늘려주세요.');
-  if (new Set([...fixedPlayers.values()].map(p => p.playerKey)).size !== fixedPlayers.size) throw new Error('잠긴 선수 중 동일한 선수가 중복되어 있습니다.');
+  if (specialCount([...fixedPlayers.values()]) > maxSpecial) throw new Error('Locked Icons / Heroes exceed the limit. Unlock players or increase the limit.');
+  if (new Set([...fixedPlayers.values()].map(p => p.playerKey)).size !== fixedPlayers.size) throw new Error('The same player is locked in multiple positions.');
   const pools: GeneratedPlayer[][] = layout.slots.map(({ position }) => {
     const unique = new Map<string, GeneratedPlayer>();
     const owned = Object.values(existing).filter(entry => entry?.isOwned).map(entry => rawEntryCard(entry!));

@@ -40,7 +40,7 @@ describe('candidate pruning', () => {
     const lockedDb = createCandidateMockDb([]);
     await expect(fetchCandidatePlayers(1000000, allocations, '4-3-3', false, client(lockedDb), {
       excludedCardVersionIds: [90], currentSquad: { ST: { card: { ...mockCandidate(90, ['ST'], 0), player_id: 9 }, isLocked: true } },
-    })).rejects.toThrow('제외된 카드가 스쿼드에 잠겨');
+    })).rejects.toThrow('An excluded card is locked in your squad');
     expect(lockedDb.calls).toHaveLength(0);
   });
   it('deducts locks only from the total, never the open-slot allocation', async () => {
@@ -121,7 +121,7 @@ describe('candidate pruning', () => {
     expect(await fetchCandidatePlayers(0, { FW: 0, MF: 0, DF: 0 }, '4-3-3', false, client(db))).toHaveLength(1);
     expect(db.calls.every(call => call.max === 10000 || call.max === undefined)).toBe(true);
     const failure = createCandidateMockDb([], { message: 'offline' });
-    await expect(fetchCandidatePlayers(1000000, allocations, '4-3-3', false, client(failure))).rejects.toThrow('FW 후보 조회 실패: offline');
+    await expect(fetchCandidatePlayers(1000000, allocations, '4-3-3', false, client(failure))).rejects.toThrow('FW candidate search failed: offline');
   });
 
   it('rejects invalid settings before sending queries', async () => {

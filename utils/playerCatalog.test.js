@@ -24,7 +24,7 @@ test('initial page is one bounded query including card UI data, with no catalog 
   expect(rows[0]).toMatchObject({ ...card, summary_only: true });
   expect(requests).toHaveLength(1);
   expect(requests[0].url.pathname).toBe('/rest/v1/card_versions');
-  expect(requests[0].url.searchParams.get('limit')).toBe('50');
+  expect(requests[0].url.searchParams.get('limit')).toBe('40');
   expect(PLAYER_LIST_SELECT).toContain('player_stats(pac,sho,pas,dri,def,phy)');
   expect(PLAYER_LIST_SELECT).toContain('card_roles');
   expect(PLAYER_LIST_SELECT).toContain('card_playstyles');
@@ -40,7 +40,7 @@ test('rare names use flat player IDs then bounded details, with accent matching 
   expect(requests[0].url.pathname).toBe('/rest/v1/players');
   expect(requests[0].url.searchParams.get('limit')).toBe('201');
   expect(requests[1].url.searchParams.get('player_id')).toBe('in.(100)');
-  expect(requests[1].url.searchParams.get('limit')).toBe('50');
+  expect(requests[1].url.searchParams.get('limit')).toBe('40');
   await fetchPlayerListPage(db, { keyword: 'gross' });
   expect(requests).toHaveLength(2);
 });
@@ -92,7 +92,7 @@ test('full details remain on demand and cached separately from list rows', async
 test('filtered ID hydration preserves rank, rejects partial results and enforces 50-card bounds', async () => {
   const { db, requests } = database([[{ ...card, id: 2 }, card], [card]]);
   expect((await fetchPlayerListByIds(db, [1, 2])).map(row => row.id)).toEqual([1, 2]);
-  await expect(fetchPlayerListByIds(db, [1, 3])).rejects.toThrow('일부 선수');
+  await expect(fetchPlayerListByIds(db, [1, 3])).rejects.toThrow('some player details');
   expect(() => fetchPlayerListByIds(db, Array.from({ length: 51 }, (_, id) => id))).toThrow('50');
   expect(requests).toHaveLength(2);
 });

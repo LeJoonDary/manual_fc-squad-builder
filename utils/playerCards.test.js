@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
 import { fetchPlayerCards, PLAYER_CARD_SELECT } from './playerCards.js';
-import { MODAL_PLAYER_SELECT } from './modalPlayers.js';
+import { PLAYER_LIST_SELECT } from './playerCatalog.js';
 
 test('card queries only request supported club and league columns', () => {
-  for (const select of [PLAYER_CARD_SELECT, MODAL_PLAYER_SELECT]) {
+  for (const select of [PLAYER_CARD_SELECT, PLAYER_LIST_SELECT]) {
     expect(select.match(/clubs\s*\(([^)]+)\)/)[1].replace(/\s/g, '')).toBe('id,name');
     expect(select.match(/leagues\s*\(([^)]+)\)/)[1].replace(/\s/g, '')).toBe('id,name');
   }

@@ -2,7 +2,7 @@ import { getCardBackground } from '../utils/cardBackground.js';
 
 // Shared DOM card component for the Players tab and selection modal.
 export function createPlayerCard(card, {
-  onActivate, onShowDetails = onActivate, actionLabel = '선수 상세 정보 보기', textAffiliations = false,
+  onActivate, onShowDetails = onActivate, actionLabel = 'View player details', textAffiliations = false,
   getCardName, getCardRating, getCardPosition, getChemistryEntityLogo,
   createPlaystyleBadges, unwrapRelation, affiliationCatalog,
 }) {
@@ -39,7 +39,7 @@ export function createPlayerCard(card, {
     const flag = document.createElement('img');
     flag.className = 'browser-player-flag';
     flag.src = card.nation_flag_url;
-    flag.alt = card.nation ? `${card.nation} 국기` : '국기';
+    flag.alt = card.nation ? `${card.nation} flag` : 'flag';
     flag.title = card.nation ?? '';
     flag.width = 24;
     flag.loading = 'lazy';
@@ -79,20 +79,20 @@ export function createPlayerCard(card, {
   const position = document.createElement('strong');
   position.className = 'browser-player-position bg-slate-950/80 text-amber-300 border border-amber-400/80 font-bold';
   position.textContent = card.primary_position || getCardPosition(card) || '-';
-  position.title = '주 포지션';
+  position.title = 'Primary Position';
   positions.append(position);
   for (const secondary of card.secondary_positions ?? []) {
     const badge = document.createElement('span');
     badge.className = 'browser-player-secondary-position bg-slate-900/60 text-slate-200 border border-slate-600/60';
     badge.textContent = secondary;
-    badge.title = '부 포지션';
+    badge.title = 'Alternate Position';
     positions.append(badge);
   }
   if (!card.summary_only) {
     const score = document.createElement('div');
     score.className = 'browser-player-meta-score bg-slate-950/85 text-emerald-400 border border-emerald-500/50 font-extrabold px-2 py-0.5 rounded-md';
-    score.textContent = card.meta_score == null ? '[메타 점수: 미지원]' : `[메타 점수: ${card.meta_score.toFixed(1)}]`;
-    score.title = card.score_position ? `${card.score_position} 기준 · 3백 미적용` : '이 포지션의 가중치가 아직 없습니다.';
+    score.textContent = card.meta_score == null ? '[Meta Score: N/A]' : `[Meta Score: ${card.meta_score.toFixed(1)}]`;
+    score.title = card.score_position ? `${card.score_position} · Excludes 3-back adjustments` : 'Position weights are not available yet.';
     affiliations.append(score);
   }
   content.append(identity, positions, affiliations);
@@ -138,8 +138,8 @@ export function createPlayerCard(card, {
       more.type = 'button';
       more.className = 'browser-player-roles-more';
       more.textContent = `+${ranked.length - 2}`;
-      more.title = '상세정보에서 전체 역할 보기';
-      more.setAttribute('aria-label', `추가 역할 ${ranked.length - 2}개 · 전체 역할 보기`);
+      more.title = 'View all roles in player details';
+      more.setAttribute('aria-label', `${ranked.length - 2} more roles · View all roles`);
       more.addEventListener('click', event => {
         event.stopPropagation();
         onShowDetails(card);

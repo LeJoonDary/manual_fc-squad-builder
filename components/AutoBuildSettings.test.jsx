@@ -28,7 +28,7 @@ describe('Auto Build UI workflow', () => {
   it('defaults the zero-price toggle on, passes changes through and restores it on reset', async () => {
     const toggle = container.querySelector('#exclude-zero-price-cards');
     expect(toggle.checked).toBe(true);
-    expect(toggle.closest('label').nextElementSibling.textContent).toContain('감독 효과 포함');
+    expect(toggle.closest('label').nextElementSibling.textContent).toContain('Include Manager Boost');
     await act(async () => button().click());
     expect(fetchCandidatePlayers.mock.calls[0][5].excludeZeroPriceCards).toBe(true);
     expect(generateOptimalSquad.mock.calls[0][5].excludeZeroPriceCards).toBe(true);
@@ -55,7 +55,7 @@ describe('Auto Build UI workflow', () => {
     await act(async () => list.querySelector('input[type="checkbox"]').click());
     await act(async () => document.querySelector('.exclusion-bulk-actions button').click());
     expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
-    expect(list.textContent).toContain('제외된 카드가 없습니다');
+    expect(list.textContent).toContain('No excluded cards');
     await act(async () => button().click());
     expect(fetchCandidatePlayers.mock.calls[1][5].excludedCardVersionIds).toEqual([]);
   });
@@ -67,12 +67,12 @@ describe('Auto Build UI workflow', () => {
     await act(async () => excludedCardVersionsStore.ban(77, 'Newly excluded'));
     await act(async () => resolve(result));
     expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="alert"]').textContent).toContain('제외 목록이 변경');
+    expect(container.querySelector('[role="alert"]').textContent).toContain('Exclusions changed');
     expect(button().disabled).toBe(false);
   });
   it('keeps the budget input and its listeners inside the accordion across toggles', async () => {
     const budgetSection = document.createElement('section');
-    budgetSection.innerHTML = '<input aria-label="예산 상한" />';
+    budgetSection.innerHTML = '<input aria-label="Max Budget" />';
     const input = budgetSection.querySelector('input');
     const onInput = vi.fn();
     input.addEventListener('input', onInput);
@@ -82,7 +82,7 @@ describe('Auto Build UI workflow', () => {
     await act(async () => container.querySelector('.auto-build-heading').click());
     expect(details.hidden).toBe(false);
     expect(details.firstElementChild.contains(input)).toBe(true);
-    expect(container.querySelector('.auto-build-total').textContent).toContain('예산 무제한');
+    expect(container.querySelector('.auto-build-total').textContent).toContain('Unlimited budget');
     expect(container.querySelector('.auto-build-ratios').disabled).toBe(true);
     input.value = '123';
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -114,18 +114,18 @@ describe('Auto Build UI workflow', () => {
     await act(async () => root.render(<AutoBuildSettings {...props} getTargetBudget={() => 10000000}
       getCurrentSquad={() => currentSquad} />));
     await act(async () => container.querySelector('.auto-build-heading').click());
-    expect(container.querySelector('.auto-build-total').textContent).toContain('총 잔여 예산 7,000,000 C');
+    expect(container.querySelector('.auto-build-total').textContent).toContain('Remaining Budget 7,000,000 C');
     await act(async () => {
       currentSquad.LCB.isOwned = true;
       window.dispatchEvent(new Event('auto-build-context-change'));
     });
-    expect(container.querySelector('.auto-build-total').textContent).toContain('총 잔여 예산 10,000,000 C');
+    expect(container.querySelector('.auto-build-total').textContent).toContain('Remaining Budget 10,000,000 C');
     await act(async () => {
       currentSquad.LCB.isOwned = false;
       currentSquad.LCB.isLocked = false;
       window.dispatchEvent(new Event('auto-build-context-change'));
     });
-    expect(container.querySelector('.auto-build-total').textContent).toContain('락 선수 비용 0 C');
+    expect(container.querySelector('.auto-build-total').textContent).toContain('Locked Player Cost 0 C');
   });
 
   it('applies a completed cheap fallback and shows the budget shortfall without an error', async () => {
@@ -134,7 +134,7 @@ describe('Auto Build UI workflow', () => {
     await act(async () => button().click());
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(fallback, expect.anything());
     expect(container.querySelector('[role="alert"]')).toBeNull();
-    expect(container.querySelector('[role="status"]').textContent).toContain('100,000 C 초과');
+    expect(container.querySelector('[role="status"]').textContent).toContain('100,000 C Over Budget');
   });
   it('accepts coin amounts and rejects allocations above the total budget', async () => {
     await act(async () => container.querySelector('.auto-build-heading').click());
@@ -148,7 +148,7 @@ describe('Auto Build UI workflow', () => {
     expect(input.value).toBe('200,000');
     await setValue('900000');
     expect(input.value).toBe('200,000');
-    expect(container.querySelector('[role="alert"]').textContent).toContain('총 잔여 예산');
+    expect(container.querySelector('[role="alert"]').textContent).toContain('remaining budget');
     await act(async () => button().click());
     expect(fetchCandidatePlayers.mock.calls[0][1]).toEqual({ FW: 200000, MF: 333333, DF: 333334 });
   });
@@ -181,7 +181,7 @@ describe('Auto Build UI workflow', () => {
     fetchCandidatePlayers.mockImplementation(() => new Promise(done => { resolve = done; }));
     await act(async () => button().click());
     expect(button().disabled).toBe(true);
-    expect(button().textContent).toContain('스쿼드 구성 중');
+    expect(button().textContent).toContain('Building Squad');
     expect(container.querySelector('.auto-build-spinner')).not.toBeNull();
     await act(async () => button().click());
     expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
@@ -190,7 +190,7 @@ describe('Auto Build UI workflow', () => {
     expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(result, { snapshot: 'snapshot', formation: '4-3-3', totalBudget: 1000000 });
     expect(button().disabled).toBe(false);
-    expect(container.querySelector('[role="status"]').textContent).toContain('완료');
+    expect(container.querySelector('[role="status"]').textContent).toContain('Squad built successfully!');
   });
 
   it('uses unlimited mode at zero budget', async () => {
@@ -205,7 +205,7 @@ describe('Auto Build UI workflow', () => {
     generateOptimalSquad.mockResolvedValue({ success: false });
     await act(async () => button().click());
     expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="alert"]').textContent).toBe('조건을 만족하는 스쿼드를 찾지 못했습니다. 예산을 늘리거나 케미스트리 조건을 낮춰주세요.');
+    expect(container.querySelector('[role="alert"]').textContent).toBe('No squad meets your requirements. Increase your budget or lower the chemistry target.');
     expect(button().disabled).toBe(false);
   });
 
@@ -215,9 +215,9 @@ describe('Auto Build UI workflow', () => {
     expect(container.querySelector('[role="alert"]').textContent).toBe('네트워크 오류');
     expect(button().disabled).toBe(false);
     expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
-    props.applyAutoBuildResult.mockImplementationOnce(() => { throw new Error('스쿼드가 변경되었습니다.'); });
+    props.applyAutoBuildResult.mockImplementationOnce(() => { throw new Error('스쿼드가 changed되었습니다.'); });
     await act(async () => button().click());
-    expect(container.querySelector('[role="alert"]').textContent).toContain('변경');
+    expect(container.querySelector('[role="alert"]').textContent).toContain('changed');
     expect(button().disabled).toBe(false);
     await act(async () => button().click());
     expect(container.querySelector('[role="alert"]')).toBeNull();

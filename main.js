@@ -7,7 +7,7 @@ import { createPitchMiniCard } from './components/PitchMiniCard.js';
 import { getCardBackground } from './utils/cardBackground.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { loadPlayerDetail } from './utils/playerCatalog.js';
-import { createPlayerPagination } from './utils/playerPagination.js';
+import { createPlayerPagination, PLAYER_PAGE_SIZE } from './utils/playerPagination.js';
 import { createPlayerDetailModal } from './components/PlayerDetailModal.js';
 import { STAT_KEYS, defaultStats, activeStats, renderStatInputs } from './utils/statFilters.js';
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
@@ -15,7 +15,7 @@ import { fetchPlaystyleOptions } from './utils/playstyleFilters.js';
 import { createPlaystyleIcons } from './components/PlaystyleIcons.js';
 import { renderPlaystyleGrid } from './components/PlaystyleFilterGrid.js';
 import { PLAYER_CARD_SELECT } from './utils/playerCards.js';
-import { createDefaultFilters, fetchPlayers } from './utils/playerFilters.js';
+import { createDefaultFilters, fetchPlayersPage } from './utils/playerFilters.js';
 import { getValueScoreGrade } from './utils/playerSearch.js';
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
@@ -68,7 +68,8 @@ const playerResultCount = document.querySelector('#players-result-count');
 const playerLoadMore = document.querySelector('#players-load-more');
 const playerPaginationStatus = document.querySelector('#players-pagination-status');
 let playerSearchAbort;
-playerLoadMore.addEventListener('click', () => searchPlayers());
+const playersPager = createPlayerPagination();
+playerLoadMore.addEventListener('click', () => searchPlayers(capturePlayerPanelScrollPositions(), true));
 const filterBarMount = document.querySelector('#filter-bar-mount');
 const filterBar = document.querySelector('#players-filters');
 const filtersContent = document.querySelector('#filters-content');
@@ -156,7 +157,7 @@ initialFormation.slots.forEach(({ position, x, y }) => {
   slot.style.left = `${x}%`;
   slot.style.top = `${y}%`;
   if (slot.firstElementChild) slot.firstElementChild.textContent = formatSlotPosition(position);
-  slot.setAttribute('aria-label', `${formatSlotPosition(position)} 선수 선택`);
+  slot.setAttribute('aria-label', `Select ${formatSlotPosition(position)}`);
 });
 const pitchFrame = document.querySelector('.pitch-scroll');
 const squadWorkspace = document.querySelector('.squad-workspace');
@@ -193,23 +194,23 @@ function getSquadSnapshot() {
 
 function applyAutoBuildResult(result, request) {
   if (request.snapshot !== getSquadSnapshot() || request.formation !== currentFormation || request.totalBudget !== targetBudget) {
-    throw new Error('구성 중 포메이션, 예산 또는 스쿼드가 변경되었습니다. 현재 설정으로 다시 실행해 주세요.');
+    throw new Error('Formation, budget or squad changed during the build. Try again with your current settings.');
   }
   const slots = [...document.querySelectorAll('.pitch .slot')];
   // Validate and normalize every entry before changing the current squad.
   if ((!result.success && result.status !== 'fallback') || result.squad.length !== 11 || new Set(result.squad.map(p => p.slotPosition)).size !== 11) {
-    throw new Error('완성된 11명 스쿼드를 확인할 수 없습니다. 다시 시도해 주세요.');
+    throw new Error('Unable to verify the completed 11-player squad. Please try again.');
   }
   const placements = result.squad.map(player => {
     const slot = slots.find(item => item.dataset.position === player.slotPosition);
     const previous = squad[player.slotPosition];
     if (previous?.isLocked && String(previous.card_id) !== String(player.id)) {
-      throw new Error('잠긴 선수는 교체할 수 없습니다. 다시 실행해 주세요.');
+      throw new Error('Locked players cannot be replaced. Please try again.');
     }
     const retained = Object.values(squad).find(entry => entry && String(entry.card_id) === String(player.id));
     const card = retained?.card ?? normalizeBrowserPlayerCard(player.card);
     if (!slot || !card || (!previous?.isLocked && !isCardInSlotPosition(card, player.slotPosition))) {
-      throw new Error('선수의 포지션 정보를 확인할 수 없습니다. 다시 시도해 주세요.');
+      throw new Error('Player position details are unavailable. Please try again.');
     }
     return { slot, card, isOwned: player.isOwned === true, isLocked: previous?.isLocked === true };
   });
@@ -227,7 +228,7 @@ function applyAutoBuildResult(result, request) {
   managerState = nextManager;
   renderManagerSlot();
   updateSquadChemistry();
-  status.textContent = result.status === 'fallback' ? '저가 선수 11명으로 채웠습니다. 총비용과 케미스트리를 확인해 주세요.' : '자동 완성된 선수 11명과 감독 설정을 적용했습니다.';
+  status.textContent = result.status === 'fallback' ? 'Added 11 budget players. Review the total cost and chemistry.' : 'Applied the auto-built squad of 11 players and manager settings.';
 }
 function applyFormation(formation) {
   closeModal();
@@ -244,7 +245,7 @@ function applyFormation(formation) {
     slot.dataset.position = position;
     slot.style.left = `${x}%`;
     slot.style.top = `${y}%`;
-    slot.setAttribute('aria-label', `${formatSlotPosition(position)} 선수 선택`);
+    slot.setAttribute('aria-label', `Select ${formatSlotPosition(position)}`);
     bindSquadSlot(slot);
     pitch.append(slot);
     const entry = nextSquad[position];
@@ -258,14 +259,14 @@ function applyFormation(formation) {
   updateAutoBuildFormation(currentFormation);
   document.querySelector('#formation-current').textContent = currentFormation;
   document.querySelector('.formation-label').textContent = currentFormation;
-  document.querySelector('#squad-builder-page h1').textContent = `${currentFormation} 스쿼드`;
-  pitch.setAttribute('aria-label', `${currentFormation} 포메이션`);
+  document.querySelector('#squad-builder-page h1').textContent = `${currentFormation} Squad`;
+  pitch.setAttribute('aria-label', `${currentFormation} Formation`);
   formationMenu.querySelectorAll('button').forEach(button =>
     button.setAttribute('aria-pressed', String(button.textContent === currentFormation)));
   formationPicker.open = false;
   dragOriginPosition = null;
   updateSquadChemistry();
-  status.textContent = `${currentFormation} 포메이션으로 변경했습니다. 선수의 새 포지션과 케미스트리를 확인하세요.`;
+  status.textContent = `${currentFormation} formation selected. Review player positions and chemistry.`;
   formationPicker.querySelector('summary').focus();
 }
 FORMATIONS.forEach(formation => {
@@ -396,7 +397,7 @@ document.querySelector('#detailed-stats-form').addEventListener('submit', event 
       values[key][bound] = input.value === '' ? '' : Number(input.value);
     }
     if (values[key].min !== '' && values[key].max !== '' && values[key].min > values[key].max) {
-      document.querySelector('#stats-validation').textContent = key + ': Min은 Max보다 클 수 없습니다.';
+      document.querySelector('#stats-validation').textContent = key + ': Min cannot exceed Max.';
       return;
     }
   }
@@ -522,7 +523,12 @@ function schedulePlayerSearch() {
   window.clearTimeout(playerSearchTimer);
   ++playerSearchRequest;
   playerSearchAbort?.abort();
+  playersPager.reset();
   playerLoadMore.disabled = true;
+  playerLoadMore.hidden = true;
+  playerPaginationStatus.textContent = '';
+  playerGrid.replaceChildren();
+  resetPlayerResultsScroll();
   playerGrid.setAttribute('aria-busy', 'true');
   setPlayerGridLoading();
   playerSearchTimer = window.setTimeout(searchPlayers, 200);
@@ -610,7 +616,7 @@ async function handleHasAllRolesChange() {
     await searchPlayers(scrollPositions);
   } catch (error) {
     console.error('Has All Selected Roles toggle error:', error);
-    renderPlayerGridMessage('역할 필터를 적용할 수 없습니다. 다시 시도해 주세요.', true);
+    renderPlayerGridMessage('Unable to apply role filters. Please try again.', true);
   }
 }
 
@@ -634,9 +640,9 @@ function setupFilterCommandBar() {
   const roleHeading = document.createElement('div');
   roleHeading.className = 'position-role-heading';
   const roleTitle = document.createElement('strong');
-  roleTitle.textContent = '역할';
+  roleTitle.textContent = 'Roles';
   const roleOptional = document.createElement('span');
-  roleOptional.textContent = '선택 사항';
+  roleOptional.textContent = 'Optional';
   roleHeading.append(roleTitle, roleOptional);
   roleSubfilter.append(roleHeading, ...rolesPanel.querySelector('.filter-accordion-content').children);
   positionsPanel.querySelector('.filter-accordion-content').append(roleSubfilter);
@@ -644,14 +650,14 @@ function setupFilterCommandBar() {
   renderRoleFilterRows();
 
   const commands = {
-    positions: { icon: '⚽', label: '포지션 / Roles' },
-    ovr: { icon: '📊', label: 'OVR / 가격' },
-    'sm-wf': { icon: '★', label: '개인기 / 약발' },
+    positions: { icon: '⚽', label: 'Position / Roles' },
+    ovr: { icon: '📊', label: 'OVR / Price' },
+    'sm-wf': { icon: '★', label: 'SM / WF' },
     playstyles: { icon: '✨', label: 'PlayStyles' },
-    affiliation: { icon: '🌐', label: '소속 / 국적' },
-    rarity: { icon: '🃏', label: '카드 등급' },
-    stats: { icon: '📈', label: '세부 스탯' },
-    miscellaneous: { icon: '⚙️', label: '피지컬 / 기타' },
+    affiliation: { icon: '🌐', label: 'Affiliations' },
+    rarity: { icon: '🃏', label: 'Card Rarity' },
+    stats: { icon: '📈', label: 'Detailed Stats' },
+    miscellaneous: { icon: '⚙️', label: 'Physical & Body' },
   };
 
   Object.entries(commands).forEach(([section, command]) => {
@@ -678,7 +684,7 @@ function setupFilterCommandBar() {
     trigger.setAttribute('aria-haspopup', 'dialog');
     trigger.setAttribute('aria-expanded', 'false');
     content.setAttribute('role', 'dialog');
-    content.setAttribute('aria-label', `${command.label} 필터`);
+    content.setAttribute('aria-label', `${command.label} filters`);
     // React PopoverContent의 onPointerDown/onClick stopPropagation과 동일한 보호 계층입니다.
     // 슬라이더, input, button의 기본 동작은 취소하지 않고 문서 바깥 클릭 감지로의 전파만 막습니다.
     content.addEventListener('pointerdown', (event) => event.stopPropagation());
@@ -687,12 +693,12 @@ function setupFilterCommandBar() {
 
   document.querySelectorAll('[data-rating-filter]').forEach((button) => {
     const rating = Number(button.dataset.ratingValue);
-    const type = button.dataset.ratingFilter === 'sm' ? '개인기' : '약발';
+    const type = button.dataset.ratingFilter === 'sm' ? 'Skill Moves' : 'Weak Foot';
     button.textContent = '★'.repeat(rating);
-    button.setAttribute('aria-label', `${type} ${rating}성 이상`);
+    button.setAttribute('aria-label', `${type} ${rating} stars or higher`);
   });
 
-  filtersContent.setAttribute('aria-label', '선수 필터 명령 바');
+  filtersContent.setAttribute('aria-label', 'Player filter bar');
   updateCommandSummaries();
 }
 
@@ -714,10 +720,10 @@ function closeCommandPopovers() {
 function updateCommandSummaries() {
   const summaries = {
     positions: filters.positions.size
-      ? `${filters.positions.size}${filters.selectedRoles.length ? ` · 역할 ${filters.selectedRoles.length}` : ''}` : '',
+      ? `${filters.positions.size}${filters.selectedRoles.length ? ` · Roles ${filters.selectedRoles.length}` : ''}` : '',
     ovr: filters.minOvr !== '' || filters.maxOvr !== ''
       ? `${filters.minOvr || 'Any'}–${filters.maxOvr || 'Any'}`
-      : (filters.minPrice !== '' || filters.maxPrice !== '' ? '가격 설정' : ''),
+      : (filters.minPrice !== '' || filters.maxPrice !== '' ? 'Price Set' : ''),
     'sm-wf': filters.minSm || filters.minWf
       ? `SM ${filters.minSm || '–'} · WF ${filters.minWf || '–'}` : '',
     playstyles: (filters.selectedNormalIds.length + filters.selectedPlusIds.length) || '',
@@ -739,32 +745,62 @@ function updateCommandSummaries() {
   });
 }
 
-async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions()) {
+function resetPlayerResultsScroll() {
+  for (const selector of ['.players-results', '.players-layout']) {
+    const panel = document.querySelector(selector);
+    if (panel) panel.scrollTop = 0;
+  }
+}
+
+async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions(), append = false) {
+  if (append && (playersPager.state.loading || !playersPager.state.hasMore)) return;
   window.clearTimeout(playerSearchTimer);
   playerSearchAbort?.abort();
+  if (!append) {
+    playersPager.reset();
+    scrollPositions = { ...scrollPositions, results: 0 };
+    resetPlayerResultsScroll();
+  }
+  const ticket = playersPager.begin();
+  if (!ticket) return;
   const requestId = ++playerSearchRequest;
   playerSearchAbort = new AbortController();
   const signal = playerSearchAbort.signal;
   updateCommandSummaries();
-  playerLoadMore.hidden = true;
+  playerLoadMore.hidden = false;
   playerLoadMore.disabled = true;
-  playerPaginationStatus.textContent = '';
+  playerLoadMore.textContent = 'Loading players...';
   playerGrid.setAttribute('aria-busy', 'true');
-  setPlayerGridLoading();
+  if (!append || !playersPager.state.cards.length) {
+    playerGrid.replaceChildren();
+    playerPaginationStatus.textContent = '';
+    setPlayerGridLoading();
+  }
   try {
-    const rows = await fetchPlayers(supabase, filters, signal);
+    const { rows, total } = await fetchPlayersPage(supabase, filters, { offset: ticket.offset, signal });
     if (requestId !== playerSearchRequest) return;
-    const cards = rows.slice(0, 50).map(normalizeBrowserPlayerCard).filter(Boolean);
-    renderPlayerGrid(cards, scrollPositions);
-    playerResultCount.textContent = cards.length + '명 표시';
-    playerPaginationStatus.textContent = '모든 조건을 만족하는 카드 중 오버롤 상위 50개까지 표시합니다.';
+    const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean);
+    const previousCount = playersPager.state.cards.length;
+    if (!playersPager.complete(ticket, rows, cards, total)) return;
+    if (append && previousCount) {
+      for (const card of playersPager.state.cards.slice(previousCount)) {
+        playerGrid.append(buildPlayerCard(card, { onActivate: playerDetail.open }));
+      }
+    } else renderPlayerGrid(playersPager.state.cards, scrollPositions);
+    const loaded = playersPager.state.cards.length.toLocaleString('en-US');
+    const matching = total.toLocaleString('en-US');
+    playerResultCount.textContent = `Showing ${loaded} of ${matching}`;
+    playerPaginationStatus.textContent = `Showing ${loaded} of ${matching} matching cards, ranked by OVR.`;
+    playerLoadMore.hidden = !playersPager.state.hasMore;
+    playerLoadMore.textContent = `Load More (${Math.min(PLAYER_PAGE_SIZE, Math.max(0, total - playersPager.state.offset))} Players)`;
   } catch (error) {
     if (requestId !== playerSearchRequest || signal.aborted) return;
     console.error('Player filter error:', error?.message ?? error);
-    renderPlayerGridMessage('선수 목록을 불러오지 못했습니다. 다시 시도해 주세요.', true, scrollPositions);
-    playerPaginationStatus.textContent = 'DB 검색에 실패했습니다. 다시 시도해 주세요.';
+    playersPager.fail(ticket);
+    if (!playersPager.state.cards.length) renderPlayerGridMessage('Unable to load players. Please try again.', true, scrollPositions);
+    playerPaginationStatus.textContent = 'Search failed. Please try again.';
     playerLoadMore.hidden = false;
-    playerLoadMore.textContent = '다시 시도';
+    playerLoadMore.textContent = 'Try Again';
   } finally {
     if (requestId === playerSearchRequest) {
       playerLoadMore.disabled = false;
@@ -775,15 +811,15 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
 }
 
 async function loadPlaystyleFilterOptions() {
-  playstyleFilterGrid.textContent = '플레이스타일을 불러오는 중…';
+  playstyleFilterGrid.textContent = 'Loading PlayStyles…';
   try {
     renderPlaystyleFilterButtons(await fetchPlaystyleOptions(supabase));
   } catch (error) {
     console.error('Playstyle master lookup failed:', error);
-    playstyleFilterGrid.textContent = '플레이스타일을 불러오지 못했습니다. ';
+    playstyleFilterGrid.textContent = 'Unable to load PlayStyles. ';
     const retry = document.createElement('button');
     retry.type = 'button';
-    retry.textContent = '다시 시도';
+    retry.textContent = 'Try Again';
     retry.addEventListener('click', loadPlaystyleFilterOptions);
     playstyleFilterGrid.append(retry);
   }
@@ -809,7 +845,7 @@ function replaceMasterOptions(select, placeholder, rows, selectedValue) {
 }
 
 function renderClubOptions() {
-  replaceMasterOptions(clubFilter, '전체 클럽', clubsForLeague(affiliationCatalog.clubs, leagueFilter.value), filters.club);
+  replaceMasterOptions(clubFilter, 'All Clubs', clubsForLeague(affiliationCatalog.clubs, leagueFilter.value), filters.club);
   filters.club = clubFilter.value;
 }
 
@@ -821,18 +857,18 @@ async function loadAffiliationFilterOptions() {
     console.error('Affiliation master lookup failed:', error);
     const message = document.createElement('button');
     message.type = 'button';
-    message.textContent = '소속 목록 불러오기 실패 · 다시 시도';
+    message.textContent = 'Unable to load affiliations · Try Again';
     message.addEventListener('click', () => { message.remove(); loadAffiliationFilterOptions(); });
     nationFilter.parentElement.append(message);
   }
 }
 
 function renderAffiliationOptions() {
-  replaceMasterOptions(nationFilter, '전체 국가', affiliationCatalog.nations, filters.nation);
-  replaceMasterOptions(leagueFilter, '전체 리그', affiliationCatalog.leagues, filters.league);
+  replaceMasterOptions(nationFilter, 'All Nations', affiliationCatalog.nations, filters.nation);
+  replaceMasterOptions(leagueFilter, 'All Leagues', affiliationCatalog.leagues, filters.league);
   renderSearchableSelect(nationFilter, affiliationCatalog.nations);
-  replaceMasterOptions(managerNationSelect, '국가를 선택하세요', affiliationCatalog.nations, managerState?.nationId ?? '');
-  replaceMasterOptions(managerLeagueSelect, '리그를 선택하세요', affiliationCatalog.leagues, managerState?.leagueId ?? '');
+  replaceMasterOptions(managerNationSelect, 'Select a nation', affiliationCatalog.nations, managerState?.nationId ?? '');
+  replaceMasterOptions(managerLeagueSelect, 'Select a league', affiliationCatalog.leagues, managerState?.leagueId ?? '');
   renderSearchableSelect(managerNationSelect, affiliationCatalog.nations);
   renderSearchableSelect(managerLeagueSelect, affiliationCatalog.leagues);
   renderClubOptions();
@@ -849,7 +885,7 @@ function renderRoleFilterRows() {
   allChip.className = 'role-all-chip';
   allChip.classList.toggle('is-selected', filters.selectedRoles.length === 0);
   allChip.setAttribute('aria-pressed', String(filters.selectedRoles.length === 0));
-  allChip.textContent = '전체 / 지정 안 함';
+  allChip.textContent = 'All / Any';
   allChip.addEventListener('click', () => {
     filters.selectedRoles = [];
     filters.hasAllRoles = false;
@@ -878,7 +914,7 @@ function renderRoleFilterRows() {
 
       const levels = document.createElement('div');
       levels.className = 'role-level-toggles';
-      levels.setAttribute('aria-label', `${pos} ${roleName} 역할 레벨`);
+      levels.setAttribute('aria-label', `${pos} ${roleName} Role level`);
       [1, 2].forEach((level) => {
         const selected = isRoleSelected(pos, roleName, level);
         const levelButton = document.createElement('button');
@@ -886,7 +922,7 @@ function renderRoleFilterRows() {
         levelButton.textContent = level === 2 ? 'Role++' : 'Role+';
         levelButton.classList.toggle('is-selected', selected);
         levelButton.setAttribute('aria-pressed', String(selected));
-        levelButton.setAttribute('aria-label', `${pos} ${roleName} ${level === 2 ? 'Role++' : 'Role+'} 필터`);
+        levelButton.setAttribute('aria-label', `${pos} ${roleName} ${level === 2 ? 'Role++' : 'Role+'} filters`);
         levelButton.addEventListener('click', () => {
           toggleRoleFilter(pos, roleName, level);
           renderRoleFilterRows();
@@ -988,24 +1024,24 @@ function normalizeBrowserPlayerCard(cardVersion) {
 
 function createValueScoreBadge(valueScore) {
   const grade = getValueScoreGrade(valueScore);
-  const tone = { '가성비 좋음': 'good', '가성비 보통': 'average', '가성비 좋지 않음': 'poor' }[grade];
+  const tone = { 'Good Value': 'good', 'Average Value': 'average', 'Poor Value': 'poor' }[grade];
   const badge = document.createElement('small');
   badge.className = `value-score-badge value-score-${tone}`;
   badge.textContent = grade;
-  badge.setAttribute('aria-label', `가성비 등급: ${grade}`);
+  badge.setAttribute('aria-label', `Value rating: ${grade}`);
   return badge;
 }
 
 function renderPlayerGrid(cards, scrollPositions = null) {
   playerGrid.classList.remove('is-loading');
   playerGrid.replaceChildren();
-  playerResultCount.textContent = `${cards.length}명의 선수를 찾았습니다.`;
+  playerResultCount.textContent = `Showing ${cards.length}`;
   if (!cards.length) {
-    renderPlayerGridMessage('조건에 맞는 선수가 없습니다. 필터를 조정해 보세요.', false, scrollPositions);
+    renderPlayerGridMessage('No matching players. Try adjusting your filters.', false, scrollPositions);
     return;
   }
 
-  cards.slice(0, 50).forEach((card) => {
+  cards.forEach((card) => {
     playerGrid.append(buildPlayerCard(card, { onActivate: playerDetail.open }));
   });
   restorePlayerPanelScrollPositions(scrollPositions);
@@ -1017,17 +1053,17 @@ function renderPlayerGridMessage(message, isError = false, scrollPositions = nul
   text.className = isError ? 'players-grid-message error' : 'players-grid-message';
   text.textContent = message;
   playerGrid.replaceChildren(text);
-  if (isError) playerResultCount.textContent = '검색 결과를 불러오지 못했습니다.';
+  if (isError) playerResultCount.textContent = 'Unable to load search results.';
   restorePlayerPanelScrollPositions(scrollPositions);
 }
 
 function setPlayerGridLoading() {
   if (playerGrid.childElementCount) {
     playerGrid.classList.add('is-loading');
-    playerResultCount.textContent = '선수 목록을 불러오는 중입니다…';
+    playerResultCount.textContent = 'Loading players…';
     return;
   }
-  renderPlayerGridMessage('선수 목록을 불러오는 중입니다…');
+  renderPlayerGridMessage('Loading players…');
 }
 
 function capturePlayerPanelScrollPositions() {
@@ -1058,9 +1094,9 @@ async function openPlayerModal(slot) {
   const position = slot.dataset.position;
   modal.hidden = false;
   requestAnimationFrame(() => modalPlayerSearchInput.focus());
-  modalTitle.textContent = `${formatSlotPosition(position)} 선수 선택`;
-  modalDescription.textContent = `${position} 포지션 카드를 불러오는 중…`;
-  renderMessage('선수 목록을 불러오는 중입니다…');
+  modalTitle.textContent = `Select ${formatSlotPosition(position)}`;
+  modalDescription.textContent = `Loading ${position} players…`;
+  renderMessage('Loading players…');
 
   resetModalSearch();
   await loadModalPlayerPage();
@@ -1073,7 +1109,7 @@ function resetModalSearch() {
   modalPager.reset();
   modalPlayerCards = [];
   modalLoadMore.hidden = true;
-  renderMessage('선수 목록을 불러오는 중입니다…');
+  renderMessage('Loading players…');
 }
 
 async function loadModalPlayerPage() {
@@ -1084,7 +1120,7 @@ async function loadModalPlayerPage() {
   const position = activeSlot.dataset.position;
   modalAbort = new AbortController();
   modalLoadMore.disabled = true;
-  modalLoadMore.textContent = '불러오는 중…';
+  modalLoadMore.textContent = 'Loading…';
   try {
     const rows = await fetchModalPlayerPage(supabase, {
       position: normalizePosition(position), keyword: modalPlayerSearchInput.value,
@@ -1095,21 +1131,21 @@ async function loadModalPlayerPage() {
     const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean)
       .filter(card => !selectedCardIds.has(String(card.id)));
     if (!modalPager.complete(ticket, rows, cards)) return;
-    modalDescription.textContent = `${normalizePosition(position)} · ${modalPager.state.cards.length}개 표시 · 주 포지션 기준`;
+    modalDescription.textContent = `${normalizePosition(position)} · ${modalPager.state.cards.length} Players · Primary Position`;
     renderPlayerList(modalPager.state.cards);
     if (!modalPager.state.cards.length) renderMessage(modalPager.state.hasMore
-      ? '현재 페이지에 선택 가능한 선수가 없습니다. 더 보기를 눌러 주세요.'
-      : '조건에 맞는 선수가 없습니다.');
+      ? 'No available players on this page. Select Load More to continue.'
+      : 'No matching players.');
   } catch (error) {
     if (requestId !== modalRequest || modal.hidden) return;
     modalPager.fail(ticket);
-    modalDescription.textContent = '선수 목록을 불러오지 못했습니다. 더 보기로 다시 시도해 주세요.';
-    if (!modalPager.state.cards.length) renderMessage('DB 연결 오류: ' + error.message, true);
+    modalDescription.textContent = 'Unable to load players. Select Load More to try again.';
+    if (!modalPager.state.cards.length) renderMessage('Database connection error: ' + error.message, true);
   } finally {
     if (requestId === modalRequest && !modal.hidden) {
       modalLoadMore.hidden = !modalPager.state.hasMore;
       modalLoadMore.disabled = false;
-      modalLoadMore.textContent = '더 보기 (30명)';
+      modalLoadMore.textContent = 'Load More (30 Players)';
     }
   }
 }
@@ -1374,7 +1410,7 @@ function renderFilteredPlayerList() {
   playerList.replaceChildren();
   modalPlayerCards.forEach(card => {
     const article = buildPlayerCard(card, {
-      actionLabel: '선수 선택',
+      actionLabel: 'Select Player',
       textAffiliations: false,
       onActivate: async () => {
         if (!activeSlot) return;
@@ -1385,12 +1421,12 @@ function renderFilteredPlayerList() {
         try {
           const detail = normalizeBrowserPlayerCard(await loadPlayerDetail(supabase, card.id));
           if (selectionId !== modalSelectionRequest || requestId !== modalRequest || activeSlot !== slot || modal.hidden) return;
-          if (!detail) throw new Error('선수 정보를 불러오지 못했습니다.');
+          if (!detail) throw new Error('Unable to load player details.');
           placeCard(slot, detail);
-          status.textContent = `${getCardName(detail)} 선수를 ${slot.dataset.position} 슬롯에 배치했습니다.`;
+          status.textContent = `Added ${getCardName(detail)} at ${slot.dataset.position}.`;
           closeModal();
         } catch (error) {
-          if (selectionId === modalSelectionRequest && requestId === modalRequest) modalDescription.textContent = `선수 정보를 불러오지 못했습니다. 다시 선택해 주세요. (${error.message})`;
+          if (selectionId === modalSelectionRequest && requestId === modalRequest) modalDescription.textContent = `Unable to load player details. Please select the player again. (${error.message})`;
         } finally {
           article.removeAttribute('aria-busy');
         }
@@ -1424,7 +1460,7 @@ function handleRemovePlayer(event, slotKey) {
   if (!slot) return;
 
   resetSlot(slot, false);
-  status.textContent = `${slotKey} 슬롯에서 선수를 제거했습니다.`;
+  status.textContent = `Removed player from ${slotKey}.`;
   updateSquadChemistry();
 }
 
@@ -1481,14 +1517,14 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   const removeButton = document.createElement('button');
   removeButton.className = 'remove-player';
   removeButton.type = 'button';
-  removeButton.setAttribute('aria-label', `${name} 선수 제거`);
+  removeButton.setAttribute('aria-label', `Remove ${name}`);
   removeButton.textContent = '×';
   removeButton.addEventListener('click', (event) => handleRemovePlayer(event, slot.dataset.position));
   const detailButton = document.createElement('button');
   detailButton.className = 'detail-player';
   detailButton.type = 'button';
-  detailButton.setAttribute('aria-label', name + ' 선수 상세 보기');
-  detailButton.title = '상세 보기';
+  detailButton.setAttribute('aria-label', 'View details for ' + name);
+  detailButton.title = 'View details';
   detailButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg>';
   detailButton.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -1517,7 +1553,7 @@ function handleTogglePlayerLock(event, slot) {
   const isLocked = toggleSquadSlotLock(entry);
   window.dispatchEvent(new Event('auto-build-context-change'));
   updateSlotLockUI(slot);
-  status.textContent = `${getCardName(entry.card)} 선수를 ${isLocked ? '고정했습니다.' : '고정 해제했습니다.'}`;
+  status.textContent = `${getCardName(entry.card)} ${isLocked ? 'locked.' : 'unlocked.'}`;
 }
 
 function updateSlotLockUI(slot) {
@@ -1531,7 +1567,7 @@ function updateSlotLockUI(slot) {
   if (lockButton) {
     lockButton.textContent = isLocked ? '🔒' : '🔓';
     lockButton.dataset.tooltip = isLocked ? 'Unlock' : 'Lock';
-    lockButton.setAttribute('aria-label', `${getCardName(entry.card)} 선수 ${isLocked ? '고정 해제' : '고정'}`);
+    lockButton.setAttribute('aria-label', `${isLocked ? 'Unlock' : 'Lock'} ${getCardName(entry.card)}`);
     lockButton.setAttribute('aria-pressed', String(isLocked));
   }
   if (removeButton) removeButton.hidden = isLocked;
@@ -1544,7 +1580,7 @@ function handleTogglePlayerOwned(event, slot) {
   entry.isOwned = !entry.isOwned;
   updateSlotOwnedUI(slot);
   updateSquadChemistry();
-  status.textContent = `${getCardName(entry.card)} 선수를 ${entry.isOwned ? '보유 중으로 설정했습니다.' : '미보유로 설정했습니다.'}`;
+  status.textContent = `${getCardName(entry.card)} marked as ${entry.isOwned ? 'owned.' : 'not owned.'}`;
 }
 
 function updateSlotOwnedUI(slot) {
@@ -1557,8 +1593,8 @@ function updateSlotOwnedUI(slot) {
   slot.classList.toggle('is-owned', isOwned);
   if (ownedButton) {
     ownedButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m7.5 12.2 3 3 6-6.4"></path></svg>';
-    ownedButton.dataset.tooltip = isOwned ? '보유 중 (비용 0원)' : '미보유 (비용 포함)';
-    ownedButton.setAttribute('aria-label', `${getCardName(entry.card)} 선수 ${isOwned ? '미보유로 변경' : '보유 중으로 변경'}`);
+    ownedButton.dataset.tooltip = isOwned ? 'Owned (0 C Cost)' : 'Not Owned (Cost Included)';
+    ownedButton.setAttribute('aria-label', `Mark ${getCardName(entry.card)} as ${isOwned ? 'not owned' : 'owned'}`);
     ownedButton.setAttribute('aria-pressed', String(isOwned));
   }
   if (priceBadge) {
@@ -1583,8 +1619,8 @@ function clearUnlockedPlayers() {
   managerState = null;
   renderManagerSlot();
   status.textContent = clearedSlots.length || hadManager
-    ? `고정되지 않은 선수 ${clearedSlots.length}명과 감독 정보를 초기화했습니다.`
-    : '제거할 수 있는 고정 해제 선수가 없습니다.';
+    ? `Cleared ${clearedSlots.length} unlocked players and manager settings.`
+    : 'No unlocked players to clear.';
   updateSquadChemistry();
 }
 
@@ -1618,7 +1654,7 @@ function saveManager(event) {
   renderManagerSlot();
   closeManagerModal();
   updateSquadChemistry();
-  status.textContent = '감독 설정을 저장했습니다.';
+  status.textContent = 'Manager settings saved.';
 }
 
 function removeManager() {
@@ -1626,7 +1662,7 @@ function removeManager() {
   renderManagerSlot();
   closeManagerModal();
   updateSquadChemistry();
-  status.textContent = '감독 정보를 해제했습니다.';
+  status.textContent = 'Manager removed.';
 }
 
 function getManagerChemistryBonus() {
@@ -1643,7 +1679,7 @@ function getManagerChemistryBonus() {
 function renderManagerSlot() {
   if (!managerState) {
     managerSlot.classList.remove('is-configured');
-    managerSlot.innerHTML = '<span class="manager-empty"><b>＋</b> 감독 추가</span>';
+    managerSlot.innerHTML = '<span class="manager-empty"><b>+</b> Add Manager</span>';
     return;
   }
   managerSlot.classList.add('is-configured');
@@ -1732,10 +1768,10 @@ function handleSlotDrop(event) {
   placeCard(targetSlot, originCard, false, { isOwned: originOwned });
   if (targetCard) {
     placeCard(originSlot, targetCard, false, { isOwned: targetOwned });
-    status.textContent = `${originPosition}와 ${targetPosition} 슬롯의 선수를 교체했습니다.`;
+    status.textContent = `Swapped players at ${originPosition} and ${targetPosition}.`;
   } else {
     resetSlot(originSlot, false);
-    status.textContent = `${getCardName(originCard)} 선수를 ${originPosition}에서 ${targetPosition}(으)로 이동했습니다.`;
+    status.textContent = `Moved ${getCardName(originCard)} from ${originPosition} to ${targetPosition}.`;
   }
 
   clearSlotDragFeedback();
@@ -1814,19 +1850,19 @@ function updateBudgetUI(totalCost) {
   budgetProgress.className = `budget-progress is-${budget.level}`;
   budgetProgress.setAttribute('aria-valuenow', String(Math.round(budget.displayPercentage)));
   budgetProgressFill.style.width = `${budget.displayPercentage}%`;
-  budgetPercentage.textContent = budget.level === 'unlimited' ? '제한 없음' : `${budget.percentage.toFixed(1)}% 사용`;
+  budgetPercentage.textContent = budget.level === 'unlimited' ? 'Unlimited' : `${budget.percentage.toFixed(1)}% Used`;
   budgetRemaining.textContent = targetBudget > 0 && budget.level !== 'over'
-    ? `잔여 ${formatter.format(Math.max(0, targetBudget - totalCost))} C` : '';
+    ? `Remaining ${formatter.format(Math.max(0, targetBudget - totalCost))} C` : '';
   const isOverBudget = budget.level === 'over';
   totalCostSummary.classList.toggle('is-over-budget', isOverBudget);
   budgetWarning.hidden = !isOverBudget;
-  budgetWarning.textContent = isOverBudget ? `⚠️ 예산 초과 (+${formatter.format(budget.overAmount)} 코인)` : '';
+  budgetWarning.textContent = isOverBudget ? `⚠️ Over Budget (+${formatter.format(budget.overAmount)} C)` : '';
 }
 
 const CHEMISTRY_GROUPS = [
-  { key: 'club', title: '클럽', label: 'CLUB', thresholds: [2, 4, 7], groupSizes: [2, 2, 3] },
-  { key: 'league', title: '리그', label: 'LEAGUE', thresholds: [3, 5, 8], groupSizes: [3, 2, 3] },
-  { key: 'nation', title: '국가', label: 'NATION', thresholds: [2, 5, 8], groupSizes: [2, 3, 3] },
+  { key: 'club', title: 'CLUB', label: 'CLUB', thresholds: [2, 4, 7], groupSizes: [2, 2, 3] },
+  { key: 'league', title: 'LEAGUE', label: 'LEAGUE', thresholds: [3, 5, 8], groupSizes: [3, 2, 3] },
+  { key: 'nation', title: 'NATION', label: 'NATION', thresholds: [2, 5, 8], groupSizes: [2, 3, 3] },
 ];
 
 function renderChemistryPeopleGroups(count, groupSizes) {
@@ -1849,12 +1885,12 @@ function getChemistryEntityName(card, key) {
       ? ['league', 'leagueName', 'league_name']
       : ['club', 'clubName', 'club_name', 'team'];
   const field = candidates.find((candidate) => typeof card?.[candidate] === 'string' && card[candidate].trim());
-  return field ? card[field].trim() : `알 수 없는 ${CHEMISTRY_GROUPS.find((group) => group.key === key)?.title ?? '항목'}`;
+  return field ? card[field].trim() : `Unknown ${CHEMISTRY_GROUPS.find((group) => group.key === key)?.title ?? 'Affiliation'}`;
 }
 
 function getChemistryEntityKey(card, groupKey, entityId) {
   const name = getChemistryEntityName(card, groupKey);
-  const isUnknown = name.startsWith('알 수 없는 ');
+  const isUnknown = name.startsWith('Unknown ');
   return isUnknown
     ? `${groupKey}:id:${entityId}`
     : `${groupKey}:name:${name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US')}`;
@@ -1905,27 +1941,27 @@ function renderChemistryBreakdown() {
     section.className = 'chemistry-group';
     const heading = document.createElement('div');
     heading.className = 'chemistry-group-heading';
-    heading.innerHTML = `<div><span>${group.label}</span><h3>${group.title}</h3></div><small>${group.thresholds.join(' · ')}명</small>`;
+    heading.innerHTML = `<div><span>${group.label}</span><h3>${group.title}</h3></div><small>${group.thresholds.join(' · ')} players</small>`;
     section.append(heading);
 
     const rows = getChemistryGroupRows(group);
     if (!rows.length) {
       const empty = document.createElement('p');
       empty.className = 'chemistry-empty';
-      empty.textContent = '해당되는 선수를 배치하면 표시됩니다.';
+      empty.textContent = 'Place players to activate chemistry points.';
       section.append(empty);
     } else {
       rows.forEach((row) => {
         const item = document.createElement('div');
         item.className = `chemistry-row${row.isIconBonus ? ' is-icon-bonus' : ''}`;
         if (row.isIconBonus) {
-          item.setAttribute('aria-label', `Icons, 모든 리그에 ${row.count}명 가중치 기여`);
-          item.innerHTML = `<span class="chemistry-identity"><span class="chemistry-mark is-icon">◆</span><span><span class="chemistry-row-name">Icons</span><small>ICON BONUS</small></span></span><span class="chemistry-icon-badge">모든 리그 +${row.count}</span>`;
+          item.setAttribute('aria-label', `Icons, +${row.count} chemistry contributions to all leagues`);
+          item.innerHTML = `<span class="chemistry-identity"><span class="chemistry-mark is-icon">◆</span><span><span class="chemistry-row-name">Icons</span><small>ICON BONUS</small></span></span><span class="chemistry-icon-badge">All Leagues +${row.count}</span>`;
         } else {
-          item.setAttribute('aria-label', `${row.name}, 가중치 ${row.count}명, 케미스트리 ${row.level}단계`);
+          item.setAttribute('aria-label', `${row.name}, ${row.count} chemistry contributions, Chemistry level ${row.level}`);
           const peopleGroups = renderChemistryPeopleGroups(row.count, group.groupSizes);
           const diamonds = row.level ? '◆'.repeat(row.level) : '—';
-          item.innerHTML = `<span class="chemistry-identity"><span class="chemistry-mark">${group.key === 'nation' ? '⚑' : group.key === 'league' ? '◉' : '⬢'}</span><span><span class="chemistry-row-name" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><small>${row.count}명</small></span></span><span class="chemistry-people-groups" aria-label="${group.groupSizes.join('-')} 인원 그룹 중 ${Math.min(row.count, group.groupSizes.reduce((total, size) => total + size, 0))}명 활성화">${peopleGroups}</span><span class="chemistry-diamonds is-level-${row.level}" aria-label="${row.level}점 기여">${diamonds}</span>`;
+          item.innerHTML = `<span class="chemistry-identity"><span class="chemistry-mark">${group.key === 'nation' ? '⚑' : group.key === 'league' ? '◉' : '⬢'}</span><span><span class="chemistry-row-name" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><small>${row.count} players</small></span></span><span class="chemistry-people-groups" aria-label="${group.groupSizes.join('-')} player groups, ${Math.min(row.count, group.groupSizes.reduce((total, size) => total + size, 0))} active">${peopleGroups}</span><span class="chemistry-diamonds is-level-${row.level}" aria-label="${row.level} chemistry points">${diamonds}</span>`;
           if (row.logo) {
             const mark = item.querySelector('.chemistry-mark');
             const image = document.createElement('img');
@@ -2064,7 +2100,7 @@ function formatPlayerPhysicalInfo(card) {
   const acceleType = card.accele_type ?? '-';
   const bodyType = card.body_type ?? '-';
 
-  return `[ ${height}cm / ${weight}kg / ${age}세 / ${gender} ] | Foot: ${preferredFoot} | Accele: ${acceleType} | Body: ${bodyType}`;
+  return `[ ${height}cm / ${weight}kg / ${age} yrs / ${gender} ] | Foot: ${preferredFoot} | Accele: ${acceleType} | Body: ${bodyType}`;
 }
 
 function getCardStats(card, includeAll = false) {

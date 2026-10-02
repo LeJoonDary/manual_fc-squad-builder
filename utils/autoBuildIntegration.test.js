@@ -54,7 +54,7 @@ describe('auto build pitch integration', () => {
     expect(document.querySelectorAll('.pitch .is-out-of-position')).toHaveLength(0);
 
     const before = bridge.services.getSquadSnapshot();
-    expect(() => bridge.services.applyAutoBuildResult(result, request)).toThrow('변경');
+    expect(() => bridge.services.applyAutoBuildResult(result, request)).toThrow('changed');
     expect(bridge.services.getSquadSnapshot()).toBe(before);
 
     bridge.services.applyAutoBuildResult({ ...result, manager: null }, { ...request, snapshot: before });
@@ -74,7 +74,7 @@ describe('auto build pitch integration', () => {
     expect(rebuilt.totalCost).toBe(900000);
     bridge.services.resetTargetBudget();
     expect(document.querySelector('#target-budget').value).toBe('');
-    expect(document.querySelector('#budget-percentage').textContent).toBe('제한 없음');
+    expect(document.querySelector('#budget-percentage').textContent).toBe('Unlimited');
     expect(leftWing.classList.contains('is-locked')).toBe(true);
     const cheap = await generateOptimalSquad('4-3-3', groupCandidatePlayers(rows), 0, 33, false,
       { currentSquad: bridge.services.getCurrentSquad() });

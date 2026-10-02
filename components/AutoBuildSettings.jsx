@@ -41,7 +41,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
   const percentage = amount => distributableBudget > 0 ? amount / distributableBudget * 100 : 0;
   const updateAllocation = (group, amount) => {
     if (!Number.isSafeInteger(amount) || amount < 0 || amount > maximumAmount(group)) {
-      setFeedback({ type: 'error', text: '포지션별 예산 합계는 총 잔여 예산을 넘을 수 없습니다.' });
+      setFeedback({ type: 'error', text: 'Position budgets cannot exceed the remaining budget.' });
       return;
     }
     setFeedback(null);
@@ -63,7 +63,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       const totalBudget = Number(getTargetBudget() ?? 0);
       const currentSquad = getCurrentSquad();
       if (!Number.isFinite(totalBudget) || totalBudget < 0) {
-        throw new Error('자동 완성을 실행하려면 0 이상의 총예산을 입력해 주세요.');
+        throw new Error('Enter a total budget of 0 or more to auto build your squad.');
       }
       const snapshot = getSquadSnapshot();
       const exclusionSnapshot = excludedCardVersionsStore.getState();
@@ -73,15 +73,15 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       const candidates = await fetchCandidatePlayers(totalBudget, { ...budgetAllocations }, formation, isThreeBack, supabase, options);
       const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, considerManager, options);
       if (excludedCardVersionsStore.getState() !== exclusionSnapshot) {
-        throw new Error('구성 중 제외 목록이 변경되었습니다. 현재 목록으로 다시 실행해 주세요.');
+        throw new Error('Exclusions changed during the build. Try again with the current exclusions.');
       }
       if (!result.success && result.status !== 'fallback') {
-        throw new Error('조건을 만족하는 스쿼드를 찾지 못했습니다. 예산을 늘리거나 케미스트리 조건을 낮춰주세요.');
+        throw new Error('No squad meets your requirements. Increase your budget or lower the chemistry target.');
       }
       applyAutoBuildResult(result, { snapshot, formation, totalBudget });
-      setFeedback(result.status === 'fallback' ? { type: 'warning', text: `조건에 가장 가까운 스쿼드를 구성했습니다. 총비용 ${result.totalCost.toLocaleString('en-US')} C · ${totalBudget === 0 ? '예산 무제한' : result.totalCost > totalBudget ? `예산 ${(result.totalCost - totalBudget).toLocaleString('en-US')} C 초과` : '총예산 이내'} · 케미스트리 ${result.totalChemistry}/33 (목표 ${minChemistry})` } : { type: 'success', text: `스쿼드 구성을 완료했습니다. 총비용 ${result.totalCost.toLocaleString('en-US')} C · 케미스트리 ${result.totalChemistry}/33` });
+      setFeedback(result.status === 'fallback' ? { type: 'warning', text: `Built the closest matching squad. Total Cost: ${result.totalCost.toLocaleString('en-US')} C · ${totalBudget === 0 ? 'Unlimited Budget' : result.totalCost > totalBudget ? `${(result.totalCost - totalBudget).toLocaleString('en-US')} C Over Budget` : 'Within Budget'} · Chemistry: ${result.totalChemistry}/33 (Target ${minChemistry})` } : { type: 'success', text: `Squad built successfully! Total Cost: ${result.totalCost.toLocaleString('en-US')} C · Chemistry: ${result.totalChemistry}/33` });
     } catch (error) {
-      setFeedback({ type: 'error', text: error instanceof Error ? error.message : '자동 완성 중 오류가 발생했습니다. 다시 시도해 주세요.' });
+      setFeedback({ type: 'error', text: error instanceof Error ? error.message : 'Auto build failed. Please try again.' });
     } finally {
       buildingRef.current = false;
       setIsAutoBuilding(false);
@@ -108,28 +108,28 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
         <button type="button" className="auto-build-heading"
           aria-expanded={isAutoBuildSettingsOpen} aria-controls="auto-build-details"
           onClick={() => setIsAutoBuildSettingsOpen(previous => !previous)}>
-          <span><span className="auto-build-eyebrow">AUTO BUILD</span>자동 완성 설정</span>
+          <span><span className="auto-build-eyebrow">AUTO BUILD</span>Auto Build Settings</span>
           <span className="auto-build-chevron" aria-hidden="true">{isAutoBuildSettingsOpen ? '∧' : '∨'}</span>
         </button>
       </h2>
       <ExcludedCardVersionsManager supabase={supabase} />
         <div id="auto-build-details" className="auto-build-details" hidden={!isAutoBuildSettingsOpen}>
           <div ref={budgetHost} />
-          <div className="auto-build-total">락 선수 비용 {lockedCost.toLocaleString('en-US')} C<br />
-            {unlimited ? '예산 무제한 · 가격 제한 없이 목표 케미스트리 우선 탐색' : `총 잔여 예산 ${distributableBudget.toLocaleString('en-US')} C · 배분 ${allocatedTotal.toLocaleString('en-US')} C`}</div>
+          <div className="auto-build-total">Locked Player Cost {lockedCost.toLocaleString('en-US')} C<br />
+            {unlimited ? 'Unlimited budget · Prioritize the chemistry target with no price limit' : `Remaining Budget ${distributableBudget.toLocaleString('en-US')} C · Allocated ${allocatedTotal.toLocaleString('en-US')} C`}</div>
           <fieldset className="auto-build-ratios" aria-describedby="auto-build-position-help" disabled={isAutoBuilding || unlimited}>
-            <legend>포지션별 예산 배분</legend>
-            {Object.entries({ FW: '공격 (FW)', MF: '미드필드 (MF)', DF: '수비 (DF + GK)' }).map(([group, label]) => (
+            <legend>Budget Allocation by Position</legend>
+            {Object.entries({ FW: 'Attackers (FW)', MF: 'Midfielders (MF)', DF: 'Defenders (DF + GK)' }).map(([group, label]) => (
               <div className="auto-build-range" key={group}>
                 <label htmlFor={`budget-allocation-${group}`} title={label}>{group === 'DF' ? 'DF + GK' : group}</label>
-                <output htmlFor={`budget-ratio-${group}`}>{unlimited ? '무제한' : `${percentage(budgetAllocations[group]).toFixed(1)}%`}</output>
+                <output htmlFor={`budget-ratio-${group}`}>{unlimited ? 'Unlimited' : `${percentage(budgetAllocations[group]).toFixed(1)}%`}</output>
                 <input id={`budget-ratio-${group}`} type="range" min="0" step="any"
-                  aria-label={`${label} 예산 비율`} aria-valuetext={`${percentage(budgetAllocations[group]).toFixed(1)}%`}
+                  aria-label={`${label} budget percentage`} aria-valuetext={`${percentage(budgetAllocations[group]).toFixed(1)}%`}
                   max={percentage(maximumAmount(group))} value={percentage(budgetAllocations[group])}
                   disabled={isAutoBuilding || distributableBudget === 0}
                   onChange={event => updateAllocation(group, Math.min(maximumAmount(group), Math.round(Number(event.target.value) / 100 * distributableBudget)))} />
                 <input id={`budget-allocation-${group}`} type="text" inputMode="numeric"
-                  aria-label={`${label} 예산 코인`} value={unlimited ? '' : budgetAllocations[group].toLocaleString('en-US')} placeholder="무제한"
+                  aria-label={`${label} budget in coins`} value={unlimited ? '' : budgetAllocations[group].toLocaleString('en-US')} placeholder="Unlimited"
                   onChange={event => {
                     const text = event.target.value.replace(/,/g, '').trim();
                     if (!/^\d*$/.test(text)) return;
@@ -141,15 +141,15 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
           <div id="auto-build-position-help" className="auto-build-help">
             <span aria-hidden="true">ⓘ</span>
             <div>
-              <p>락 선수를 제외한 빈자리의 후보 검색 예산입니다. 최종 조합에서는 그룹 간 예산을 유연하게 사용합니다.</p>
-              <p>※ 중앙 공격형 미드필더(CAM)는 공격수(FW) 예산에 포함됩니다.</p>
+              <p>Target search budget for open positions. The builder dynamically balances total budget across selected groups.</p>
+              <p>Attacking midfielders (CAM) are budgeted as attackers (FW).</p>
               <p>{isThreeBack
-                ? '※ 현재 3백 포메이션입니다. 측면 미드필더(LM, RM)는 육각형 스탯 기반의 윙백으로 평가되어 미드필더(MF) 예산에 포함됩니다.'
-                : '※ 현재 4백 포메이션입니다. 측면 미드필더(LM, RM)는 공격적인 윙어로 평가되어 공격수(FW) 예산에 포함됩니다.'}</p>
+                ? 'Currently using a 3-back formation. Wide midfielders (LM/RM) are evaluated as wing-backs using their face stats and budgeted as midfielders (MF).'
+                : 'Currently using a 4-back formation. Wide midfielders (LM/RM) are budgeted as attackers (FW).'}</p>
             </div>
           </div>
           <div className="auto-build-range">
-            <label htmlFor="min-chemistry">최소 목표 케미스트리</label>
+            <label htmlFor="min-chemistry">Min Chemistry Target</label>
             <output htmlFor="min-chemistry">{minChemistry} / 33</output>
             <input id="min-chemistry" type="range" min="0" max="33" step="1" value={minChemistry} disabled={isAutoBuilding}
               onChange={event => setMinChemistry(Number(event.target.value))} />
@@ -157,30 +157,30 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
           <label className="filter-switch auto-build-price-switch">
             <input id="exclude-zero-price-cards" type="checkbox" checked={excludeZeroPriceCards} disabled={isAutoBuilding} onChange={event => setExcludeZeroPriceCards(event.target.checked)} />
             <span className="filter-switch-control" aria-hidden="true" />
-            <span>가격 0원(미등록/SBC) 카드 제외</span>
+            <span>Exclude 0-Coin Cards (Untradeable / SBC)</span>
           </label>
           <label className="filter-switch auto-build-manager-switch">
             <input type="checkbox" checked={considerManager} disabled={isAutoBuilding} onChange={event => setConsiderManager(event.target.checked)} />
             <span className="filter-switch-control" aria-hidden="true" />
-            <span>감독 효과 포함</span>
+            <span>Include Manager Boost</span>
           </label>
           <div className="auto-build-special">
-            <label htmlFor="auto-build-special-mode">아이콘 / 히어로 제한</label>
+            <label htmlFor="auto-build-special-mode">Icon / Hero Limit</label>
             <select id="auto-build-special-mode" value={specialMode} disabled={isAutoBuilding} onChange={event => setSpecialMode(event.target.value)}>
-              <option value="unlimited">무제한</option>
-              <option value="limited">최대 N명</option>
-              <option value="none">사용 안 함</option>
+              <option value="unlimited">Unlimited</option>
+              <option value="limited">Custom Limit</option>
+              <option value="none">None</option>
             </select>
-            {specialMode === 'limited' && <label>최대 인원
-              <input aria-label="아이콘 / 히어로 최대 인원" type="number" min="1" max="11" step="1" value={specialCount} disabled={isAutoBuilding}
-                onChange={event => setSpecialCount(Math.max(1, Math.min(11, Math.round(Number(event.target.value) || 1))))} />명
+            {specialMode === 'limited' && <label>Max Players
+              <input aria-label="Maximum Icons / Heroes" type="number" min="1" max="11" step="1" value={specialCount} disabled={isAutoBuilding}
+                onChange={event => setSpecialCount(Math.max(1, Math.min(11, Math.round(Number(event.target.value) || 1))))} /> players
             </label>}
           </div>
         </div>
       <div className={`auto-build-actions${isAutoBuildSettingsOpen ? ' is-expanded' : ''}`}>
-        {isAutoBuildSettingsOpen && <button type="button" className="auto-build-reset" disabled={isAutoBuilding} onClick={resetSettings}>설정 초기화</button>}
+        {isAutoBuildSettingsOpen && <button type="button" className="auto-build-reset" disabled={isAutoBuilding} onClick={resetSettings}>Reset Settings</button>}
         <button type="button" className="auto-build-button" disabled={isAutoBuilding} aria-busy={isAutoBuilding} onClick={handleAutoBuild}>
-          {isAutoBuilding ? <><span className="auto-build-spinner" aria-hidden="true" /> 스쿼드 구성 중...</> : '🚀 스쿼드 자동 완성'}
+          {isAutoBuilding ? <><span className="auto-build-spinner" aria-hidden="true" /> Building Squad...</> : '🚀 Auto Build Squad'}
         </button>
       </div>
       {feedback && <p className={`auto-build-feedback is-${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'}>{feedback.text}</p>}

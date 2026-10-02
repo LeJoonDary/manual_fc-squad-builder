@@ -31,9 +31,9 @@ export function scoreSearchResults(cards, selectedPositions = [], onlyPrimary = 
 }
 
 export function getValueScoreGrade(value) {
-  if (value >= 0.001) return '가성비 좋음';
-  if (value >= 0.0001) return '가성비 보통';
-  return '가성비 좋지 않음';
+  if (value >= 0.001) return 'Good Value';
+  if (value >= 0.0001) return 'Average Value';
+  return 'Poor Value';
 }
 
 export const normalizeText = value => String(value ?? '')

@@ -96,7 +96,7 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
 
   return {
     id: String(firstValue(rawCard, ['id', 'card_id']) ?? ''),
-    name: String(firstValue(rawCard, ['name', 'player_name', 'card_name', 'display_name']) ?? '이름 없는 선수'),
+    name: String(firstValue(rawCard, ['name', 'player_name', 'card_name', 'display_name']) ?? 'Unnamed Player'),
     position: String(firstValue(rawCard, ['position', 'primary_position', 'position_name', 'role']) ?? ''),
     altPositions,
     nationId: canonicalAffiliationKey(rawCard, 'nation', ['nation', 'nationName', 'nation_name', 'nationality'], ['nationId', 'nation_id']),

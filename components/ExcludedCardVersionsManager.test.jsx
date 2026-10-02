@@ -46,9 +46,9 @@ test('debounces independent name search and toggles only the selected version wi
   expect(document.querySelectorAll('.exclusion-card-art img')).toHaveLength(2);
   expect($('.exclusion-card-art').style.backgroundImage).toContain('gold.png');
   await click(buttons[0]);
-  expect(buttons[0].textContent).toBe('✅ 제외됨');
-  expect(buttons[1].textContent).toBe('🚫 제외하기');
-  expect($('#exclusion-tab-excluded').textContent).toContain('(1개)');
+  expect(buttons[0].textContent).toBe('✅ Excluded');
+  expect(buttons[1].textContent).toBe('🚫 Exclude');
+  expect($('#exclusion-tab-excluded').textContent).toContain('(1)');
   expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).excludedCardVersionIds).toEqual(['100']);
   await click($('#exclusion-tab-excluded'));
   expect(fetchExcludedCardDetails).not.toHaveBeenCalled(); // Reuse search details.
@@ -88,7 +88,7 @@ test('loads more without duplicates, retries failures at the same offset, and re
   expect($('.exclusion-load-more')).toBeNull();
   await type('Nobody'); await advance(300);
   expect(searchExclusionCards.mock.calls[3][1].offset).toBe(0);
-  expect($('#exclusion-panel-search').textContent).toContain('검색 결과가 없습니다');
+  expect($('#exclusion-panel-search').textContent).toContain('No results found');
 });
 
 test('loads saved details, supports partial/all selection, bulk unban and reset', async () => {
@@ -106,9 +106,9 @@ test('loads saved details, supports partial/all selection, bulk unban and reset'
   await click($('.exclusion-select-all input'));
   expect($('.exclusion-bulk-actions button').disabled).toBe(true);
   await click($('.exclusion-clear'));
-  expect($('#exclusion-tab-excluded').textContent).toContain('(0개)');
+  expect($('#exclusion-tab-excluded').textContent).toContain('(0)');
   expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).excludedCardVersionIds).toEqual([]);
-  expect($('#excluded-card-versions-list').textContent).toContain('제외된 카드가 없습니다');
+  expect($('#excluded-card-versions-list').textContent).toContain('No excluded cards');
 });
 
 test('database failures still allow removal and storage failures retain selected cards', async () => {
@@ -120,7 +120,7 @@ test('database failures still allow removal and storage failures retain selected
   const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
   await click($('.exclusion-clear'));
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual(['100']);
-  expect($('.exclusion-action-message[role="alert"]').textContent).toContain('저장하지 못했습니다');
+  expect($('.exclusion-action-message[role="alert"]').textContent).toContain('Unable to save exclusions');
   storage.mockRestore();
   await click($('.exclusion-bulk-actions button'));
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
@@ -144,8 +144,8 @@ test('OVR presets and range/number inputs stay synchronized and invalid ranges c
     expect($('#exclusion-ovr-max').value).toBe(max);
   }
   await setInput('#exclusion-ovr-min', '80');
-  expect($('input[aria-label="최소 OVR 슬라이더"]').value).toBe('80');
-  await setInput('input[aria-label="최대 OVR 슬라이더"]', '70');
+  expect($('input[aria-label="Min OVR slider"]').value).toBe('80');
+  await setInput('input[aria-label="Max OVR slider"]', '70');
   expect($('#exclusion-ovr-max').value).toBe('70');
   expect($('#exclusion-ovr-min').value).toBe('70');
   for (const value of ['', '44', '100', '70.5', '90']) {
@@ -168,7 +168,7 @@ test('OVR actions set candidate bounds immediately without fetching or storing t
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual(['1']);
   expect(fetchExclusionCardIdsByOvr).not.toHaveBeenCalled();
   expect($('#exclusion-card-search').compareDocumentPosition($('.exclusion-ovr')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  await click([...document.querySelectorAll('button')].find(button => button.textContent === 'OVR 범위 초기화'));
+  await click([...document.querySelectorAll('button')].find(button => button.textContent === 'Reset OVR Range'));
   expect(excludedCardVersionsStore.getState().squadOvrRange).toEqual({ min: 45, max: 99 });
 });
 
@@ -185,7 +185,7 @@ test('middle, single-value and full target ranges are supported', async () => {
 
  test('quick actions show explicit inclusion labels with reset alongside them', () => {
   expect([...document.querySelectorAll('.exclusion-ovr-chips button')].map(button => button.textContent)).toEqual([
-    'OVR 64 이하만 (브론즈)', 'OVR 74 이하만 (실버 이하)', 'OVR 75 이상만 (골드 이상)', 'OVR 범위 초기화',
+    'Max 64 (Bronze)', 'Max 74 (Silver & Below)', 'Min 75 (Gold & Above)', 'Reset OVR Range',
   ]);
 });
 
@@ -201,10 +201,10 @@ test.each([
   });
   await click($('#exclusion-tab-excluded'));
   expect($('#exclusion-panel-excluded').firstElementChild).toBe($('.exclusion-ovr-rule'));
-  expect($('.exclusion-ovr-rule').textContent).toContain('OVR ' + label + '만 스쿼드에 포함');
-  expect($('#exclusion-tab-excluded').textContent).toBe('현재 제외 및 범위 설정 (2개)');
+  expect($('.exclusion-ovr-rule').textContent).toContain('OVR ' + label + ' only in squad');
+  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (2)');
   await click($('.exclusion-ovr-rule button'));
-  expect($('#exclusion-tab-excluded').textContent).toBe('현재 제외 및 범위 설정 (1개)');
+  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (1)');
   expectOvrInputs(45, 99);
   expect($('.exclusion-ovr-rule')).toBeNull();
   expect(excludedCardVersionsStore.getState().squadOvrRange).toEqual({ min: 45, max: 99 });
@@ -216,8 +216,8 @@ test.each([
 function expectOvrInputs(min, max) {
   expect($('#exclusion-ovr-min').value).toBe(String(min));
   expect($('#exclusion-ovr-max').value).toBe(String(max));
-  expect($('input[aria-label="최소 OVR 슬라이더"]').value).toBe(String(min));
-  expect($('input[aria-label="최대 OVR 슬라이더"]').value).toBe(String(max));
+  expect($('input[aria-label="Min OVR slider"]').value).toBe(String(min));
+  expect($('input[aria-label="Max OVR slider"]').value).toBe(String(max));
 }
 
 test('reset clears draft inputs even when the saved range is already default', async () => {
@@ -225,12 +225,12 @@ test('reset clears draft inputs even when the saved range is already default', a
   await setInput('#exclusion-ovr-max', '80');
   await click(document.querySelectorAll('.exclusion-ovr-chips button')[3]);
   expectOvrInputs(45, 99);
-  expect($('#exclusion-tab-excluded').textContent).toBe('현재 제외 및 범위 설정 (0개)');
+  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (0)');
 });
 
 test('saved ranges initialize on reopen, external changes sync, and unrelated bans preserve drafts', async () => {
   await click(document.querySelectorAll('.exclusion-ovr-chips button')[1]);
-  expect($('#exclusion-tab-excluded').textContent).toBe('현재 제외 및 범위 설정 (1개)');
+  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (1)');
   await click($('.modal-close'));
   await click($('.excluded-card-versions-toggle'));
   expectOvrInputs(45, 74);
@@ -243,8 +243,8 @@ test('saved ranges initialize on reopen, external changes sync, and unrelated ba
 
 test('main button and modal count stay synchronized through range and individual card changes', async () => {
   const expectCounts = count => {
-    expect($('.excluded-card-versions-toggle').textContent).toBe('🚫 제외 카드 관리 (' + count + ')');
-    expect($('#exclusion-tab-excluded').textContent).toBe('현재 제외 및 범위 설정 (' + count + '개)');
+    expect($('.excluded-card-versions-toggle').textContent).toBe('🚫 Manage Excluded Cards (' + count + ')');
+    expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (' + count + ')');
   };
   expectCounts(0);
   await click(document.querySelectorAll('.exclusion-ovr-chips button')[0]);
@@ -260,7 +260,7 @@ test('main button and modal count stay synchronized through range and individual
   expectCounts(0);
   await click($('.modal-close'));
   await act(async () => excludedCardVersionsStore.setSquadOvrRange({ min: 60, max: 80 }));
-  expect($('.excluded-card-versions-toggle').textContent).toBe('🚫 제외 카드 관리 (1)');
+  expect($('.excluded-card-versions-toggle').textContent).toBe('🚫 Manage Excluded Cards (1)');
   await click($('.excluded-card-versions-toggle'));
   expectCounts(1);
 });

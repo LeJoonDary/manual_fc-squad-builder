@@ -22,7 +22,7 @@ export function syncPitchExclusions() {
   document.querySelectorAll('.exclude-player').forEach(button => {
     const excluded = ids.includes(button.dataset.cardVersionId);
     button.setAttribute('aria-pressed', String(excluded));
-    button.title = excluded ? '자동 생성 제외 해제' : '자동 생성에서 제외';
+    button.title = excluded ? 'Remove auto build exclusion' : 'Exclude from auto build';
     button.setAttribute('aria-label', button.title);
     button.closest('.slot')?.classList.toggle('is-excluded', excluded);
   });
@@ -37,7 +37,7 @@ export function createPitchExcludeButton(card) {
   button.disabled = !id;
   const excluded = store.getState().excludedCardVersionIds.includes(id);
   button.setAttribute('aria-pressed', String(excluded));
-  button.title = excluded ? '자동 생성 제외 해제' : '자동 생성에서 제외';
+  button.title = excluded ? 'Remove auto build exclusion' : 'Exclude from auto build';
   button.setAttribute('aria-label', button.title);
   button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m6 6 12 12"/></svg>';
   button.addEventListener('click', event => {
@@ -45,10 +45,10 @@ export function createPitchExcludeButton(card) {
     try {
       if (store.getState().excludedCardVersionIds.includes(id)) {
         store.unban(id);
-        toast('자동 제외 목록에서 해제되었습니다.', 'success');
+        toast('Removed from auto build exclusions.', 'success');
       } else {
-        store.ban(id, `${card.name} · ${card.version || '카드'} (#${id})`);
-        toast("자동생성 목록에서 제외되었습니다. 해제하려면 한번 더 누르거나 오른쪽 '제외 카드 관리'에서 해제해주세요.");
+        store.ban(id, `${card.name} · ${card.version || 'Card'} (#${id})`);
+        toast("Excluded from auto build. Click again or use 'Manage Excluded Cards' on the right to remove the exclusion.");
       }
     } catch (error) { toast(error.message); }
   });

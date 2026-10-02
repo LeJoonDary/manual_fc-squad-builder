@@ -9,7 +9,7 @@ test('shared card renders the reference layout and selection works with keyboard
     preferred_foot:'Left',sm:3,wf:3,meta_score:87.5,score_position:'ST',
     nation_flag_url:'https://example.com/no.png',league_short_name:'EPL',club_short_name:'MCI',
     pac:87,sho:92,pas:70,dri:80,def:47,phy:88,raw:{background_url:'https://example.com/gold.png'}};
-  const node=createPlayerCard(card, {onActivate, actionLabel:'선수 선택',textAffiliations:true,
+  const node=createPlayerCard(card, {onActivate, actionLabel:'Select Player',textAffiliations:true,
     getCardName:c=>c.name,getCardRating:c=>c.overall,getCardPosition:c=>c.primary_position,
     getChemistryEntityLogo:()=>'',affiliationCatalog:{},unwrapRelation:v=>v,
     createPlaystyleBadges:()=>document.createElement('div')});

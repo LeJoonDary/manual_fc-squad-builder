@@ -7,7 +7,7 @@ export const PLAYER_CARD_SELECT = `
 `;
 
 export async function fetchPlayerCards(db) {
-  if (!db) throw new Error('Supabase 연결 설정이 없습니다.');
+  if (!db) throw new Error('Supabase connection is not configured.');
   const rows = [];
   for (let offset = 0; ; ) {
     const { data, error } = await db.from('card_versions').select(PLAYER_CARD_SELECT)

@@ -49,7 +49,7 @@ test('OVR query rejects invalid bounds and later page errors without returning p
   const { db } = database([{ data: [{ id: 1 }] }, { error: new Error('offline') }]);
   await expect(fetchExclusionCardIdsByOvr(db, { minOvr: 45, maxOvr: 99 })).rejects.toThrow('offline');
   for (const [minOvr, maxOvr] of [[44, 99], [45, 100], [75, 74], [45.5, 99]]) {
-    await expect(fetchExclusionCardIdsByOvr(null, { minOvr, maxOvr })).rejects.toThrow('OVR 범위');
+    await expect(fetchExclusionCardIdsByOvr(null, { minOvr, maxOvr })).rejects.toThrow('OVR range');
   }
 });
 

@@ -20,7 +20,7 @@ test('bulk addition deduplicates and persists/notifies once, with atomic storage
   expect(store.banMany([2, 3])).toBe(0);
   expect(write).toHaveBeenCalledTimes(1);
   write.mockImplementation(() => { throw new Error('quota'); });
-  expect(() => store.banMany([4, 5])).toThrow('저장하지 못했습니다');
+  expect(() => store.banMany([4, 5])).toThrow('Unable to save exclusions');
   expect(store.getState().excludedCardVersionIds).toEqual(['1', '2', '3']);
   expect(listener).toHaveBeenCalledTimes(1);
 });
@@ -50,12 +50,12 @@ test('invalid storage is tolerated and malformed IDs never become query syntax',
   storage.setItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY, JSON.stringify({ excludedCardVersionIds: [1, '1', null, '2),id.gt.0', {}] }));
   const store = createExcludedCardVersionsStore(() => storage);
   expect(store.getState().excludedCardVersionIds).toEqual(['1']);
-  expect(() => store.ban('2),id.gt.0', 'Invalid')).toThrow('카드 버전 ID');
+  expect(() => store.ban('2),id.gt.0', 'Invalid')).toThrow('Card version ID');
 });
 
 test('failed persistence does not claim a successful ban', () => {
   const store = createExcludedCardVersionsStore(() => ({ getItem: () => null, setItem: () => { throw new Error('quota'); } }));
-  expect(() => store.ban(1, 'Player')).toThrow('저장하지 못했습니다');
+  expect(() => store.ban(1, 'Player')).toThrow('Unable to save exclusions');
   expect(store.getState().excludedCardVersionIds).toEqual([]);
 });
 

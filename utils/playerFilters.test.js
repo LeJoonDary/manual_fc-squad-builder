@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { buildPlayerQuery, createDefaultFilters, fetchPlayers } from './playerFilters.js';
+import { buildPlayerQuery, createDefaultFilters, fetchPlayers, fetchPlayersPage } from './playerFilters.js';
 
 function database(responses = []) {
   const requests = [];
@@ -14,12 +14,12 @@ function database(responses = []) {
   return { db, requests };
 }
 
-test('default query limits after server filtering and orders overall descending', async () => {
+test('base query orders overall descending without imposing a global result cap', async () => {
   const { db, requests } = database();
   await buildPlayerQuery(db, createDefaultFilters());
   expect(requests[0].url.pathname).toBe('/rest/v1/rpc/filter_player_cards');
   expect(requests[0].url.searchParams.get('order')).toBe('overall.desc.nullslast,id.asc');
-  expect(requests[0].url.searchParams.get('limit')).toBe('50');
+  expect(requests[0].url.searchParams.get('limit')).toBeNull();
 });
 
 test('combines all relationship predicates and scalar ranges in the same DB query', async () => {
@@ -71,7 +71,7 @@ test('default and name queries are bounded, and repeats use the result cache', a
   expect(requests.every(request => !request.url.pathname.includes('/rpc/'))).toBe(true);
 });
 
-test('advanced filters use the existing RPC with a 50-card limit and preserve inner stat filters', async () => {
+test('advanced filters use 40-card pages and preserve inner stat filters', async () => {
   const card = { id: 1, players: { name: 'Mbappé' } };
   const { db, requests } = database([[{ id: 100, name: 'Mbappé' }], [card], [card]]);
   const filters = { ...createDefaultFilters(), name: 'mbappe', minOvr: 80 };
@@ -81,7 +81,7 @@ test('advanced filters use the existing RPC with a 50-card limit and preserve in
   expect(requests[1].url.pathname).toBe('/rest/v1/rpc/filter_player_cards');
   expect(requests[1].body.filters.name).toBe('');
   expect(requests[1].url.searchParams.get('player_id')).toBe('in.(100)');
-  expect(requests[1].url.searchParams.get('limit')).toBe('50');
+  expect(requests[1].url.searchParams.get('limit')).toBe('40');
   expect(requests[1].url.searchParams.get('select')).toContain('player_stats!inner');
   expect(requests[1].url.searchParams.get('select')).not.toContain('player_stats!inner(pac');
   expect(requests[2].url.pathname).toBe('/rest/v1/card_versions');
@@ -97,4 +97,49 @@ test('clear all resets nested state without retaining previous selections', () =
   filters.selectedRoles.push({ position: 'GK', name: 'Goalkeeper', level: 2 });
   Object.assign(filters, createDefaultFilters());
   expect(filters).toEqual(createDefaultFilters());
+});
+
+test.each([false, true])('counted pages preserve OVR order and load past 50 with filters=%s', async advanced => {
+  const requests = [];
+  const all = Array.from({ length: 93 }, (_, id) => ({ id: id + 1, overall: 99 - Math.floor(id / 10), players: { name: 'Player' } }));
+  const db = createClient('https://example.supabase.co', 'test', {
+    auth: { persistSession: false }, global: { fetch: async (url, options) => {
+      const parsed = new URL(url);
+      requests.push({ url: parsed, options });
+      const ids = parsed.searchParams.get('id');
+      const offset = Number(parsed.searchParams.get('offset') ?? 0);
+      const limit = Number(parsed.searchParams.get('limit'));
+      const rows = ids ? all.filter(row => ids.slice(4, -1).split(',').includes(String(row.id))) : all.slice(offset, offset + limit);
+      return new Response(JSON.stringify(rows), { status: 200, headers: { 'Content-Range': `${offset}-${offset + rows.length - 1}/93` } });
+    } },
+  });
+  const filters = { ...createDefaultFilters(), ...(advanced ? { minOvr: 80 } : {}) };
+  const pages = [];
+  for (const offset of [0, 40, 80]) pages.push(await fetchPlayersPage(db, filters, { offset }));
+  expect(pages.map(page => page.total)).toEqual([93, 93, 93]);
+  expect(pages.map(page => page.rows.length)).toEqual([40, 40, 13]);
+  expect(pages.flatMap(page => page.rows.map(row => row.id))).toEqual(all.map(row => row.id));
+  const queries = requests.filter(request => !request.url.searchParams.has('id'));
+  expect(queries.map(request => request.url.searchParams.get('offset'))).toEqual(['0', '40', '80']);
+  expect(queries.every(request => request.url.searchParams.get('limit') === '40')).toBe(true);
+  expect(queries.every(request => request.options.headers.get('prefer').includes('count=exact'))).toBe(true);
+});
+
+test('broad name totals exclude regex false positives and reuse matching IDs across pages', async () => {
+  const names = Array.from({ length: 201 }, (_, id) => ({ id, name: 'Groß' }));
+  const matches = Array.from({ length: 43 }, (_, id) => ({ id: id + 1, players: { name: 'Groß' } }));
+  const { db, requests } = database([names,
+    [...matches.slice(0, 20), { id: 999, players: { name: 'Cross' } }, ...matches.slice(20)],
+    matches.slice(0, 40), matches.slice(40),
+  ]);
+  const filters = { ...createDefaultFilters(), name: 'gross' };
+  const first = await fetchPlayersPage(db, filters);
+  const last = await fetchPlayersPage(db, filters, { offset: 40 });
+  expect(first.total).toBe(43);
+  expect(last.total).toBe(43);
+  expect(first.rows).toHaveLength(40);
+  expect(last.rows.map(row => row.id)).toEqual([41, 42, 43]);
+  expect(requests).toHaveLength(4);
+  expect(requests[1].url.searchParams.get('select')).toBe('id,players!inner(id,name,long_name)');
+  expect(requests[3].url.searchParams.get('id')).toBe('in.(41,42,43)');
 });

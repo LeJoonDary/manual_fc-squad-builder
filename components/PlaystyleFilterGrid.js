@@ -4,7 +4,7 @@ export function renderPlaystyleGrid(container, options, filters, onChange) {
   container.replaceChildren();
   const groups = groupPlaystyleOptions(options).filter(group => group.options.length);
   if (!groups.length) {
-    container.textContent = '표시할 플레이스타일이 없습니다.';
+    container.textContent = 'No PlayStyles available.';
     return;
   }
   for (const group of groups) {
@@ -51,7 +51,7 @@ export function renderPlaystyleGrid(container, options, filters, onChange) {
         } else {
           button.textContent = '+';
           button.disabled = true;
-          button.title += ' · 아이콘 없음';
+          button.title += ' · Icon unavailable';
         }
         button.addEventListener('click', () => {
           const index = filters[key].indexOf(id);

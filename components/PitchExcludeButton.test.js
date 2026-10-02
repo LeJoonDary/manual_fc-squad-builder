@@ -18,7 +18,7 @@ test('pitch exclusion toggles the shared store, notifies, and follows manager ch
   expect(button.getAttribute('aria-pressed')).toBe('true');
   expect(parent.classList.contains('is-excluded')).toBe(true);
   expect(document.querySelector('#pitch-action-toast').dataset.tone).toBe('warning');
-  expect(document.querySelector('#pitch-action-toast').textContent).toContain('자동생성 목록에서 제외되었습니다.');
+  expect(document.querySelector('#pitch-action-toast').textContent).toContain('Excluded from auto build.');
   expect(activate).not.toHaveBeenCalled();
   store.unban('234');
   expect(button.getAttribute('aria-pressed')).toBe('false');
@@ -26,7 +26,7 @@ test('pitch exclusion toggles the shared store, notifies, and follows manager ch
   button.click(); button.click();
   expect(store.getState().excludedCardVersionIds).not.toContain('234');
   expect(document.querySelector('#pitch-action-toast').dataset.tone).toBe('success');
-  expect(document.querySelector('#pitch-action-toast').textContent).toBe('자동 제외 목록에서 해제되었습니다.');
+  expect(document.querySelector('#pitch-action-toast').textContent).toBe('Removed from auto build exclusions.');
   vi.runAllTimers();
   expect(document.querySelector('#pitch-action-toast').hidden).toBe(true);
   unsubscribe(); parent.remove(); vi.useRealTimers();

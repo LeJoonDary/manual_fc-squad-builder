@@ -30,7 +30,7 @@ export function createPlayerDetailModal({
     try {
       cardDetail = await loadPlayerDetail(supabase, card.id);
     } catch {
-      if (requestId === playerDetailRequest) playerDetailStats.textContent = '상세 정보를 불러오지 못했습니다. 다시 열어 주세요.';
+      if (requestId === playerDetailRequest) playerDetailStats.textContent = 'Unable to load player details. Please reopen the panel.';
       return;
     }
     if (requestId !== playerDetailRequest || selectedPlayer?.id !== card.id) return;
@@ -77,7 +77,7 @@ export function createPlayerDetailModal({
     name.textContent = getCardName(card);
     const meta = document.createElement('p');
     meta.className = 'player-detail-meta';
-    meta.textContent = [card.club, card.nation].filter(Boolean).join(' · ') || '소속 및 국적 정보 없음';
+    meta.textContent = [card.club, card.nation].filter(Boolean).join(' · ') || 'Affiliation details unavailable';
     heading.append(eyebrow, name, meta);
     playerDetailIdentity.append(heading);
 
@@ -89,7 +89,7 @@ export function createPlayerDetailModal({
       createPlaystyleBadges({ ...card, playstyles: detailPlaystyles }, Infinity, 'detail-playstyle-badges playstyle-badges'),
     );
     if (!detailPlaystyles.length) {
-      playerDetailPlaystyles.textContent = '등록된 특성이 없습니다.';
+      playerDetailPlaystyles.textContent = 'No PlayStyles available.';
       if (import.meta.env.DEV) console.log('[PlayerDetail] PlayStyles raw player data:', card.raw ?? card);
     }
   }
@@ -100,7 +100,7 @@ export function createPlayerDetailModal({
       .sort((left, right) => left.position.localeCompare(right.position) || left.name.localeCompare(right.name) || right.level - left.level);
 
     if (!roles.length) {
-      playerDetailRoles.textContent = '등록된 역할이 없습니다.';
+      playerDetailRoles.textContent = 'No roles available.';
       return;
     }
 
@@ -131,7 +131,7 @@ export function createPlayerDetailModal({
       ['Card Version', card.version ?? '-'],
       ['Height', card.height === undefined || card.height === null ? '-' : `${card.height}cm`],
       ['Weight', card.weight === undefined || card.weight === null ? '-' : `${card.weight}kg`],
-      ['Age', card.age === undefined || card.age === null ? '-' : `${card.age}세`],
+      ['Age', card.age === undefined || card.age === null ? '-' : `${card.age} yrs`],
       ['Gender', card.gender ?? '-'],
       ['Preferred Foot', card.preferred_foot ?? '-'],
       ['Skill Moves', card.sm === undefined || card.sm === null ? '-' : `${card.sm}★`],
