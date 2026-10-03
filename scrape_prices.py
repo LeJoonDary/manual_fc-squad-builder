@@ -15,11 +15,11 @@ env_path = Path(".env")
 env_local_path = Path(".env.local")
 
 if env_local_path.exists():
-  load_dotenv(dotenv_path=env_local_path)
+    load_dotenv(dotenv_path=env_local_path)
 elif env_path.exists():
-  load_dotenv(dotenv_path=env_path)
+    load_dotenv(dotenv_path=env_path)
 else:
-  load_dotenv()
+    load_dotenv()
 
 SUPABASE_URL = (
     os.getenv("SUPABASE_URL")
@@ -29,18 +29,18 @@ SUPABASE_URL = (
 
 SUPABASE_KEY = (
     os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-    or os.getenv("SUPABASE_KEY")
+    or os.getenv("SERVICE_ROLE_KEY")
     or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY")
     or os.getenv("SUPABASE_ANON_KEY")
     or os.getenv("VITE_SUPABASE_ANON_KEY")
 )
 
 if not SUPABASE_URL or not SUPABASE_KEY:
-  raise ValueError("Supabase URL 또는 KEY를 환경변수에서 찾을 수 없습니다.")
+    raise ValueError("Supabase URL 또는 KEY를 환경변수에서 찾을 수 없습니다.")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# 2. 방금 복사해주신 최신 브라우저 세션 및 쿠키 설정
+# 2. 브라우저 세션 및 쿠키 설정
 COOKIE_STRING = (
     os.getenv("FUTGG_COOKIE")
     or "_ga=GA1.1.963824020.1787069981; "
@@ -65,8 +65,7 @@ session.headers.update({
     "sec-fetch-mode": "cors",
     "sec-fetch-site": "same-origin",
     "user-agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,"
-        " like Gecko) Chrome/153.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36"
     ),
     "cookie": COOKIE_STRING,
 })
@@ -76,221 +75,241 @@ PLATFORM = "ps5"
 
 
 def parse_retry_after(header_val):
-  if not header_val:
-    return None
-  try:
-    return int(header_val)
-  except ValueError:
+    if not header_val:
+        return None
     try:
-      dt = email.utils.parsedate_to_datetime(header_val)
-      diff = (dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
-      return max(int(diff), 10)
-    except Exception:
-      return None
+        return int(header_val)
+    except ValueError:
+        try:
+            dt = email.utils.parsedate_to_datetime(header_val)
+            diff = (dt - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
+            return max(int(diff), 10)
+        except Exception:
+            return None
 
 
 def countdown_sleep(seconds: int, reason: str = ""):
-  for remaining in range(seconds, 0, -1):
-    sys.stdout.write(
-        f"\r[대기 중] {reason}속도 제한 해제까지 {remaining:3d}초 남음..."
-    )
+    for remaining in range(seconds, 0, -1):
+        sys.stdout.write(f"\r[대기 중] {reason}속도 제한 해제까지 {remaining:3d}초 남음...")
+        sys.stdout.flush()
+        time.sleep(1)
+    sys.stdout.write("\r" + " " * 75 + "\r")
     sys.stdout.flush()
-    time.sleep(1)
-  sys.stdout.write("\r" + " " * 75 + "\r")
-  sys.stdout.flush()
 
 
-def get_target_cards(batch_limit: int = None):
-  """옵션 A: 전체 미수집 카드 대상 (스마트 이어하기 + 무제한 페이징) / 옵션 B: 자동 롤링 모드"""
-  if batch_limit:
-    # [옵션 B: GitHub Actions 워크플로우용]
-    response = (
+def get_target_cards(rotate_limit: int = 180, max_total_limit: int = 550):
+  """[티어 분할 스마트 로테이션 모드]
+
+  1. 고정군: 프로모 전체 + 아이콘/히어로 + OVR 85+ TOTW (무조건 수집)
+  2. 순환군: 82+ 골드 + 80~84 TOTW 중 최대 550장을 넘지 않는 선에서 rotate_limit 만큼 선별
+  """
+  print("=" * 65)
+  print(
+      f"🔍 [시세 수집 타겟 선별] 고정군 + 순환군 (1회 최대 {max_total_limit}장"
+      " 안전 상한)..."
+  )
+
+  # 1. 고정 갱신군 (Non-TOTW 스페셜 전체 + 85+ TOTW)
+  fixed_res = (
+      supabase.table("card_versions")
+      .select("id, api_id, overall, version, price, price_updated_at")
+      .ilike("version", "%special%")
+      .neq("card_type", "SBC")
+      .not_.is_("api_id", "null")
+      .execute()
+  )
+  specials = fixed_res.data or []
+
+  fixed_cards = []
+  low_totw_cards = []
+
+  for card in specials:
+    v_low = str(card.get("version", "")).lower()
+    ovr = int(card.get("overall") or 0)
+    if "totw" in v_low:
+      if ovr >= 85:
+        fixed_cards.append(card)  # 85+ TOTW 고정군
+      elif ovr >= 80:
+        low_totw_cards.append(card)  # 80~84 TOTW 순환군
+    else:
+      fixed_cards.append(card)  # 프로모 및 아이콘/히어로 고정군
+
+  # 2. 550장 제한 내에서 순환군이 들어갈 수 있는 남은 자리 계산
+  remaining_slots = max(max_total_limit - len(fixed_cards), 0)
+  actual_rotate_limit = min(rotate_limit, remaining_slots)
+
+  # 저오버롤 TOTW는 최대 20장까지만 우선 배분
+  low_totw_sorted = sorted(
+      low_totw_cards,
+      key=lambda x: (
+          x.get("price_updated_at") is not None,
+          x.get("price_updated_at") or "",
+      ),
+  )[: min(20, actual_rotate_limit)]
+
+  gold_limit = max(actual_rotate_limit - len(low_totw_sorted), 0)
+
+  # 3. 순환 갱신군 (82+ 골드 중 가장 갱신이 오래된 카드 선별)
+  rotating_gold = []
+  if gold_limit > 0:
+    gold_res = (
         supabase.table("card_versions")
-        .select("id, api_id, overall, price, price_updated_at")
-        .gte("overall", 80)
+        .select("id, api_id, overall, version, price, price_updated_at")
+        .gte("overall", 82)
+        .not_.ilike("version", "%special%")
         .neq("card_type", "SBC")
         .not_.is_("api_id", "null")
         .order("price_updated_at", desc=False, nullsfirst=True)
-        .limit(batch_limit)
+        .limit(gold_limit)
         .execute()
     )
-    target_cards = response.data
-    print(
-        f"[INFO] [옵션 B: 자동 롤링 모드] 가장 오래된 카드 {len(target_cards)}개를"
-        " 갱신합니다."
-    )
-  else:
-    # [옵션 A: 로컬 수동 스마트 이어하기 모드]
-    # Supabase 기본 1,000개 제한을 우회하여 3,000개든 10,000개든 전부 가져오는 페이징
-    all_cards = []
-    page_size = 1000
-    offset = 0
+    rotating_gold = gold_res.data or []
 
-    while True:
-      res = (
-          supabase.table("card_versions")
-          .select("id, api_id, overall, price, price_updated_at")
-          .gte("overall", 80)
-          .neq("card_type", "SBC")
-          .not_.is_("api_id", "null")
-          .order("overall", desc=True)
-          .range(offset, offset + page_size - 1)
-          .execute()
-      )
-      batch_data = res.data or []
-      all_cards.extend(batch_data)
+  # 합산 및 중복 제거
+  targets_dict = {}
+  for c in fixed_cards:
+    targets_dict[c["id"]] = c
+  for c in rotating_gold:
+    targets_dict[c["id"]] = c
+  for c in low_totw_sorted:
+    targets_dict[c["id"]] = c
 
-      if len(batch_data) < page_size:
-        break
-      offset += page_size
+  # 최종 550장 절대 초과 방지 컷
+  target_cards = list(targets_dict.values())[:max_total_limit]
 
-    # 이미 가격(price > 0)이 저장된 정상 카드는 완벽히 건너뛰기
-    target_cards = [
-        card
-        for card in all_cards
-        if not card.get("price") or card.get("price") == 0
-    ]
-
-    completed_count = len(all_cards) - len(target_cards)
-    print(
-        "[INFO] FUT.GG 가격 수집 프로세스를 시작합니다 (스마트 이어하기"
-        " 모드)..."
-    )
-    print(
-        f"[INFO] 전체 78+ 카드 {len(all_cards)}개 중 이미 완료:"
-        f" {completed_count}개, 남은 수집 대상: {len(target_cards)}개"
-    )
+  print(f"✔ 고정군 카드: {len(fixed_cards)}장 (프로모 / 아이콘 / 85+ TOTW)")
+  print(
+      f"✔ 순환군 카드: {len(rotating_gold) + len(low_totw_sorted)}장 (골드:"
+      f" {len(rotating_gold)}, TOTW: {len(low_totw_sorted)})"
+  )
+  print(
+      f"🎯 이번 회차 총 수집 대상: {len(target_cards)}장 (예상 소요시간: 약"
+      f" {int(len(target_cards)*4.75//60)}분)"
+  )
+  print("=" * 65)
 
   return target_cards
 
 
 def fetch_futgg_price(api_id: int):
-  sign_url = "https://www.fut.gg/api/fut/price-access/sign/"
-  target_path = (
-      f"/api/fut/player-prices/{GAME_VERSION}/{api_id}/?platform={PLATFORM}"
-  )
+    sign_url = "https://www.fut.gg/api/fut/price-access/sign/"
+    target_path = f"/api/fut/player-prices/{GAME_VERSION}/{api_id}/?platform={PLATFORM}"
 
-  retry_attempt = 0
-  while True:
-    try:
-      # 1. 서명 발급 (브라우저 필수 헤더 동봉)
-      sign_headers = {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "Origin": "https://www.fut.gg",
-          "Referer": "https://www.fut.gg/",
-      }
-      sign_res = session.post(
-          sign_url, json={"url": target_path}, headers=sign_headers, timeout=10
-      )
-      if sign_res.status_code == 429:
-        retry_attempt += 1
-        wait_sec = parse_retry_after(
-            sign_res.headers.get("Retry-After")
-        ) or min(60 * retry_attempt, 300)
-        countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
-        continue
+    retry_attempt = 0
+    while True:
+        try:
+            sign_headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Origin": "https://www.fut.gg",
+                "Referer": "https://www.fut.gg/",
+            }
+            sign_res = session.post(sign_url, json={"url": target_path}, headers=sign_headers, timeout=10)
+            if sign_res.status_code == 429:
+                retry_attempt += 1
+                wait_sec = parse_retry_after(sign_res.headers.get("Retry-After")) or min(60 * retry_attempt, 300)
+                countdown_sleep(wait_sec, f"FUT.GG 서명 쿨다운({wait_sec}s) - ")
+                continue
 
-      if sign_res.status_code != 200:
-        return None, f"SIGN_FAIL_{sign_res.status_code} ({sign_res.text[:50]})"
+            if sign_res.status_code != 200:
+                return None, f"SIGN_FAIL_{sign_res.status_code} ({sign_res.text[:50]})"
 
-      sign_json = sign_res.json()
-      sign_data = sign_json.get("data", {})
-      signed_path = sign_data.get("url")
+            sign_json = sign_res.json()
+            sign_data = sign_json.get("data", {})
+            signed_path = sign_data.get("url")
 
-      # 서버가 캡차/보안 챌린지를 요구하는지 확인
-      if sign_data.get("challengeRequired"):
-        return None, "CHALLENGE_REQUIRED(봇차단)"
+            if sign_data.get("challengeRequired"):
+                return None, "CHALLENGE_REQUIRED(봇차단)"
 
-      if not signed_path:
-        return None, "NO_SIGNED_URL"
+            if not signed_path:
+                return None, "NO_SIGNED_URL"
 
-      # 2. 가격 조회 (출처 Referer 보강)
-      price_headers = {
-          "Accept": "application/json",
-          "Referer": "https://www.fut.gg/",
-          "Sec-Fetch-Dest": "empty",
-          "Sec-Fetch-Mode": "cors",
-          "Sec-Fetch-Site": "same-origin",
-      }
-      price_res = session.get(
-          f"https://www.fut.gg{signed_path}", headers=price_headers, timeout=10
-      )
-      if price_res.status_code == 429:
-        retry_attempt += 1
-        wait_sec = parse_retry_after(
-            price_res.headers.get("Retry-After")
-        ) or min(60 * retry_attempt, 300)
-        countdown_sleep(wait_sec, f"FUT.GG 쿨다운({wait_sec}s) - ")
-        continue
+            price_headers = {
+                "Accept": "application/json",
+                "Referer": "https://www.fut.gg/",
+                "Sec-Fetch-Dest": "empty",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+            }
+            price_res = session.get(f"https://www.fut.gg{signed_path}", headers=price_headers, timeout=10)
+            if price_res.status_code == 429:
+                retry_attempt += 1
+                wait_sec = parse_retry_after(price_res.headers.get("Retry-After")) or min(60 * retry_attempt, 300)
+                countdown_sleep(wait_sec, f"FUT.GG 가격 쿨다운({wait_sec}s) - ")
+                continue
 
-      if price_res.status_code == 404:
-        return None, "이적시장_미출시(404)"
-      elif price_res.status_code != 200:
-        # 403 등 오류 시 서버가 보낸 본문 메시지를 직접 출력
-        error_msg = price_res.text.strip().replace("\n", " ")[:60]
-        return None, f"HTTP_{price_res.status_code} ({error_msg})"
+            if price_res.status_code == 404:
+                return None, "이적시장_미출시(404)"
+            elif price_res.status_code != 200:
+                error_msg = price_res.text.strip().replace("\n", " ")[:60]
+                return None, f"HTTP_{price_res.status_code} ({error_msg})"
 
-      # 3. 가격 데이터 파싱 (멸종 카드 방어)
-      price_data = price_res.json().get("data", {})
-      curr = price_data.get("currentPrice", {})
-      overview = price_data.get("overview", {})
-      prange = price_data.get("priceRange", {})
-      updated_at = (
-          curr.get("priceUpdatedAt")
-          or datetime.datetime.now(datetime.timezone.utc).isoformat()
-      )
+            price_data = price_res.json().get("data", {})
+            curr = price_data.get("currentPrice", {})
+            overview = price_data.get("overview", {})
+            prange = price_data.get("priceRange", {})
+            updated_at = curr.get("priceUpdatedAt") or datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-      price = curr.get("price")
-      if price is None or price == 0:
-        price = (
-            overview.get("averageBin")
-            or overview.get("cheapestSale")
-            or (prange.get("maxPrice") if curr.get("isExtinct") else None)
-        )
+            price = curr.get("price")
+            if price is None or price == 0:
+                price = (
+                    overview.get("averageBin")
+                    or overview.get("cheapestSale")
+                    or (prange.get("maxPrice") if curr.get("isExtinct") else None)
+                )
 
-      if price is not None and price > 0:
-        return price, updated_at
-      elif curr.get("isExtinct"):
-        return prange.get("maxPrice", 0), updated_at
-      else:
-        return None, "거래_내역_없음"
+            if price is not None and price > 0:
+                return price, updated_at
+            elif curr.get("isExtinct"):
+                return prange.get("maxPrice", 0), updated_at
+            else:
+                return None, "거래_내역_없음"
 
-    except Exception as e:
-      retry_attempt += 1
-      if retry_attempt > 4:
-        return None, f"ERROR_{str(e)}"
-      countdown_sleep(5, "네트워크 재시도 - ")
+        except Exception as e:
+            retry_attempt += 1
+            if retry_attempt > 4:
+                return None, f"ERROR_{str(e)}"
+            countdown_sleep(5, "네트워크 재시도 - ")
 
 
 def update_card_price(card_id: int, price: int, updated_at: str):
-  supabase.table("card_versions").update({
-      "price": price,
-      "price_updated_at": (
-          updated_at
-          if updated_at and not updated_at.startswith("ERROR")
-          else datetime.datetime.now(datetime.timezone.utc).isoformat()
-      ),
-  }).eq("id", card_id).execute()
+    supabase.table("card_versions").update({
+        "price": price,
+        "price_updated_at": (
+            updated_at
+            if updated_at and not updated_at.startswith("ERROR")
+            else datetime.datetime.now(datetime.timezone.utc).isoformat()
+        ),
+    }).eq("id", card_id).execute()
 
 
 def main():
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser(
+      description="FUT.GG 시세 자동 수집기 (티어 분할 로테이션)"
+  )
   parser.add_argument(
-      "--batch",
+      "--rotate",
       type=int,
-      default=None,
-      help="한 번에 수집할 카드 수 (지정하지 않으면 스마트 이어하기 모드)",
+      default=180,
+      help="1회당 교대 순환할 골드/재료 카드 수 (기본값: 180장)",
+  )
+  parser.add_argument(
+      "--max-total",
+      type=int,
+      default=550,
+      help="1회당 최대 수집 카드 상한선 (기본값: 550장)",
   )
   parser.add_argument(
       "--delay",
       type=float,
-      default=2.5,
-      help="카드당 대기 시간(초) (기본값: 2.5초)",
+      default=3.5,
+      help="기본 딜레이 초 (기본값: 3.5초)",
   )
   args = parser.parse_args()
 
-  cards = get_target_cards(batch_limit=args.batch)
+  cards = get_target_cards(
+      rotate_limit=args.rotate, max_total_limit=args.max_total
+  )
   total = len(cards)
   if total == 0:
     print("[INFO] 수집할 대상 카드가 없습니다. 프로세스를 종료합니다.")
@@ -298,45 +317,42 @@ def main():
 
   success_count = 0
   fail_count = 0
-
-# for 반복문 바로 윗줄에 추가
   processed_count = 0
 
   for idx, card in enumerate(cards, start=1):
     card_db_id = card["id"]
     api_id = card["api_id"]
     ovr = card["overall"]
+    ver = card.get("version", "card")
 
     price, status_or_date = fetch_futgg_price(api_id)
-
     now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    
+
     if price is not None:
       update_card_price(card_db_id, price, status_or_date)
       print(
-          f"[{idx}/{total}] Card ID {card_db_id} (API ID: {api_id}, OVR: {ovr})"
-          f" -> 가격: {price:,} 코인"
+          f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} (API: {api_id}) ->"
+          f" 가격: {price:,} C"
       )
       success_count += 1
     elif status_or_date == "이적시장_미출시(404)":
       update_card_price(card_db_id, 0, now_iso)
       print(
-          f"[{idx}/{total}] Card ID {card_db_id} (API ID: {api_id}) -> 미출시"
-          " 확인 (0원 저장 완료)"
+          f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 미출시 (0원"
+          " 저장)"
       )
       success_count += 1
     elif status_or_date == "거래_내역_없음":
-      # [핵심 개선] SBC/진화 카드는 기존 가격(있다면)을 유지하고 갱신 날짜만 최신으로 밀어 다음 롤링 순번으로 넘김
       current_price = card.get("price") if card.get("price") is not None else 0
       update_card_price(card_db_id, current_price, now_iso)
       print(
-          f"[{idx}/{total}] Card ID {card_db_id} (API ID: {api_id}) -> 거래내역"
-          f" 없음/SBC (현재 {current_price:,}원 유지 및 순번 갱신)"
+          f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 거래내역 없음"
+          f" (현재 {current_price:,}원 유지 및 순번 갱신)"
       )
       success_count += 1
     else:
       print(
-          f"[{idx}/{total}] Card ID {card_db_id} (API ID: {api_id}) -> 수집 실패"
+          f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 수집 실패"
           f" ({status_or_date})"
       )
       fail_count += 1
@@ -344,18 +360,17 @@ def main():
     sleep_time = random.uniform(args.delay, args.delay + 1.5)
     time.sleep(sleep_time)
 
-    # 수집 완료 건수 1 증가
     processed_count += 1
-
-    # 50장마다 서버 부담을 줄이기 위한 추가 휴식
     if processed_count % 50 == 0:
       rest_time = random.uniform(8.0, 12.0)
       print(
-          f"\n[안전 대기] 50건 수집 완료. 서버 휴식 중 ({rest_time:.1f}초)..."
+          "\n[안전 대기] 50건 수집 완료. 봇 차단 방지 휴식 중"
+          f" ({rest_time:.1f}초)...\n"
       )
       time.sleep(rest_time)
 
   print(f"\n[완료] 총 {total}개 중 성공: {success_count}개, 실패: {fail_count}개")
+
 
 if __name__ == "__main__":
   main()
