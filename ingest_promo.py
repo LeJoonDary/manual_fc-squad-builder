@@ -1,606 +1,640 @@
-"""Promo ingestion: python ingest_promo.py <file.json> [--check | --verify].
-Requires psycopg[binary], requests, Pillow, python-dotenv.
-Uses DATABASE_URL (or the linked Supabase pooler). All relational writes are atomic.
-Storage uses SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY / SUPABASE_KEY.
-A summary JSON is enriched from its exact FUT.GG card URL when details are absent.
-No player is inserted, no missing statistic is invented, and source JSON is untouched.
-The existing schema is preserved: foot is card_versions.preferred_foot;
-nation remains players.nation_id. Only players.height/weight/foot are updated
-(foot on players only when that column exists).
-Non-NULL, non-Average Gold body types are inherited verbatim, including reruns.
-Existing local templates are uploaded unchanged. Only missing templates are
-downloaded, cropped and saved locally before upload to card-templates with upsert.
-New and existing promo cards are linked to the template's public background_url.
-"""
-import io
-import json
 import os
-from pathlib import Path
-import re
 import sys
-import unicodedata
-from urllib.parse import unquote, urlsplit
-
-# Reuse this workspace's existing optional dependency bundle when available.
-ROOT = Path(__file__).resolve().parent
-if (ROOT / ".sync-deps").is_dir():
-    sys.path.insert(0, str(ROOT / ".sync-deps"))
-import psycopg
-from psycopg import sql
-from psycopg.rows import dict_row
+import re
+import json
+import time
+import random
+import argparse
 import requests
+import unicodedata
+from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from PIL import Image
+from supabase import create_client, Client
 
-# Verified FUT.GG EA IDs, resolved to DB IDs by name (not assumed equal).
-TRAIT_MAPPING = {'source': 'https://assets.fut.gg/ts/assets/index-CRBXmESA.js',
- 'sha256': '28331abcca9ece70a7ade436da4e8d6eba43fc1e28cc91925b5b6520f9fec0a0',
- 'playstyles': {'0': 'Finesse Shot',
-                '1': 'Chip Shot',
-                '2': 'Power Shot',
-                '3': 'Dead Ball',
-                '4': 'Power Header',
-                '5': 'Incisive Pass',
-                '6': 'Pinged Pass',
-                '7': 'Long Ball Pass',
-                '8': 'Tiki Taka',
-                '9': 'Whipped Pass',
-                '10': 'Jockey',
-                '11': 'Block',
-                '12': 'Intercept',
-                '13': 'Anticipate',
-                '14': 'Slide Tackle',
-                '15': 'Bruiser',
-                '16': 'Technical',
-                '17': 'Rapid',
-                '18': 'Flair',
-                '19': 'First Touch',
-                '20': 'Trickster',
-                '21': 'Press Proven',
-                '22': 'Quick Step',
-                '23': 'Relentless',
-                '24': 'Trivela',
-                '25': 'Acrobatic',
-                '26': 'Long Throw',
-                '27': 'Aerial',
-                '28': 'Far Throw',
-                '29': 'Footwork',
-                '30': 'Cross Claimer',
-                '31': 'Rush Out',
-                '32': 'Far Reach',
-                '33': 'Deflector',
-                '34': 'Low Driven Shot',
-                '35': 'Aerial Fortress',
-                '36': 'Enforcer',
-                '37': 'Gamechanger',
-                '38': 'Inventive',
-                '39': 'Precision Header'},
- 'roles': {'1': {'position': 'GK', 'name': 'Goalkeeper'},
-           '2': {'position': 'GK', 'name': 'Sweeper Keeper'},
-           '45': {'position': 'GK', 'name': 'Ball Playing Keeper'},
-           '3': {'position': 'RB', 'name': 'Fullback'},
-           '4': {'position': 'RB', 'name': 'Falseback'},
-           '5': {'position': 'RB', 'name': 'Wingback'},
-           '6': {'position': 'RB', 'name': 'Attacking Wingback'},
-           '46': {'position': 'RB', 'name': 'Inverted Wingback'},
-           '7': {'position': 'LB', 'name': 'Fullback'},
-           '8': {'position': 'LB', 'name': 'Falseback'},
-           '9': {'position': 'LB', 'name': 'Wingback'},
-           '10': {'position': 'LB', 'name': 'Attacking Wingback'},
-           '47': {'position': 'LB', 'name': 'Inverted Wingback'},
-           '11': {'position': 'CB', 'name': 'Defender'},
-           '12': {'position': 'CB', 'name': 'Stopper'},
-           '13': {'position': 'CB', 'name': 'Ball Playing Defender'},
-           '48': {'position': 'CB', 'name': 'Wideback'},
-           '14': {'position': 'CDM', 'name': 'Holding'},
-           '15': {'position': 'CDM', 'name': 'Centre Half'},
-           '16': {'position': 'CDM', 'name': 'Deep Lying Playmaker'},
-           '17': {'position': 'CDM', 'name': 'Wide Half'},
-           '49': {'position': 'CDM', 'name': 'Box Crasher'},
-           '18': {'position': 'CM', 'name': 'Box To Box'},
-           '19': {'position': 'CM', 'name': 'Holding'},
-           '20': {'position': 'CM', 'name': 'Deep Lying Playmaker'},
-           '21': {'position': 'CM', 'name': 'Playmaker'},
-           '22': {'position': 'CM', 'name': 'Half Winger'},
-           '23': {'position': 'RM', 'name': 'Winger'},
-           '24': {'position': 'RM', 'name': 'Wide Midfielder'},
-           '25': {'position': 'RM', 'name': 'Wide Playmaker'},
-           '26': {'position': 'RM', 'name': 'Inside Forward'},
-           '27': {'position': 'LM', 'name': 'Winger'},
-           '28': {'position': 'LM', 'name': 'Wide Midfielder'},
-           '29': {'position': 'LM', 'name': 'Wide Playmaker'},
-           '30': {'position': 'LM', 'name': 'Inside Forward'},
-           '31': {'position': 'CAM', 'name': 'Playmaker'},
-           '32': {'position': 'CAM', 'name': 'Shadow Striker'},
-           '33': {'position': 'CAM', 'name': 'Half Winger'},
-           '34': {'position': 'CAM', 'name': 'Classic 10'},
-           '35': {'position': 'RW', 'name': 'Winger'},
-           '36': {'position': 'RW', 'name': 'Inside Forward'},
-           '37': {'position': 'RW', 'name': 'Wide Playmaker'},
-           '38': {'position': 'LW', 'name': 'Winger'},
-           '39': {'position': 'LW', 'name': 'Inside Forward'},
-           '40': {'position': 'LW', 'name': 'Wide Playmaker'},
-           '41': {'position': 'ST', 'name': 'Advanced Forward'},
-           '42': {'position': 'ST', 'name': 'Poacher'},
-           '43': {'position': 'ST', 'name': 'False 9'},
-           '44': {'position': 'ST', 'name': 'Target Forward'}}}
+# 1. Supabase 관리자 클라이언트 초기화
+load_dotenv()
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+SERVICE_ROLE_KEY = (
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    or os.getenv("SERVICE_ROLE_KEY")
+    or os.getenv("SUPABASE_KEY")
+)
 
-FACE = dict(zip(('pac', 'sho', 'pas', 'dri', 'def', 'phy'),
-                ('facePace', 'faceShooting', 'facePassing', 'faceDribbling', 'faceDefending', 'facePhysicality')))
-DETAIL = {
-    'acceleration': 'attributeAcceleration', 'sprint_speed': 'attributeSprintSpeed',
-    'positioning': 'attributePositioning', 'finishing': 'attributeFinishing',
-    'shot_power': 'attributeShotPower', 'long_shots': 'attributeLongShots',
-    'volleys': 'attributeVolleys', 'penalties': 'attributePenalties',
-    'vision': 'attributeVision', 'crossing': 'attributeCrossing', 'fk_accuracy': 'attributeFkAccuracy',
-    'short_passing': 'attributeShortPassing', 'long_passing': 'attributeLongPassing', 'curve': 'attributeCurve',
-    'agility': 'attributeAgility', 'balance': 'attributeBalance', 'reactions': 'attributeReactions',
-    'ball_control': 'attributeBallControl', 'dribbling_sub': 'attributeDribbling', 'composure': 'attributeComposure',
-    'interceptions': 'attributeInterceptions', 'heading_accuracy': 'attributeHeadingAccuracy',
-    'def_awareness': 'attributeDefensiveAwareness', 'standing_tackle': 'attributeStandingTackle',
-    'sliding_tackle': 'attributeSlidingTackle', 'jumping': 'attributeJumping', 'stamina': 'attributeStamina',
-    'strength': 'attributeStrength', 'aggression': 'attributeAggression',
+if not SUPABASE_URL or not SERVICE_ROLE_KEY:
+    print("[오류] Supabase 환경 변수(URL, KEY)를 확인하세요.")
+    sys.exit(1)
+
+supabase: Client = create_client(SUPABASE_URL, SERVICE_ROLE_KEY)
+BASE_URL = "https://www.fut.gg"
+STORAGE_BASE_URL = "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/card-templates"
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.fut.gg/",
 }
-GK = {f'gk_{key}': f'attributeGk{key.title()}' for key in ('diving', 'handling', 'kicking', 'reflexes', 'positioning')}
-POSITIONS = {0: 'GK', 2: 'RWB', 3: 'RB', 5: 'CB', 7: 'LB', 8: 'LWB', 10: 'CDM',
-             12: 'RM', 13: 'RM', 14: 'CM', 16: 'LM', 18: 'CAM', 21: 'CF', 23: 'RW', 25: 'ST', 27: 'LW'}
-ALIASES = {'PSG': 'Paris SG', 'Netherlands': 'Holland', 'Türkiye': 'Turkey',
-           'Liga F': 'Liga F Moeve', 'Google Pixel Frauen-Bundesliga': 'GPFBL'}
-HTTP = requests.Session()
-HTTP.headers['User-Agent'] = 'Mozilla/5.0 (compatible; PromoIngest/1.0)'
 
+# -------------------------------------------------------------
+# EA 고유 ID -> 우리 DB ID 1:1 직결 매핑 사전
+# -------------------------------------------------------------
+EA_POS_MAP = {
+    0: ("GK", 10), 2: ("RWB", 15), 3: ("RB", 9), 5: ("CB", 8),
+    7: ("LB", 7), 8: ("LWB", 14), 10: ("CDM", 6), 12: ("RM", 13),
+    13: ("RM", 13), 14: ("CM", 4), 16: ("LM", 12), 18: ("CAM", 5),
+    21: ("CF", 11), 23: ("RW", 3), 25: ("ST", 1), 27: ("LW", 2),
+}
 
-def norm(value):
-    return re.sub(r'[^a-z0-9]', '', unicodedata.normalize('NFKD', str(value)).encode('ascii', 'ignore').decode().lower())
+EA_ROLE_TO_DB = {
+    1: 48, 2: 49, 45: 47,
+    3: 40, 4: 39, 5: 42, 6: 38, 46: 41,
+    7: 35, 8: 34, 9: 37, 10: 33, 47: 36,
+    11: 44, 12: 45, 13: 43, 48: 46,
+    14: 31, 15: 29, 16: 30, 17: 32, 49: 28,
+    18: 23, 19: 26, 20: 24, 21: 27, 22: 25,
+    23: 22, 24: 20, 25: 21, 26: 19,
+    27: 18, 28: 16, 29: 17, 30: 15,
+    31: 13, 32: 14, 33: 12, 34: 11,
+    35: 10, 36: 8, 37: 9,
+    38: 7, 39: 5, 40: 6,
+    41: 1, 42: 3, 43: 2, 44: 4,
+}
 
+EA_PLAYSTYLE_TO_DB = {
+    0: 2, 1: 25, 2: 3, 3: 16, 4: 22, 5: 4, 6: 17, 7: 12, 8: 27, 9: 5,
+    10: 24, 11: 14, 12: 9, 13: 8, 14: 29, 15: 10, 16: 7, 17: 6, 18: 18,
+    19: 19, 20: 28, 21: 23, 22: 1, 23: 20, 24: 13, 25: 21, 26: 30,
+    27: 11, 28: 15, 29: 33, 30: 26, 31: 31, 32: 34, 33: 32, 34: 37,
+    35: 39, 36: 35, 37: 38, 38: 40, 39: 36,
+}
 
-def number(value, name, low=0, high=99):
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != value or not low <= value <= high:
-        raise ValueError(f'{name}: required integer {low}..{high}, got {value!r}')
-    return int(value)
+DETAIL_KEYS = {
+    "acceleration": "attributeAcceleration",
+    "sprint_speed": "attributeSprintSpeed",
+    "positioning": "attributePositioning",
+    "finishing": "attributeFinishing",
+    "shot_power": "attributeShotPower",
+    "long_shots": "attributeLongShots",
+    "volleys": "attributeVolleys",
+    "penalties": "attributePenalties",
+    "vision": "attributeVision",
+    "crossing": "attributeCrossing",
+    "fk_accuracy": "attributeFkAccuracy",
+    "short_passing": "attributeShortPassing",
+    "long_passing": "attributeLongPassing",
+    "curve": "attributeCurve",
+    "agility": "attributeAgility",
+    "balance": "attributeBalance",
+    "reactions": "attributeReactions",
+    "ball_control": "attributeBallControl",
+    "dribbling_sub": "attributeDribbling",
+    "composure": "attributeComposure",
+    "interceptions": "attributeInterceptions",
+    "heading_accuracy": "attributeHeadingAccuracy",
+    "def_awareness": "attributeDefensiveAwareness",
+    "standing_tackle": "attributeStandingTackle",
+    "sliding_tackle": "attributeSlidingTackle",
+    "jumping": "attributeJumping",
+    "stamina": "attributeStamina",
+    "strength": "attributeStrength",
+    "aggression": "attributeAggression",
+}
 
+LEAGUE_ALIAS_MAP = {
+    "major league soccer": 7, "mls": 7, "premier league": 3,
+    "laliga ea sports": 2, "laliga": 2, "la liga": 2, "bundesliga": 4,
+    "ligue 1 mcdonald's": 5, "ligue 1": 5, "serie a enilive": 12, "serie a": 12,
+    "liga portugal": 13, "eredivisie": 21, "bundesliga 2": 22,
+    "liga bbva mx": 23, "liga mx": 23, "roshn saudi league": 14,
+    "scottish premiership": 27, "trendyol süper lig": 11, "barclays wsl": 1,
+    "liga f moeve": 6, "liga f": 6, "national women's soccer league": 8, "nwsl": 8,
+    "google pixel frauen-bundesliga": 9, "gpfbl": 9, "arkema première ligue": 10,
+    "efl championship": 19, "k league 1": 48
+}
 
-def first(*values):
-    return next((v for v in values if v is not None), None)
+CLUB_ALIAS_MAP = {
+    "ss lazio": "latium", "lazio": "latium", "inter": "lombardia fc",
+    "inter milan": "lombardia fc", "ac milan": "milano fc", "milan": "milano fc",
+    "atalanta": "bergamo calcio", "as roma": "roma", "bayern munich": "fc bayern münchen",
+    "bayern münchen": "fc bayern münchen", "bayern": "fc bayern münchen",
+    "manchester united": "man utd"
+}
 
+NATION_ALIAS_MAP = {
+    "netherlands": 16,
+    "holland": 16,
+    "türkiye": 33,
+    "turkey": 33,
+    "korea republic": 49,
+    "south korea": 49,
+    "korea": 49,
+}
 
-def stats(card):
-    listed = {row['defKey']: row.get('rating') for row in card.get('faceStats', []) if 'defKey' in row}
-    nested = card.get('faceStatsV2') or {}
-    result = {db: number(first(nested.get(src), listed.get(src), card.get(src), card.get(db)), src)
-              for db, src in FACE.items()}
-    result.update({db: number(first(card.get(src), card.get(db)), src) for db, src in DETAIL.items()})
-    for db, src in GK.items():
-        value = first(card.get(src), card.get(db))
-        if value is not None:
-            result[db] = number(value, src)
-    return result
+def get_table_columns(table_name):
+    res = supabase.table(table_name).select("*").limit(1).execute()
+    return set(res.data[0].keys()) if res.data else set()
 
-
-def top_level_fields(text, start):
-    """Split a JS object without evaluating executable page code or nested objects."""
-    depth, quote, escape, begin = 0, None, False, start + 1
-    for index in range(start, len(text)):
-        ch = text[index]
-        if quote:
-            if escape:
-                escape = False
-            elif ch == '\\':
-                escape = True
-            elif ch == quote:
-                quote = None
-            continue
-        if ch in ('"', "'"):
-            quote = ch
-        elif ch in '{[':
-            depth += 1
-        elif ch in '}]':
-            depth -= 1
-            if depth == 0:
-                yield text[begin:index]
-                return
-        elif ch == ',' and depth == 1:
-            yield text[begin:index]
-            begin = index + 1
-    raise ValueError('Unterminated playerDef object')
-
-
-def extract_detail(text, api_id):
-    for match in re.finditer(r'\bplayerDef\s*:\s*(?:\$R\[\d+\]\s*=\s*)?\{', text):
-        result = {}
-        for field in top_level_fields(text, match.end() - 1):
-            key, sep, value = field.partition(':')
-            key = key.strip().strip('"')
-            if not sep:
-                continue
-            # Only read inert JSON scalars. References and executable JS are ignored.
-            try:
-                parsed = json.loads(value.strip())
-            except (ValueError, TypeError):
-                continue
-            if parsed is None or isinstance(parsed, (str, int, float)):
-                result[key] = parsed
-        if result.get('eaId') == api_id:
-            return result
-    raise ValueError(f'No matching playerDef for eaId={api_id}')
-
-
-def enrich(card, require_body=False):
-    needed = [*DETAIL.values(), 'weight']
-    if require_body:
-        needed.append('bodytypeCode')
-    if all(card.get(key) is not None for key in needed):
-        return card
-    path = card.get('url')
-    if not path:
-        raise ValueError(f"{card.get('eaId')}: incomplete stats and no detail URL")
-    url = 'https://www.fut.gg' + path if path.startswith('/') else path
-    parsed = urlsplit(url)
-    if parsed.scheme != 'https' or parsed.hostname != 'www.fut.gg' or not parsed.path.startswith('/players/'):
-        raise ValueError('Detail URL must point to the FUT.GG player page')
-    response = HTTP.get(url, timeout=30)
-    response.raise_for_status()
-    detail = extract_detail(response.text, card['eaId'])
-    if detail.get('basePlayerEaId') != card.get('basePlayerEaId') or detail.get('overall') != card.get('overall'):
-        raise ValueError(f"{card['eaId']}: detail identity/rating differs from input")
-    # Verify common stats before mixing a snapshot with live detail data.
-    for key in [*FACE.values(), *DETAIL.values()]:
-        existing = first((card.get('faceStatsV2') or {}).get(key), card.get(key))
-        if existing is not None and detail.get(key) != existing:
-            raise ValueError(f"{card['eaId']}: source/detail mismatch for {key}")
-    print(f"  Detail verified: {card['eaId']} ({card.get('commonName', '')})", flush=True)
-    return {**detail, **{k: v for k, v in card.items() if v is not None}}
-
-
-def asset_url(value):
-    if not value:
-        raise ValueError('Missing image URL')
-    url = value if value.startswith('https://') else 'https://game-assets.fut.gg/' + value.lstrip('/')
-    if urlsplit(url).scheme != 'https':
-        raise ValueError('Expected HTTPS image URL')
-    return url
-
-
-def connect():
-    direct = os.environ.get('DATABASE_URL')
-    if not direct:
-        raise ValueError('DATABASE_URL is required for transactional ingestion')
-    pooler_file = ROOT / 'supabase/.temp/pooler-url'
-    if pooler_file.exists():
-        pooler = urlsplit(pooler_file.read_text().strip())
-        return psycopg.connect(host=pooler.hostname, port=pooler.port,
-            user=unquote(pooler.username), password=unquote(urlsplit(direct).password or ''),
-            dbname=pooler.path.lstrip('/'), sslmode='require', connect_timeout=20,
-            autocommit=True, row_factory=dict_row)
-    return psycopg.connect(direct, sslmode='require', connect_timeout=20, autocommit=True, row_factory=dict_row)
-
-
-def table_rows(conn, table):
-    return conn.execute(sql.SQL('SELECT * FROM public.{}').format(sql.Identifier(table))).fetchall()
-
-
-def resolve_entity(rows, name, league_ids=None, preferred=None):
-    key = norm(ALIASES.get(name, name))
-    found = [row for row in rows if norm(row['name']) == key
-             and (league_ids is None or row['league_id'] in league_ids)]
-    if preferred is not None and any(row['id'] == preferred for row in found):
-        return preferred
-    if len(found) != 1:
-        raise ValueError(f'Ambiguous/missing master: {name!r}, candidates={[r["id"] for r in found]}')
-    return found[0]['id']
-
-
-def player_id(conn, card, nation_id):
-    matches = conn.execute('SELECT DISTINCT player_id FROM card_versions WHERE api_id=%s',
-                           (card['basePlayerEaId'],)).fetchall()
-    if len(matches) == 1:
-        return matches[0]['player_id']
-    if len(matches) > 1:
-        raise ValueError(f"Ambiguous base api_id: {card['basePlayerEaId']}")
-    first_name, last_name = card.get('firstName', ''), card.get('lastName', '')
-    names = {norm(n) for n in (card.get('commonName'), f'{first_name} {last_name}',
-                               f'{first_name[:1]}. {last_name}') if n}
-    found = [r for r in conn.execute('SELECT id,name,long_name FROM players WHERE nation_id=%s', (nation_id,)).fetchall()
-             if norm(r['name']) in names or (r['long_name'] and norm(r['long_name']) in names)]
-    if len(found) != 1:
-        raise ValueError(f"Cannot uniquely identify existing player: {card.get('commonName')}")
-    return found[0]['id']
-
-
-def body_type(code, height, gender):
-    """Fallback only: gender 0=male, 1=female; never guess unknown codes."""
-    code = number(code, 'bodytypeCode', 0, 30)
-    # The project's FUT.GG mapping reserves codes >= 10 for unique bodies.
-    if code >= 10:
-        return 'Unique'
-    height = number(height, 'height', 100, 250)
-    gender = number(gender, 'gender (0=male, 1=female)', 0, 1)
-    builds = {
-        0: {0: 'Lean', 1: 'Lean', 2: 'Average', 3: 'Stocky'},
-        1: {0: 'Lean', 1: 'Lean', 2: 'Average', 3: 'Average', 4: 'Stocky'},
-    }
-    if code not in builds[gender]:
-        raise ValueError(f'No fallback body type for gender={gender}, code={code}')
-    size = 'Short' if height < 175 else 'Tall' if height >= 186 else 'Medium'
-    return f'{builds[gender][code]} {size}'
-
-
-def resolve_body_type(conn, pid, card, height):
-    # The live DB uses "Gold"; accept both cases without altering its values.
-    gold = conn.execute(
-        "SELECT id,body_type FROM card_versions WHERE player_id=%s AND lower(version)='gold' ORDER BY id",
-        (pid,)).fetchall()
-    inherited = {row['body_type'] for row in gold
-                 if row['body_type'] is not None and row['body_type'] != 'Average'}
-    if len(inherited) == 1:
-        return inherited.pop()
-    if len(inherited) > 1:
-        raise ValueError(f'Conflicting Gold body types for player_id={pid}: {sorted(inherited)}')
-    # Preserve already verified unique star players even without a usable Gold.
-    unique = conn.execute(
-        "SELECT id FROM card_versions WHERE player_id=%s AND body_type='Unique' LIMIT 1",
-        (pid,)).fetchone()
-    if unique:
-        return 'Unique'
-    # Missing Gold, NULL and the generic 'Average' carry no usable body detail.
-    source = card if card.get('bodytypeCode') is not None else enrich(card, require_body=True)
-    player = conn.execute('SELECT gender FROM players WHERE id=%s', (pid,)).fetchone()
-    if player is None:
-        raise ValueError(f'Missing existing player_id={pid}')
-    # Use the DB's explicit Male/Female labels: source feeds may use different
-    # numeric gender conventions. Numeric fallback follows the requested 0/1 rule.
-    gender = {'male': 0, 'female': 1, '0': 0, '1': 1}.get(str(player['gender']).strip().lower())
-    if gender is None:
-        gender = source.get('gender')
-    return body_type(source.get('bodytypeCode'), height, gender)
-
-
-def prepare(conn, cards, version, background):
-    player_columns = {row['column_name'] for row in conn.execute(
-        "SELECT column_name FROM information_schema.columns "
-        "WHERE table_schema='public' AND table_name='players'").fetchall()}
-    masters = {t: table_rows(conn, t) for t in ('clubs', 'leagues', 'nations', 'positions', 'roles', 'playstyles')}
-    pos_ids = {r['name']: r['id'] for r in masters['positions']}
-    role_ids = {(r['position'], norm(r['role_name'])): r['id'] for r in masters['roles']}
-    style_ids = {norm(r['name']): r['id'] for r in masters['playstyles']}
-    prepared = []
-    for card in cards:
-        league_name = ALIASES.get(card['league']['name'], card['league']['name'])
-        league_ids = {r['id'] for r in masters['leagues'] if norm(r['name']) == norm(league_name)}
-        club_id = resolve_entity(masters['clubs'], card['club']['name'], league_ids)
-        league_id = next(r['league_id'] for r in masters['clubs'] if r['id'] == club_id)
-        base_nations = conn.execute('SELECT DISTINCT p.nation_id FROM players p JOIN card_versions c ON c.player_id=p.id WHERE c.api_id=%s',
-                                    (card['basePlayerEaId'],)).fetchall()
-        nation_id = resolve_entity(masters['nations'], card['nation']['name'],
-                                   preferred=base_nations[0]['nation_id'] if len(base_nations) == 1 else None)
-        pid = player_id(conn, card, nation_id)
-        height, weight = number(card.get('height'), 'height', 100, 250), number(card.get('weight'), 'weight', 30, 180)
-        foot = {1: 'Right', 2: 'Left', 'Right': 'Right', 'Left': 'Left'}.get(card.get('foot'))
-        if not foot:
-            raise ValueError(f"Unknown foot: {card.get('foot')}")
-        primary = card['position'] if isinstance(card.get('position'), str) else POSITIONS[card['position']]
-        positions = {pos_ids[POSITIONS[p]]: False for p in card.get('alternativePositionIds', [])}
-        positions[pos_ids[primary]] = True
-        role_values, style_values = {}, {}
-        for field, level in (('rolesPlus', 1), ('rolesPlusPlus', 2)):
-            for raw in card[field]:
-                base = raw - 100 if 101 <= raw <= 149 else raw
-                role = TRAIT_MAPPING['roles'][str(base)]
-                if pos_ids[role['position']] not in positions:
-                    raise ValueError(f"{card['eaId']}: role {raw} conflicts with card positions")
-                rid = role_ids[(role['position'], norm(role['name']))]
-                role_values[rid] = max(level, role_values.get(rid, 0))
-        for field, fallback, plus in (('playStyleEaIds', 'playstyles', False), ('playStylePlusEaIds', 'playstylesPlus', True)):
-            values = card[field] if field in card else card[fallback]
-            for raw in values:
-                name = TRAIT_MAPPING['playstyles'][str(raw)]
-                sid = style_ids[norm(name)]
-                style_values[sid] = plus or style_values.get(sid, False)
-        cv = dict(player_id=pid, api_id=card['eaId'], overall=number(card['overall'], 'overall', 1), version=version,
-                  club_id=club_id, league_id=league_id,
-                  image_url=asset_url(card.get('imageUrl') or card.get('imagePath') or card.get('cardImageUrl')),
-                  background_url=background, body_type=resolve_body_type(conn, pid, card, height),
-                  sm=number(card['skillMoves'], 'skillMoves', 1, 5), wf=number(card['weakFoot'], 'weakFoot', 1, 5),
-                  preferred_foot=foot, card_type='SPECIAL')
-        prepared.append(dict(name=card.get('commonName', str(card['eaId'])), cv=cv,
-            player=dict(height=height, weight=weight, **({'foot': foot} if 'foot' in player_columns else {})), stats=stats(card),
-            card_roles=[dict(role_id=k, role_level=v) for k, v in sorted(role_values.items())],
-            card_playstyles=[dict(playstyle_id=k, is_plus=v) for k, v in sorted(style_values.items())],
-            card_positions=[dict(position_id=k, is_primary=v) for k, v in sorted(positions.items())]))
-    return prepared
-
-
-def insert(conn, table, data):
-    columns = sql.SQL(',').join(map(sql.Identifier, data))
-    placeholders = sql.SQL(',').join(sql.Placeholder() for _ in data)
-    return conn.execute(sql.SQL('INSERT INTO public.{} ({}) VALUES ({}) RETURNING *').format(
-        sql.Identifier(table), columns, placeholders), list(data.values())).fetchone()
-
-
-def update(conn, table, data, key, value):
-    setters = sql.SQL(',').join(sql.SQL('{}=%s').format(sql.Identifier(k)) for k in data)
-    return conn.execute(sql.SQL('UPDATE public.{} SET {} WHERE {}=%s RETURNING *').format(
-        sql.Identifier(table), setters, sql.Identifier(key)), [*data.values(), value]).fetchall()
-
-
-def write_rows(conn, prepared):
-    # The live schema has no unique(api_id,version) / unique(card_id). Serialize
-    # update-or-insert upserts rather than relying on nonexistent constraints.
-    conn.execute('LOCK TABLE players,card_versions,player_stats,card_roles,card_playstyles,card_positions IN SHARE ROW EXCLUSIVE MODE')
-    created = 0
-    for item in prepared:
-        cv = item['cv']
-        updated_players = update(conn, 'players', item['player'], 'id', cv['player_id'])
-        if len(updated_players) != 1:
-            raise ValueError(f'Missing or ambiguous existing player_id={cv["player_id"]}')
-        existing = conn.execute('SELECT id,player_id FROM card_versions WHERE api_id=%s AND version=%s', (cv['api_id'], cv['version'])).fetchall()
-        if len(existing) > 1 or (existing and existing[0]['player_id'] != cv['player_id']):
-            raise ValueError(f'Conflicting existing card: {cv["api_id"]}')
-        if existing:
-            cid = existing[0]['id']
-            update(conn, 'card_versions', cv, 'id', cid)
-        else:
-            cid = insert(conn, 'card_versions', cv)['id']
-            created += 1
-        current = conn.execute('SELECT id FROM player_stats WHERE card_id=%s', (cid,)).fetchall()
-        if len(current) > 1:
-            raise ValueError(f'Duplicate player_stats for card_id={cid}')
-        if current:
-            update(conn, 'player_stats', item['stats'], 'card_id', cid)
-        else:
-            insert(conn, 'player_stats', {'card_id': cid, **item['stats']})
-        for table in ('card_roles', 'card_playstyles', 'card_positions'):
-            conn.execute(sql.SQL('DELETE FROM public.{} WHERE card_id=%s').format(sql.Identifier(table)), (cid,))
-            for row in item[table]:
-                insert(conn, table, {'card_id': cid, **row})
-        print(f'  Staged: {item["name"]}, card_id={cid}, PAC={item["stats"]["pac"]}, body_type={cv["body_type"]}', flush=True)
-    return created
-
-
-def verify(conn, prepared):
-    totals = dict(cards=0, stats=0, card_roles=0, card_playstyles=0, card_positions=0)
-    for item in prepared:
-        cv = item['cv']
-        rows = conn.execute('SELECT * FROM card_versions WHERE api_id=%s AND version=%s', (cv['api_id'], cv['version'])).fetchall()
-        if len(rows) != 1 or any(rows[0].get(k) != v for k, v in cv.items()):
-            raise ValueError(f'Card verification failed: {cv["api_id"]}')
-        cid = rows[0]['id']
-        for table, expected, key, value in (
-            ('players', item['player'], 'id', cv['player_id']), ('player_stats', item['stats'], 'card_id', cid)):
-            actual = conn.execute(sql.SQL('SELECT * FROM public.{} WHERE {}=%s').format(sql.Identifier(table), sql.Identifier(key)), (value,)).fetchall()
-            if len(actual) != 1 or any(actual[0].get(k) != v for k, v in expected.items()):
-                raise ValueError(f'{table} verification failed: {cid}')
-        totals['cards'] += 1
-        totals['stats'] += 1
-        for table in ('card_roles', 'card_playstyles', 'card_positions'):
-            actual = conn.execute(sql.SQL('SELECT * FROM public.{} WHERE card_id=%s').format(sql.Identifier(table)), (cid,)).fetchall()
-            keys = {'card_roles': ('role_id', 'role_level'), 'card_playstyles': ('playstyle_id', 'is_plus'),
-                    'card_positions': ('position_id', 'is_primary')}[table]
-            if sorted(tuple(r[k] for k in keys) for r in actual) != sorted(tuple(r[k] for k in keys) for r in item[table]):
-                raise ValueError(f'{table} verification failed: {cid}')
-            totals[table] += len(actual)
-    return totals
-
-
-def template_bytes(cards):
-    urls = {asset_url(c.get('rarityImageUrl') or c.get('rarityImagePath') or
-                       (c.get('rarity') or {}).get('imageUrl') or (c.get('rarity') or {}).get('imagePath')) for c in cards}
-    if len(urls) != 1:
-        raise ValueError('Input must use a single rarity template')
-    response = HTTP.get(urls.pop(), timeout=30)
-    response.raise_for_status()
-    image = Image.open(io.BytesIO(response.content)).convert('RGBA')
-    bbox = image.getchannel('A').getbbox()
-    if bbox is None:
-        raise ValueError('Template is fully transparent')
-    output = io.BytesIO()
-    cropped = image.crop(bbox)
-    cropped.save(output, 'PNG')
-    print(f'Template cropped: {image.size} -> {cropped.size}')
-    return output.getvalue()
-
-
-def check_schema(conn, prepared):
-    for table, needed in (('players', set(prepared[0]['player'])), ('card_versions', set(prepared[0]['cv'])),
-                          ('player_stats', {'card_id', *prepared[0]['stats']})):
-        columns = {r['column_name'] for r in conn.execute(
-            "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=%s", (table,)).fetchall()}
-        missing = needed - columns
-        if missing:
-            raise ValueError(f'Schema missing {table}: {sorted(missing)}; no DB writes performed')
-
-
-def main():
-    if len(sys.argv) < 2 or sys.argv[1].startswith('--'):
-        raise ValueError('Usage: python ingest_promo.py <file.json> [--check | --verify]')
-    mode = sys.argv[2:]
-    if mode not in ([], ['--check'], ['--verify']):
-        raise ValueError('Supported options: --check (no writes), --verify (read-back only)')
-    source = Path(sys.argv[1])
-    version = 'special_' + source.stem.replace('-', '_').replace(' ', '_')
-    raw = json.loads(source.read_text(encoding='utf-8-sig'))
-    if not isinstance(raw, list) or not raw:
-        raise ValueError('JSON must contain a nonempty player array')
-    cards, seen = [], set()
-    for item in raw:
-        while isinstance(item, dict) and ('playerDef' in item or 'card' in item):
-            item = item.get('playerDef') or item.get('card')
-        if not isinstance(item, dict) or not item.get('eaId') or item['eaId'] in seen:
-            raise ValueError('Invalid or duplicate eaId in input')
-        seen.add(item['eaId'])
-        cards.append(enrich(item))
-    load_dotenv(ROOT / '.env.local')
-    load_dotenv(ROOT / '.env')
-    root_url = (os.getenv('SUPABASE_URL') or os.getenv('VITE_SUPABASE_URL') or '').rstrip('/')
-    if not root_url:
-        raise ValueError('SUPABASE_URL is required')
-    background = f'{root_url}/storage/v1/object/public/card-templates/{version}.png'
-    with connect() as conn:
-        prepared = prepare(conn, cards, version, background)
-        check_schema(conn, prepared)
-        if mode == ['--verify']:
-            print('VERIFIED', json.dumps(verify(conn, prepared)))
-            return
-        folder = ROOT / 'card_backgrounds'
-        template_path = folder / f'{version}.png'
-        local_template = template_path.exists()
-        if local_template:
-            # Preserve manually edited PNG bytes: no download, crop or re-encoding.
-            png = template_path.read_bytes()
-            with Image.open(io.BytesIO(png)) as image:
-                image.verify()
-            print(f'Using existing local template unchanged: {template_path}')
-        else:
-            png = template_bytes(cards)
-        print(f'VALIDATED {len(cards)} cards / 6 face + 29 in-game stats; version={version}')
-        if mode == ['--check']:
-            return
-        key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_KEY')
-        if not key:
-            raise ValueError('SUPABASE_SERVICE_ROLE_KEY or SUPABASE_KEY required for Storage upload')
-        if not local_template:
-            folder.mkdir(exist_ok=True)
-            # Never overwrite a manual file, including one created during download.
-            try:
-                with template_path.open('xb') as output:
-                    output.write(png)
-            except FileExistsError:
-                # A manual template created during download takes precedence too.
-                png = template_path.read_bytes()
-                with Image.open(io.BytesIO(png)) as image:
-                    image.verify()
-                print(f'Using existing local template unchanged: {template_path}')
-        response = HTTP.post(f'{root_url}/storage/v1/object/card-templates/{version}.png', data=png,
-            headers={'Authorization': f'Bearer {key}', 'apikey': key,
-                     'Content-Type': 'image/png', 'x-upsert': 'true'}, timeout=30)
-        response.raise_for_status()
-        public = HTTP.get(background, timeout=30)
-        public.raise_for_status()
-        with Image.open(io.BytesIO(public.content)) as image:
-            image.verify()
-        print(f'Template saved locally and uploaded: {background}')
-        with conn.transaction():
-            conn.execute("SET LOCAL lock_timeout = '15s'")
-            before_count = conn.execute('SELECT count(*) AS n FROM players').fetchone()['n']
-            created = write_rows(conn, prepared)
-            report = verify(conn, prepared)
-            if conn.execute('SELECT count(*) AS n FROM players').fetchone()['n'] != before_count:
-                raise ValueError('Player count changed; rolling back')
-        print(f'COMMITTED created={created}, updated={len(cards)-created}; players unchanged={before_count}')
-        print('VERIFIED', json.dumps(report))
-
-
-if __name__ == '__main__':
-    if hasattr(sys.stdout, 'reconfigure'):
-        sys.stdout.reconfigure(encoding='utf-8')
+def get_or_create_league(name):
+    if not name:
+        return None
+    clean = name.strip()
+    alias_id = LEAGUE_ALIAS_MAP.get(clean.lower())
+    if alias_id:
+        return alias_id
+    res = supabase.table("leagues").select("id").ilike("name", clean).execute()
+    if res.data:
+        return res.data[0]["id"]
     try:
-        main()
-    except Exception as exc:
-        # Never print connection strings, request headers or credentials.
-        message = str(exc)
-        for env_name in ('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_KEY', 'DATABASE_URL'):
-            value = os.getenv(env_name)
-            if value:
-                message = message.replace(value, '[redacted]')
-        print(f'FAILED: {type(exc).__name__}: {message}', file=sys.stderr)
-        sys.exit(1)
+        max_res = supabase.table("leagues").select("id").order("id", desc=True).limit(1).execute()
+        next_id = (max_res.data[0]["id"] + 1) if max_res.data else 100
+        supabase.table("leagues").insert({"id": next_id, "name": clean}).execute()
+        return next_id
+    except Exception:
+        return None
+
+def get_or_create_nation(name):
+    if not name:
+        return None
+    clean = name.strip()
+    alias_id = NATION_ALIAS_MAP.get(clean.lower())
+    if alias_id:
+        return alias_id
+    res = supabase.table("nations").select("id").ilike("name", clean).execute()
+    if res.data:
+        return res.data[0]["id"]
+    try:
+        max_res = supabase.table("nations").select("id").order("id", desc=True).limit(1).execute()
+        next_id = (max_res.data[0]["id"] + 1) if max_res.data else 300
+        supabase.table("nations").insert({"id": next_id, "name": clean}).execute()
+        return next_id
+    except Exception:
+        return None
+
+def get_or_create_club(name, league_id=None):
+    if not name:
+        return None
+    clean = name.strip()
+    if clean.lower() in CLUB_ALIAS_MAP:
+        clean = CLUB_ALIAS_MAP[clean.lower()]
+    res = supabase.table("clubs").select("id").ilike("name", clean).execute()
+    if res.data:
+        return res.data[0]["id"]
+    try:
+        club_cols = get_table_columns("clubs")
+        max_res = supabase.table("clubs").select("id").order("id", desc=True).limit(1).execute()
+        next_id = (max_res.data[0]["id"] + 1) if max_res.data else 1000
+        payload = {"id": next_id, "name": clean}
+        if league_id and "league_id" in club_cols:
+            payload["league_id"] = league_id
+        supabase.table("clubs").insert(payload).execute()
+        return next_id
+    except Exception:
+        return None
+
+def extract_player_urls_from_squad(squad_url):
+    """스쿼드/프로모 페이지에서 15개 이상의 선수 카드 URL 추출"""
+    clean_url = squad_url.split("?")[0].rstrip("/") + "/"
+    print(f"▶ 프로모 스쿼드 페이지 로드 중: {clean_url}")
+    resp = requests.get(clean_url, headers=HEADERS, timeout=15)
+    if resp.status_code != 200:
+        print(f"[오류] HTTP {resp.status_code} 발생")
+        return []
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    found_urls = []
+    
+    # 카드 링크 패턴 탐색 (/players/{id}-{slug}/27-{api_id}/)
+    for a in soup.find_all("a", href=True):
+        m = re.search(r"/players/(\d+-[^/]+/27-\d+)/?", a["href"])
+        if m:
+            full_card_url = f"{BASE_URL}/players/{m.group(1)}/"
+            if full_card_url not in found_urls:
+                found_urls.append(full_card_url)
+
+    print(f"✔ 총 {len(found_urls)}명의 프로모 선수 카드 링크 추출 완료")
+    return found_urls
+
+def player_def_fields(text, card_api_id, player_id=None):
+    candidates = []
+    for match in re.finditer(r"\bplayerDef\s*:\s*(?:\$R\[\d+\]\s*=\s*)?\{", text):
+        depth, quote, escaped = 1, None, False
+        begin = match.end()
+        fields = {}
+        for index in range(begin, len(text)):
+            ch = text[index]
+            if quote:
+                if escaped: escaped = False
+                elif ch == "\\": escaped = True
+                elif ch == quote: quote = None
+                continue
+            if ch in ('"', "'"): quote = ch
+            elif ch in "{[": depth += 1
+            elif ch in "}]": depth -= 1
+            if (ch == "," and depth == 1) or depth == 0:
+                key, sep, value = text[begin:index].partition(":")
+                if sep:
+                    value = re.sub(r"^\s*\$R\[\d+\]\s*=\s*", "", value)
+                    try:
+                        fields[key.strip().strip('"\'')] = json.loads(value)
+                    except ValueError:
+                        pass
+                begin = index + 1
+            if depth == 0:
+                break
+        candidates.append(fields)
+        if (
+            fields.get("eaId") == card_api_id
+            or str(fields.get("eaId")) == str(card_api_id)
+            or (player_id and fields.get("basePlayerEaId") == player_id)
+            or (player_id and fields.get("eaId") == player_id)
+        ):
+            return fields
+
+    if candidates:
+        return candidates[0]
+    raise ValueError("playerDef 파싱 실패")
+
+def owned_ids(card, *keys):
+    for key in keys:
+        if key in card:
+            values = card[key]
+            if values is None:
+                return []
+            if isinstance(values, list):
+                return [int(v) for v in values if isinstance(v, (int, str)) and str(v).isdigit()]
+    return []
+
+def detect_version_info(soup, card, override_version=None, override_bg=None, override_type=None):
+    if override_version:
+        version = override_version
+    else:
+        rarity_name = None
+        candidate_texts = []
+        if soup.find("h1"): candidate_texts.append(soup.find("h1").get_text())
+        if soup.find("title"): candidate_texts.append(soup.find("title").get_text())
+
+        for text in candidate_texts:
+            m = re.search(r"[-–]\s*(.*?)\s*\d{2}\s*OVR", text, re.IGNORECASE)
+            if m:
+                c_name = m.group(1).strip()
+                if c_name.lower() not in ["special", "player"]:
+                    rarity_name = c_name
+                    break
+
+        if not rarity_name and isinstance(card.get("rarity"), dict) and card["rarity"].get("name"):
+            r_name = card["rarity"]["name"].strip()
+            if r_name.lower() != "special":
+                rarity_name = r_name
+
+        if not rarity_name:
+            rarity_name = "Special"
+
+        slug = re.sub(r"[^a-zA-Z0-9]+", "_", rarity_name.strip()).lower().strip("_")
+        if slug in ["special", "special_special"]:
+            version = "special"
+        elif not slug.startswith("special_") and slug not in ["gold", "silver", "bronze", "icon", "hero"]:
+            version = f"special_{slug}"
+        else:
+            version = slug
+
+    if override_bg:
+        background_url = override_bg
+    else:
+        background_url = f"{STORAGE_BASE_URL}/{version}_edited.png"
+
+    if override_type:
+        card_type = override_type
+    else:
+        v_low = version.lower()
+        if "potm" in v_low: card_type = "POTM"
+        elif "totw" in v_low: card_type = "TOTW"
+        elif "sbc" in v_low: card_type = "SPECIAL_SBC"
+        else: card_type = "SPECIAL"
+
+    return version, background_url, card_type
+
+def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
+    clean_url = url.split("?")[0].rstrip("/") + "/"
+    resp = requests.get(clean_url, headers=HEADERS, timeout=12)
+    if resp.status_code != 200:
+        print(f"  [오류] HTTP {resp.status_code}")
+        return None
+
+    m_ids = re.search(r"/(\d+)-[^/]+/27-(\d+)/?", clean_url)
+    if not m_ids:
+        return None
+    player_id = int(m_ids.group(1))
+    card_api_id = int(m_ids.group(2))
+
+    html_text = resp.text
+    soup = BeautifulSoup(html_text, "html.parser")
+    card = player_def_fields(html_text, card_api_id, player_id)
+    clean_full = soup.get_text(separator=" ", strip=True)
+
+    info_text = ""
+    for el in soup.find_all(["div", "section"]):
+        if "Player Information" in el.get_text():
+            info_text = el.get_text(separator="\n", strip=True)
+            break
+
+    def get_info(label):
+        m = re.search(rf"{label}\n+([^\n]+)", info_text, re.IGNORECASE)
+        return m.group(1).strip() if m else None
+
+    name = card.get("commonName") or get_info("Name") or "Unknown"
+    nation_name = card.get("nation", {}).get("name") if isinstance(card.get("nation"), dict) else get_info("Nation")
+    league_name = card.get("league", {}).get("name") if isinstance(card.get("league"), dict) else get_info("League")
+    club_name = card.get("club", {}).get("name") if isinstance(card.get("club"), dict) else get_info("Club")
+
+    # 1. Body Type 정밀 추출 (고유 체형 Erling Haaland 등 유지)
+    body_type = None
+    m_body = re.search(r"Body\s*Type\s*\n+\s*([^\n]+)", info_text, re.IGNORECASE)
+    if m_body:
+        cand_b = m_body.group(1).strip()
+        if cand_b.lower() not in ["real face", "yes", "no", "age"]:
+            body_type = cand_b
+    if not body_type:
+        body_type = get_info("Body Type") or "Average Medium"
+
+    # 2. AcceleRATE 7대 공식 유형 정밀 추출
+    accele_patterns = (
+        r"AcceleRATE\s*[:\n\s]*"
+        r"(Mostly\s+Explosive|Controlled\s+Explosive|Explosive|"
+        r"Mostly\s+Lengthy|Controlled\s+Lengthy|Lengthy|Controlled)"
+    )
+    m_acc = re.search(accele_patterns, clean_full, re.IGNORECASE)
+    if m_acc:
+        accele_type = " ".join(w.capitalize() for w in m_acc.group(1).split())
+    else:
+        m_acc_info = re.search(r"AcceleRATE\s*\n+\s*([^\n]+)", info_text, re.IGNORECASE)
+        accele_type = m_acc_info.group(1).strip() if m_acc_info else "Controlled"
+
+    # 키 & 몸무게
+    height = 180
+    m_h = re.search(r"(\d{3})\s*cm", info_text)
+    if m_h: height = int(m_h.group(1))
+    elif card.get("height"): height = int(card["height"])
+
+    weight = 75
+    m_w = re.search(r"(\d{2,3})\s*kg", info_text)
+    if m_w: weight = int(m_w.group(1))
+    elif card.get("weight"): weight = int(card["weight"])
+
+    foot_raw = card.get("foot")
+    preferred_foot = {1: "Right", 2: "Left"}.get(foot_raw, get_info("Foot") or "Right")
+    sm = int(card.get("skillMoves") or 3)
+    wf = int(card.get("weakFoot") or 3)
+    overall = int(card.get("overall") or 80)
+
+    version, background_url, card_type = detect_version_info(soup, card, custom_version, custom_bg, custom_type)
+
+    # 포지션 매핑
+    if "position" in card and card["position"] in EA_POS_MAP:
+        primary_pos_str, primary_pid = EA_POS_MAP[card["position"]]
+    else:
+        primary_pos_str = (get_info("Position") or "ST").upper()
+        primary_pid = 1
+        for ea_id, (p_str, db_pid) in EA_POS_MAP.items():
+            if p_str == primary_pos_str:
+                primary_pid = db_pid
+                break
+
+    sec_pos_ids = []
+    for raw in owned_ids(card, "alternativePositionIds"):
+        if raw in EA_POS_MAP:
+            pid = EA_POS_MAP[raw][1]
+            if pid != primary_pid and pid not in sec_pos_ids:
+                sec_pos_ids.append(pid)
+
+    # 롤스 매핑
+    role_values = {}
+    for field, level in (("rolesPlus", 1), ("rolesPlusPlus", 2)):
+        for raw in owned_ids(card, field):
+            base = raw - 100 if 101 <= raw <= 149 else raw
+            if base in EA_ROLE_TO_DB:
+                rid = EA_ROLE_TO_DB[base]
+                role_values[rid] = max(level, role_values.get(rid, 0))
+    roles_list = [{"role_id": rid, "level": level} for rid, level in role_values.items()]
+
+    # 특성 매핑
+    style_values = {}
+    for fields, plus in ((("playStyleEaIds", "playstyles"), False), (("playStylePlusEaIds", "playstylesPlus"), True)):
+        for raw in owned_ids(card, *fields):
+            if raw in EA_PLAYSTYLE_TO_DB:
+                sid = EA_PLAYSTYLE_TO_DB[raw]
+                style_values[sid] = plus or style_values.get(sid, False)
+    playstyles_list = [{"playstyle_id": sid, "is_plus": plus} for sid, plus in style_values.items()]
+
+    # 6대 페이스 스탯
+    face_stats = {
+        "pac": int(card.get("facePace") or card.get("gkFaceDiving") or 0),
+        "sho": int(card.get("faceShooting") or card.get("gkFaceHandling") or 0),
+        "pas": int(card.get("facePassing") or card.get("gkFaceKicking") or 0),
+        "dri": int(card.get("faceDribbling") or card.get("gkFaceReflexes") or 0),
+        "def": int(card.get("faceDefending") or card.get("gkFaceSpeed") or 0),
+        "phy": int(card.get("facePhysicality") or card.get("gkFacePositioning") or 0),
+    }
+
+    # 29대 세부 스탯
+    detail_stats = {}
+    for db_k, pdef_k in DETAIL_KEYS.items():
+        if pdef_k in card and card[pdef_k] is not None:
+            detail_stats[db_k] = int(card[pdef_k])
+
+    if "def_awareness" in detail_stats: detail_stats["defensive_awareness"] = detail_stats["def_awareness"]
+    if "fk_accuracy" in detail_stats: detail_stats["free_kick_accuracy"] = detail_stats["fk_accuracy"]
+    if "dribbling_sub" in detail_stats: detail_stats["dribbling"] = detail_stats["dribbling_sub"]
+
+    return {
+        "player_id": player_id,
+        "api_id": card_api_id,
+        "name": name,
+        "nation_name": nation_name,
+        "league_name": league_name,
+        "club_name": club_name,
+        "height": height,
+        "weight": weight,
+        "overall": overall,
+        "version": version,
+        "card_type": card_type,
+        "background_url": background_url,
+        "primary_position_str": primary_pos_str,
+        "primary_pos_id": primary_pid,
+        "secondary_pos_ids": sec_pos_ids,
+        "roles": roles_list,
+        "playstyles": playstyles_list,
+        "preferred_foot": preferred_foot,
+        "skill_moves": sm,
+        "weak_foot": wf,
+        "body_type": body_type,
+        "accele_type": accele_type,
+        "face_stats": face_stats,
+        "detail_stats": detail_stats,
+    }
+
+def save_to_supabase(data):
+    if not data:
+        return
+
+    p_id = data["player_id"]
+    card_api_id = data["api_id"]
+    name = data["name"]
+
+    # 1. 소속 엔티티 연동
+    league_id = get_or_create_league(data.get("league_name"))
+    nation_id = get_or_create_nation(data.get("nation_name"))
+    club_id = get_or_create_club(data.get("club_name"), league_id=league_id)
+
+    # 2. players 마스터 갱신
+    player_cols = get_table_columns("players")
+    player_payload = {"id": p_id, "name": name}
+    if nation_id and "nation_id" in player_cols: player_payload["nation_id"] = nation_id
+    if club_id and "club_id" in player_cols: player_payload["club_id"] = club_id
+    if league_id and "league_id" in player_cols: player_payload["league_id"] = league_id
+    if "height" in player_cols and data.get("height"): player_payload["height"] = data["height"]
+    if "weight" in player_cols and data.get("weight"): player_payload["weight"] = data["weight"]
+
+    p_exist = supabase.table("players").select("id").eq("id", p_id).execute()
+    if p_exist.data:
+        supabase.table("players").update(player_payload).eq("id", p_id).execute()
+    else:
+        supabase.table("players").insert(player_payload).execute()
+
+    # 3. card_versions 메인 적재 (Body Type & AcceleRATE 온전 반영)
+    cv_cols = get_table_columns("card_versions")
+    cv_payload = {
+        "player_id": p_id,
+        "overall": data["overall"],
+        "version": data["version"],
+        "card_type": data["card_type"],
+        "background_url": data["background_url"],
+    }
+    if "api_id" in cv_cols: cv_payload["api_id"] = card_api_id
+    if nation_id and "nation_id" in cv_cols: cv_payload["nation_id"] = nation_id
+    if club_id and "club_id" in cv_cols: cv_payload["club_id"] = club_id
+    if league_id and "league_id" in cv_cols: cv_payload["league_id"] = league_id
+    if "body_type" in cv_cols and data.get("body_type"): cv_payload["body_type"] = data["body_type"]
+    if "wf" in cv_cols: cv_payload["wf"] = data.get("weak_foot", 3)
+    if "sm" in cv_cols: cv_payload["sm"] = data.get("skill_moves", 3)
+    if "preferred_foot" in cv_cols: cv_payload["preferred_foot"] = data.get("preferred_foot", "Right")
+    if "accele_type" in cv_cols: cv_payload["accele_type"] = data.get("accele_type", "Controlled")
+
+    exist_cv = supabase.table("card_versions").select("id").eq("api_id", card_api_id).execute()
+    if not exist_cv.data:
+        exist_cv = supabase.table("card_versions").select("id").eq("player_id", p_id).eq("version", data["version"]).execute()
+
+    if exist_cv.data:
+        card_id = exist_cv.data[0]["id"]
+        supabase.table("card_versions").update(cv_payload).eq("id", card_id).execute()
+        status_label = f"기존 카드(ID: {card_id}) 갱신"
+    else:
+        ins_cv = supabase.table("card_versions").insert(cv_payload).execute()
+        card_id = ins_cv.data[0]["id"] if ins_cv.data else None
+        status_label = f"신규 카드(ID: {card_id}) 생성"
+
+    if not card_id:
+        return
+
+    # 4. 포지션 적재
+    cp_cols = get_table_columns("card_positions")
+    cp_fk = "card_id" if "card_id" in cp_cols else "card_version_id"
+    supabase.table("card_positions").delete().eq(cp_fk, card_id).execute()
+    pos_batch = [{cp_fk: card_id, "position_id": data["primary_pos_id"], "is_primary": True}]
+    for sec_pid in data.get("secondary_pos_ids", []):
+        pos_batch.append({cp_fk: card_id, "position_id": sec_pid, "is_primary": False})
+    supabase.table("card_positions").insert(pos_batch).execute()
+
+    # 5. 롤스 적재
+    cr_cols = get_table_columns("card_roles")
+    cr_fk = "card_id" if "card_id" in cr_cols else "card_version_id"
+    supabase.table("card_roles").delete().eq(cr_fk, card_id).execute()
+    if data.get("roles"):
+        role_batch = []
+        for r in data["roles"]:
+            row = {cr_fk: card_id, "role_id": r["role_id"]}
+            if "role_level" in cr_cols: row["role_level"] = r["level"]
+            elif "level" in cr_cols: row["level"] = r["level"]
+            role_batch.append(row)
+        supabase.table("card_roles").insert(role_batch).execute()
+
+    # 6. 특성 적재
+    cpl_cols = get_table_columns("card_playstyles")
+    cpl_fk = "card_id" if "card_id" in cpl_cols else "card_version_id"
+    supabase.table("card_playstyles").delete().eq(cpl_fk, card_id).execute()
+    if data.get("playstyles"):
+        ps_batch = []
+        for p in data["playstyles"]:
+            row = {cpl_fk: card_id, "playstyle_id": p["playstyle_id"]}
+            if "is_plus" in cpl_cols: row["is_plus"] = p["is_plus"]
+            ps_batch.append(row)
+        supabase.table("card_playstyles").insert(ps_batch).execute()
+
+    # 7. 세부 스탯 적재
+    ps_cols = get_table_columns("player_stats")
+    ps_fk = "card_version_id" if "card_version_id" in ps_cols else "card_id"
+    ps_payload = {ps_fk: card_id}
+    for k in ["pac", "sho", "pas", "dri", "def", "phy"]:
+        val = data["face_stats"].get(k)
+        if k in ps_cols and val is not None: ps_payload[k] = val
+    for k, v in data["detail_stats"].items():
+        if k in ps_cols and v is not None: ps_payload[k] = v
+
+    exist_ps = supabase.table("player_stats").select("id").eq(ps_fk, card_id).limit(1).execute()
+    if exist_ps.data:
+        supabase.table("player_stats").update(ps_payload).eq(ps_fk, card_id).execute()
+    else:
+        supabase.table("player_stats").insert(ps_payload).execute()
+
+    print(f"  ✔ [{data['overall']} {data['primary_position_str']}] {name} ({data['body_type']} / {data['accele_type']}) ➔ {status_label}")
+
+def run_promo_pipeline(target_url, override_version=None, override_bg=None):
+    print("=" * 70)
+    print("🚀 FUT.GG 프로모 스쿼드 일괄 동기화 파이프라인")
+    print(f"   • 대상 URL: {target_url}")
+    print("=" * 70)
+
+    # 1. 단일 카드인지 스쿼드 페이지인지 판별
+    if re.search(r"/players/\d+-[^/]+/27-\d+/?", target_url):
+        card_urls = [target_url]
+    else:
+        card_urls = extract_player_urls_from_squad(target_url)
+
+    if not card_urls:
+        print("[종료] 적재할 카드 URL을 찾지 못했습니다.")
+        return
+
+    success = 0
+    total = len(card_urls)
+    for idx, card_url in enumerate(card_urls, 1):
+        print(f"\n[{idx}/{total}] 수집 중: {card_url}")
+        parsed = parse_card_page(card_url, custom_version=override_version, custom_bg=override_bg)
+        if parsed:
+            save_to_supabase(parsed)
+            success += 1
+
+        # 봇 차단 방지: 3.5초 ~ 5.0초 대기
+        if idx < total:
+            delay = random.uniform(3.5, 5.0)
+            print(f"  ⏳ 봇 차단 방지 대기 중: {delay:.2f}초...")
+            time.sleep(delay)
+
+    print("\n" + "=" * 70)
+    print(f"🎉 프로모 스쿼드 총 {success}/{total}명 무오류 일괄 적재 완료!")
+    print("=" * 70)
+
+if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
+    parser = argparse.ArgumentParser(description="FUT.GG 프로모 스쿼드 일괄 자동 적재기")
+    parser.add_argument("url", nargs="?", help="FUT.GG 스쿼드 또는 프로모 페이지 URL")
+    parser.add_argument("--version", help="카드 버전 명칭 수동 지정 (기본값: 자동 판별)")
+    parser.add_argument("--bg", help="카드 배경 이미지 URL 수동 지정 (기본값: 자동 생성)")
+    args = parser.parse_args()
+
+    input_url = args.url if args.url else input("FUT.GG 프로모 스쿼드 URL을 입력하세요: ").strip()
+    if input_url:
+        run_promo_pipeline(input_url, override_version=args.version, override_bg=args.bg)
