@@ -4,7 +4,7 @@ import { getCardBackground } from '../utils/cardBackground.js';
 export function createPlayerCard(card, {
   onActivate, onShowDetails = onActivate, actionLabel = 'View player details', textAffiliations = false,
   getCardName, getCardRating, getCardPosition, getChemistryEntityLogo,
-  createPlaystyleBadges, unwrapRelation, affiliationCatalog,
+  createPlaystyleBadges, unwrapRelation, affiliationCatalog, createReviewButton,
 }) {
   const article = document.createElement('article');
   article.className = 'browser-player-card rounded-xl overflow-hidden shadow-md border border-slate-700/50 flex flex-col w-full';
@@ -13,6 +13,7 @@ export function createPlayerCard(card, {
   article.setAttribute('aria-label', `${getCardName(card)} ${actionLabel}`);
   article.addEventListener('click', () => onActivate(card));
   article.addEventListener('keydown', (event) => {
+    if (event.target !== article) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onActivate(card);
@@ -95,6 +96,7 @@ export function createPlayerCard(card, {
     score.title = card.score_position ? `${card.score_position} · Excludes 3-back adjustments` : 'Position weights are not available yet.';
     affiliations.append(score);
   }
+  if (createReviewButton) positions.append(createReviewButton(card));
   content.append(identity, positions, affiliations);
   const player = unwrapRelation(card.raw?.players) ?? {};
   const height = card.height ?? player.height;

@@ -1,7 +1,7 @@
 import { formatCardVersion, pitchAffiliation } from '../utils/pitchCardLabels.js';
 import { createPlaystyleIcons } from './PlaystyleIcons.js';
 
-export function createPitchMiniCard(card, styles = [], catalog = {}) {
+export function createPitchMiniCard(card, styles = [], catalog = {}, { createReviewButton } = {}) {
   const element = (tag, className, text) => {
     const node = document.createElement(tag);
     node.className = className;
@@ -59,6 +59,7 @@ export function createPitchMiniCard(card, styles = [], catalog = {}) {
     affiliations.append(label);
   }
   const header = element('span', 'pitch-mini-header');
+  if (createReviewButton) affiliations.append(createReviewButton(card, { compact: true }));
   const identity = element('span', 'pitch-mini-identity');
   identity.append(name);
   header.append(rating, identity);

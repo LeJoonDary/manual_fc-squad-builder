@@ -16,23 +16,68 @@ export function createPlayerDetailModal({
   let selectedPlayer = null;
   let playerDetailRequest = 0;
   let returnFocus = null;
+  let review = null;
+  const reviewDialog = document.createElement('dialog');
+  reviewDialog.className = 'youtube-review-dialog';
+  reviewDialog.setAttribute('aria-label', 'Gameplay Review');
+  reviewDialog.innerHTML = '<button type="button" class="youtube-review-close" aria-label="Close review">×</button><div class="youtube-review-video"></div>';
+  document.body.append(reviewDialog);
+  function closeReview() {
+    if (reviewDialog.open) reviewDialog.close();
+    reviewDialog.querySelector('.youtube-review-video').replaceChildren();
+  }
+  reviewDialog.querySelector('button').addEventListener('click', closeReview);
+  reviewDialog.addEventListener('close', () => reviewDialog.querySelector('.youtube-review-video').replaceChildren());
+  reviewDialog.addEventListener('cancel', event => { event.preventDefault(); closeReview(); });
+  reviewDialog.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.stopPropagation(); event.preventDefault(); closeReview(); }
+  });
+  reviewDialog.addEventListener('click', event => { if (event.target === reviewDialog) closeReview(); });
+  function openReview(selectedReview = review) {
+    if (!selectedReview || !/^[\w-]{11}$/.test(selectedReview.youtube_video_id)) return;
+    const frame = document.createElement('iframe');
+    frame.src = `https://www.youtube.com/embed/${selectedReview.youtube_video_id}?autoplay=1`;
+    frame.title = selectedReview.title || 'Gameplay Review';
+    frame.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    reviewDialog.querySelector('.youtube-review-video').replaceChildren(frame);
+    reviewDialog.showModal();
+    reviewDialog.querySelector('button').focus();
+  }
+  async function loadReview(card, requestId) {
+    try {
+      const { data, error } = await supabase.from('card_reviews')
+        .select('youtube_video_id,title').eq('card_id', card.id).maybeSingle();
+      if (error || requestId !== playerDetailRequest || !data || !/^[\w-]{11}$/.test(data.youtube_video_id)) return;
+      review = data;
+      const button = playerDetailIdentity.querySelector('.youtube-review-button');
+      if (button) button.hidden = false;
+    } catch { /* Reviews are optional; player details remain usable. */ }
+  }
   async function openPlayerDetailModal(card) {
+    closeReview();
+    review = null;
     if (playerDetailModal.hidden) returnFocus = document.activeElement;
     const requestId = ++playerDetailRequest;
     selectedPlayer = card;
     renderPlayerDetail(card);
     playerDetailModal.hidden = false;
+    playerDetailModal.querySelector('.player-detail-panel').scrollTop = 0;
     document.querySelector('#player-detail-close').focus();
 
     if (!supabase) return;
+    const reviewRequest = loadReview(card, requestId);
 
     let cardDetail;
     try {
       cardDetail = await loadPlayerDetail(supabase, card.id);
     } catch {
       if (requestId === playerDetailRequest) playerDetailStats.textContent = 'Unable to load player details. Please reopen the panel.';
+      await reviewRequest;
       return;
     }
+    await reviewRequest;
     if (requestId !== playerDetailRequest || selectedPlayer?.id !== card.id) return;
 
     const detailedCard = normalizeBrowserPlayerCard(cardDetail);
@@ -44,6 +89,8 @@ export function createPlayerDetailModal({
   }
 
   function closePlayerDetailModal() {
+    closeReview();
+    review = null;
     playerDetailModal.hidden = true;
     selectedPlayer = null;
     playerDetailRequest += 1;
@@ -69,6 +116,7 @@ export function createPlayerDetailModal({
     }
     if (background || image) playerDetailIdentity.append(artwork);
     const heading = document.createElement('div');
+    heading.className = 'player-detail-heading';
     const eyebrow = document.createElement('p');
     eyebrow.className = 'eyebrow';
     eyebrow.textContent = [getCardRating(card), positions.join(' / ')].filter(Boolean).join(' · ');
@@ -78,7 +126,16 @@ export function createPlayerDetailModal({
     const meta = document.createElement('p');
     meta.className = 'player-detail-meta';
     meta.textContent = [card.club, card.nation].filter(Boolean).join(' · ') || 'Affiliation details unavailable';
-    heading.append(eyebrow, name, meta);
+    const nameRow = document.createElement('div');
+    nameRow.className = 'player-detail-name-row';
+    const reviewButton = document.createElement('button');
+    reviewButton.type = 'button';
+    reviewButton.className = 'youtube-review-button';
+    reviewButton.textContent = '▶ Gameplay Review';
+    reviewButton.hidden = !review;
+    reviewButton.addEventListener('click', () => openReview());
+    nameRow.append(name, reviewButton);
+    heading.append(eyebrow, nameRow, meta);
     playerDetailIdentity.append(heading);
 
     renderDetailSpecs(card);
@@ -160,9 +217,10 @@ export function createPlayerDetailModal({
     button.addEventListener('click', closePlayerDetailModal);
   });
   return {
+    openReview,
     open: openPlayerDetailModal,
     close: closePlayerDetailModal,
-    destroy() { closePlayerDetailModal(); },
+    destroy() { closePlayerDetailModal(); reviewDialog.remove(); },
     get isOpen() { return !playerDetailModal.hidden; },
   };
 }

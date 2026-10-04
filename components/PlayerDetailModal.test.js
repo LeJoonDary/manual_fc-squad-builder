@@ -14,8 +14,57 @@ test('SBC detail artwork corrects the legacy URL and clears when switching cards
   expect(document.querySelector('.player-detail-artwork')).toBeNull();
 });
 beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new Event('close')); };
   for (const id of excludedCardVersionsStore.getState().excludedCardVersionIds) excludedCardVersionsStore.unban(id);
   document.body.innerHTML = html;
+});
+
+test('reviews are card-specific, open a vertical player and remove playback on close', async () => {
+  const db = { from: table => ({
+    select() { return this; }, eq(key, id) { this.id = id; return this; },
+    single() { return Promise.resolve({ data: { id: this.id, name: 'Player' } }); },
+    maybeSingle() { return Promise.resolve({ data: this.id === 1 ? { youtube_video_id: 'abcdefghijk', title: 'Review' } : null }); },
+  }) };
+  const detail = setup(db);
+  await detail.open({ id: 1, name: 'Player' });
+  expect(document.querySelector('.youtube-review-button').hidden).toBe(false);
+  expect(document.querySelector('.youtube-review-button').textContent).toBe('▶ Gameplay Review');
+  document.querySelector('.youtube-review-button').click();
+  expect(document.querySelector('iframe').src).toBe('https://www.youtube.com/embed/abcdefghijk?autoplay=1');
+  const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
+  document.querySelector('.youtube-review-close').dispatchEvent(escape);
+  expect(document.querySelector('iframe')).toBeNull();
+  expect(detail.isOpen).toBe(true);
+  await detail.open({ id: 2, name: 'Other' });
+  expect(document.querySelector('.youtube-review-button').hidden).toBe(true);
+});
+
+test('a card review opens directly without opening player details', () => {
+  const detail = setup();
+  detail.openReview({ youtube_video_id: 'abcdefghijk', title: 'Gameplay' });
+  expect(detail.isOpen).toBe(false);
+  expect(document.querySelector('.youtube-review-dialog').open).toBe(true);
+  expect(document.querySelector('iframe').src).toBe('https://www.youtube.com/embed/abcdefghijk?autoplay=1');
+  document.querySelector('.youtube-review-close').click();
+  expect(document.querySelector('iframe')).toBeNull();
+});
+
+test('late reviews do not attach to a newly selected card', async () => {
+  const pending = [];
+  const detail = setup({ from: () => ({
+    select() { return this; }, eq(key, id) { this.id = id; return this; },
+    single() { return Promise.resolve({ data: { id: this.id, name: this.id } }); },
+    maybeSingle() { return new Promise(resolve => pending.push(resolve)); },
+  }) });
+  const first = detail.open({ id: 'first', name: 'First' });
+  const second = detail.open({ id: 'second', name: 'Second' });
+  pending[1]({ data: null });
+  await second;
+  pending[0]({ data: { youtube_video_id: 'abcdefghijk' } });
+  await first;
+  expect(document.querySelector('.youtube-review-button').hidden).toBe(true);
+  expect(document.querySelector('#player-detail-name').textContent).toBe('second');
 });
 afterEach(() => { panels.forEach(panel => panel.destroy()); panels = []; });
 

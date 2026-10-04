@@ -1,5 +1,7 @@
 import { formatSlotPosition } from './utils/pitchCardLabels.js';
 import { createPlayerCard } from './components/PlayerCard.js';
+import { handlePitchSlotClick } from './utils/pitchSlotInteraction.js';
+import { createCardReviewButtons } from './components/CardReviewButton.js';
 import { createPitchExcludeButton, syncPitchExclusions } from './components/PitchExcludeButton.js';
 import { excludedCardVersionsStore } from './utils/excludedCardVersions.js';
 import { createPitchChemistryBadge } from './components/PitchChemistryBadge.js';
@@ -134,8 +136,11 @@ const modalLoadMore = document.querySelector('#modal-load-more');
 modalLoadMore.addEventListener('click', () => loadModalPlayerPage());
 
 function bindSquadSlot(slot) {
-  slot.addEventListener('click', () => {
-    if (!suppressSlotClick && !isSquadSlotLocked(squad[slot.dataset.position])) openPlayerModal(slot);
+  slot.addEventListener('click', event => {
+    const entry = squad[slot.dataset.position];
+    handlePitchSlotClick(event, {
+      entry, suppressed: suppressSlotClick, locked: isSquadSlotLocked(entry), open: openPlayerModal,
+    });
   });
   slot.addEventListener('dragstart', handleSlotDragStart);
   slot.addEventListener('dragover', handleSlotDragOver);
@@ -488,6 +493,7 @@ const playerDetail = createPlayerDetailModal({
   supabase, normalizeBrowserPlayerCard, asArray, getCardImage, getCardRating,
   getCardName, getPlayStyles, createPlaystyleBadges, getRoles, unwrapRelation,
 });
+const createReviewButton = createCardReviewButtons(supabase, playerDetail.openReview);
 
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
@@ -1402,7 +1408,7 @@ function updateModalPlayerSearch() {
 function buildPlayerCard(card, options) {
   return createPlayerCard(card, {
     getCardName, getCardRating, getCardPosition, getChemistryEntityLogo,
-    createPlaystyleBadges, unwrapRelation, affiliationCatalog, onShowDetails: playerDetail.open, ...options,
+    createPlaystyleBadges, unwrapRelation, affiliationCatalog, createReviewButton, onShowDetails: playerDetail.open, ...options,
   });
 }
 
@@ -1537,7 +1543,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   updateSlotLockUI(slot);
   updateSlotOwnedUI(slot);
 
-  body.append(createPitchMiniCard(card, getPlayStyles(card), affiliationCatalog));
+  body.append(createPitchMiniCard(card, getPlayStyles(card), affiliationCatalog, { createReviewButton }));
   const priceBadge = document.createElement('div');
   priceBadge.className = 'card-price-badge';
   slot.append(priceBadge);
