@@ -56,6 +56,9 @@ const modalTitle = document.querySelector('#modal-title');
 const modalDescription = document.querySelector('#modal-description');
 const modalPlayerSearchInput = document.querySelector('#modal-player-search-input');
 const modalPlayerSearchClear = document.querySelector('#modal-player-search-clear');
+const modalPositionButtons = [...document.querySelectorAll('[data-position-mode]')];
+let modalPositionMode = 'all';
+const modalPositionLabels = { all: 'All Positions', primary: 'Primary Position', secondary: 'Secondary Position' };
 const playerList = document.querySelector('#player-list');
 const tabButtons = document.querySelectorAll('[data-tab]');
 const tabPages = document.querySelectorAll('.tab-page');
@@ -313,6 +316,18 @@ playerNameSearch.addEventListener('input', (event) => {
 modalPlayerSearchInput.addEventListener('input', () => {
   updateModalPlayerSearch();
 });
+
+modalPositionButtons.forEach(button => button.addEventListener('click', () => {
+  if (modalPositionMode === button.dataset.positionMode) return;
+  setModalPositionMode(button.dataset.positionMode);
+  resetModalSearch();
+  loadModalPlayerPage();
+}));
+
+function setModalPositionMode(mode) {
+  modalPositionMode = mode;
+  modalPositionButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.positionMode === mode)));
+}
 
 modalPlayerSearchClear.addEventListener('click', () => {
   modalPlayerSearchInput.value = '';
@@ -1097,6 +1112,7 @@ async function openPlayerModal(slot) {
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
   modalPlayerSearchClear.hidden = true;
+  setModalPositionMode('all');
   const position = slot.dataset.position;
   modal.hidden = false;
   requestAnimationFrame(() => modalPlayerSearchInput.focus());
@@ -1130,6 +1146,7 @@ async function loadModalPlayerPage() {
   try {
     const rows = await fetchModalPlayerPage(supabase, {
       position: normalizePosition(position), keyword: modalPlayerSearchInput.value,
+      positionMode: modalPositionMode,
       offset: ticket.offset, signal: modalAbort.signal,
     });
     if (requestId !== modalRequest || modal.hidden) return;
@@ -1137,7 +1154,7 @@ async function loadModalPlayerPage() {
     const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean)
       .filter(card => !selectedCardIds.has(String(card.id)));
     if (!modalPager.complete(ticket, rows, cards)) return;
-    modalDescription.textContent = `${normalizePosition(position)} · ${modalPager.state.cards.length} Players · Primary Position`;
+    modalDescription.textContent = `${normalizePosition(position)} · ${modalPager.state.cards.length} Players · ${modalPositionLabels[modalPositionMode]}`;
     renderPlayerList(modalPager.state.cards);
     if (!modalPager.state.cards.length) renderMessage(modalPager.state.hasMore
       ? 'No available players on this page. Select Load More to continue.'

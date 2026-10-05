@@ -38,7 +38,7 @@ describe('generateOptimalSquad', () => {
     const result = await generateOptimalSquad('4-3-3', groups(), budget, 33, false);
     expect(result.success).toBe(true);
     expect(result.totalChemistry).toBe(33);
-    expect(result.totalCost).toBe(990000);
+    expect(result.totalCost).toBe(930000);
   });
 
   it('clusters slightly more expensive cheap cards instead of selecting isolated price minima', async () => {
@@ -60,13 +60,13 @@ describe('generateOptimalSquad', () => {
     const result = await generateOptimalSquad('4-3-3', candidates, 1000000, 33, true);
     expect(result.success).toBe(true);
     expect(result.squad.map(p => p.slotPosition)).toEqual(['LW', 'ST', 'RW', 'LCM', 'CM', 'RCM', 'LB', 'LCB', 'RCB', 'RB', 'GK']);
-    expect(result.squad.every(p => p.card.overall === 97)).toBe(true);
-    expect(result.totalCost).toBe(990000);
+    expect(result.squad.filter(p => p.slotPosition !== 'GK').every(p => p.card.overall === 97)).toBe(true);
+    expect(result.totalCost).toBe(930000);
     expect(new Set(result.squad.map(p => p.playerKey)).size).toBe(11);
     expect(calculateSquadChemistry(result.squad, true).totalChemistry).toBe(result.totalChemistry);
-    // The fixture omits reactions: keeper stats contribute 88 * .9, with no height/trait bonuses.
-    expect(result.squad.find(player => player.slotPosition === 'GK')?.metaScore).toBe(79.2);
-    expect(result.teamMetaScore).toBeCloseTo((92 * 10 + 79.2) / 11);
+    // GK uses OVR; attackers use the missing-composure fallback of 75.
+    expect(result.squad.find(player => player.slotPosition === 'GK')?.metaScore).toBe(99);
+    expect(result.teamMetaScore).toBeCloseTo((86.7 * 3 + 88 * 7 + 99) / 11);
     expect(result.iterations).toBeLessThanOrEqual(1500);
     expect(candidates).toEqual(snapshot);
   });

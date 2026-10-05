@@ -2,7 +2,6 @@ import { calculateChemistry } from './chemistry.ts';
 import type { PlayerCard, SquadSlot } from '../types/chemistry';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, isPositionMatched, normalizeChemistryPosition } from './chemistry.ts';
-import { calculate_base_score } from './metaScore.js';
 import { FORMATIONS } from './formations.js';
 import { PLAYER_CARD_SELECT } from './playerCards.js';
 import { getCardCoinPrice, calculateSquadTotalCost } from './squadCost.ts';
@@ -259,6 +258,44 @@ export interface GeneratedSquad {
 
 const relation = (value: any): RawCandidate => (Array.isArray(value) ? value[0] : value) ?? {};
 
+/** Slot-specific solver score; supports API joins and normalized card inputs. */
+export function calculateMetaPaceScore(card: any, targetPos: string): number {
+  targetPos = normalizeChemistryPosition(targetPos);
+  const stats = relation(card.player_stats ?? card.raw?.player_stats);
+  const p = card.detail_stats ?? stats;
+  const f = card.face_stats ?? { ...card, ...stats };
+  const pace = f.pac ?? ((p.acceleration ?? 75) * .5 + (p.sprint_speed ?? 75) * .5);
+  const agilityBalance = (p.agility ?? f.dri ?? 75) * .5 + (p.balance ?? f.dri ?? 75) * .5;
+  const finishingComposure = (p.finishing ?? f.sho ?? 70) * .6 + (p.composure ?? 75) * .4;
+  const def = (p.def_awareness ?? f.def ?? 60) * .5 + (p.standing_tackle ?? f.def ?? 60) * .5;
+  const phy = (p.strength ?? f.phy ?? 65) * .6 + (p.stamina ?? f.phy ?? 65) * .4;
+  const hexagonAvg = ((f.pac ?? 70) + (f.sho ?? 70) + (f.pas ?? 70) + (f.dri ?? 70) + (f.def ?? 60) + (f.phy ?? 65)) / 6;
+  let baseScore;
+  if (['ST', 'CF', 'LW', 'RW', 'LM', 'RM', 'CAM'].includes(targetPos)) {
+    baseScore = pace * .35 + agilityBalance * .25 + finishingComposure * .25 + phy * .15;
+  } else if (['CM', 'CDM'].includes(targetPos)) {
+    const pass = (p.vision ?? f.pas ?? 70) * .5 + (p.short_passing ?? f.pas ?? 70) * .5;
+    baseScore = hexagonAvg * .35 + pace * .25 + pass * .20 + ((def + phy) / 2) * .20;
+  } else if (['LB', 'RB', 'LWB', 'RWB'].includes(targetPos)) {
+    baseScore = pace * .35 + def * .30 + phy * .20 + (f.pas ?? 65) * .15;
+  } else if (targetPos === 'CB') {
+    baseScore = pace * .40 + def * .35 + phy * .25;
+  } else {
+    baseScore = card.overall ?? 80;
+  }
+  const roles = card.roles ?? card.card_roles ?? card.raw?.card_roles ?? [];
+  let roleBonus = 0;
+  for (const row of roles) {
+    const role = row.roles ? relation(row.roles) : row;
+    const name = role.role_name ?? role.name ?? '';
+    const matches = role.position === targetPos || (!role.position && (name === targetPos || name.startsWith(`${targetPos} `)));
+    if (!matches) continue;
+    const level = row.level ?? row.role_level;
+    roleBonus = Math.max(roleBonus, level === 2 ? 3 : level === 1 ? 1.5 : 0);
+  }
+  return baseScore + roleBonus;
+}
+
 /** Accepts either the grouped input or the flat, annotated output of fetchCandidatePlayers. */
 export function groupCandidatePlayers(candidates: CandidatePlayer[]): CandidateGroups {
   return Object.fromEntries(['FW', 'MF', 'DF'].map(group => [group,
@@ -282,9 +319,8 @@ function prepareCandidate(card: RawCandidate, slotPosition: string, threeBack: b
   const chemistryCard = canonical ? { ...card, id: String(card.id), position, altPositions } as PlayerCard
     : adaptChemistryPlayerCard({ ...card, name: card.name ?? player.name, position, altPositions });
   if (!isLocked && !isPositionMatched(slotPosition, chemistryCard)) return null;
-  const stats = card.player_stats ? relation(card.player_stats) : card;
   const normalized = normalizeChemistryPosition(slotPosition);
-  const metaScore = calculate_base_score(stats, card, normalized, threeBack).meta_score;
+  const metaScore = calculateMetaPaceScore(card, normalized);
   return { ...chemistryCard, slotPosition, price, metaScore, card, isOwned, isLocked,
     playerKey: String(card.player_id ?? player.id ?? card.id) };
 }

@@ -1,6 +1,8 @@
 import { renderDetailStatGroups } from '../utils/detailStats.js';
 import { getCardBackground } from '../utils/cardBackground.js';
 import { loadPlayerDetail } from '../utils/playerCatalog.js';
+import { formatCardVersion } from '../utils/pitchCardLabels.js';
+import { createPlaystyleIcons } from './PlaystyleIcons.js';
 
 // Existing detail panel shared by the Players and Squad Builder tabs.
 export function createPlayerDetailModal({
@@ -143,7 +145,7 @@ export function createPlayerDetailModal({
     renderDetailRoles(card);
     const detailPlaystyles = getPlayStyles(card);
     playerDetailPlaystyles.replaceChildren(
-      createPlaystyleBadges({ ...card, playstyles: detailPlaystyles }, Infinity, 'detail-playstyle-badges playstyle-badges'),
+      createPlaystyleIcons(detailPlaystyles, 'detail-playstyle-icons'),
     );
     if (!detailPlaystyles.length) {
       playerDetailPlaystyles.textContent = 'No PlayStyles available.';
@@ -161,11 +163,26 @@ export function createPlayerDetailModal({
       return;
     }
 
+    const groups = new Map();
     roles.forEach((role) => {
+      if (!groups.has(role.position)) {
+        const row = document.createElement('div');
+        row.className = 'detail-role-group';
+        row.setAttribute('role', 'group');
+        row.setAttribute('aria-label', `${role.position} roles`);
+        const position = document.createElement('span');
+        position.className = 'detail-role-position';
+        position.textContent = role.position;
+        const badges = document.createElement('div');
+        badges.className = 'detail-role-items';
+        row.append(position, badges);
+        playerDetailRoles.append(row);
+        groups.set(role.position, badges);
+      }
       const badge = document.createElement('span');
       badge.className = role.level === 2 ? 'detail-role-badge is-plus-plus' : 'detail-role-badge is-plus';
-      badge.textContent = `${role.position} ${role.name} ${role.level === 2 ? '++' : '+'}`;
-      playerDetailRoles.append(badge);
+      badge.textContent = `${role.name} ${role.level === 2 ? '++' : '+'}`;
+      groups.get(role.position).append(badge);
     });
   }
 
@@ -185,16 +202,9 @@ export function createPlayerDetailModal({
     const specs = [
       ['League', card.league ?? '-'],
       ['Club', card.club ?? '-'],
-      ['Card Version', card.version ?? '-'],
-      ['Height', card.height === undefined || card.height === null ? '-' : `${card.height}cm`],
-      ['Weight', card.weight === undefined || card.weight === null ? '-' : `${card.weight}kg`],
-      ['Age', card.age === undefined || card.age === null ? '-' : `${card.age} yrs`],
-      ['Gender', card.gender ?? '-'],
-      ['Preferred Foot', card.preferred_foot ?? '-'],
-      ['Skill Moves', card.sm === undefined || card.sm === null ? '-' : `${card.sm}★`],
-      ['Weak Foot', card.wf === undefined || card.wf === null ? '-' : `${card.wf}★`],
-      ['Accele Type', card.accele_type ?? '-'],
-      ['Body Type', card.body_type ?? '-'],
+      ['Card Version', formatCardVersion(card.version).toUpperCase()],
+      ['Height / Weight', `${card.height == null ? '—' : `${card.height}cm`} / ${card.weight == null ? '—' : `${card.weight}kg`}`],
+      ['Accele & Body Type', `${card.accele_type || '—'} / ${card.body_type || '—'}`],
     ];
     playerDetailBio.replaceChildren(nationTile, ...specs.map(([label, value]) => createDetailValue(label, value)));
   }
@@ -209,6 +219,7 @@ export function createPlayerDetailModal({
     labelElement.textContent = label;
     const valueElement = document.createElement('strong');
     valueElement.textContent = value;
+    if (label === 'Card Version') valueElement.className = 'detail-card-ribbon';
     item.append(labelElement, valueElement);
     return item;
   }

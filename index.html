@@ -399,6 +399,11 @@
           <button class="modal-close" type="button" aria-label="Close Player Select" data-close-modal>×</button>
         </header>
         <p id="modal-description" class="modal-description"></p>
+        <div id="modal-position-filter" class="modal-position-filter" role="group" aria-label="Position eligibility">
+          <button type="button" data-position-mode="all" aria-pressed="true">All</button>
+          <button type="button" data-position-mode="primary" aria-pressed="false">Primary</button>
+          <button type="button" data-position-mode="secondary" aria-pressed="false">Secondary</button>
+        </div>
         <div class="modal-player-search">
           <label class="sr-only" for="modal-player-search-input">Search players</label>
           <input id="modal-player-search-input" type="text" placeholder="Search player by name (e.g. Mbappe, Salah...)" autocomplete="off" autofocus />
@@ -417,27 +422,24 @@
       <section class="modal-panel player-detail-panel">
         <header class="player-detail-header">
           <div id="player-detail-identity" class="player-detail-identity"></div>
+          <section class="player-detail-section player-detail-header-specs" aria-labelledby="bio-card-specs-title">
+            <h2 id="bio-card-specs-title">BIO &amp; CARD SPECS</h2>
+            <div id="player-detail-bio" class="detail-spec-grid"></div>
+          </section>
           <button id="player-detail-close" class="modal-close" type="button" aria-label="Close player details" data-close-detail-modal>×</button>
         </header>
         <div class="player-detail-body">
-          <div class="player-detail-left">
-          <section class="player-detail-section" aria-labelledby="bio-card-specs-title">
-            <h2 id="bio-card-specs-title">Bio &amp; Card Specs</h2>
-            <div id="player-detail-bio" class="detail-spec-grid"></div>
-          </section>
-
-          <section class="player-detail-section" aria-labelledby="player-roles-title">
-            <h2 id="player-roles-title">Roles</h2>
-            <div id="player-detail-roles" class="detail-badges"></div>
+          <section class="player-detail-section" aria-labelledby="player-stats-title">
+            <h2 id="player-stats-title">ATTRIBUTES / SUB-STATS</h2>
+            <div id="player-detail-stats" class="detail-substats-grid"></div>
           </section>
           <section class="player-detail-section" aria-labelledby="player-playstyles-title">
-            <h2 id="player-playstyles-title">PlayStyles</h2>
+            <h2 id="player-playstyles-title">PLAYSTYLES</h2>
             <div id="player-detail-playstyles" class="detail-badges"></div>
           </section>
-          </div>
-          <section class="player-detail-section" aria-labelledby="player-stats-title">
-            <h2 id="player-stats-title">Sub-stats</h2>
-            <div id="player-detail-stats" class="detail-substats-grid"></div>
+          <section class="player-detail-section" aria-labelledby="player-roles-title">
+            <h2 id="player-roles-title">ROLES</h2>
+            <div id="player-detail-roles" class="detail-badges"></div>
           </section>
         </div>
       </section>

@@ -48,7 +48,7 @@ describe('auto build pitch integration', () => {
     const request = { snapshot: bridge.services.getSquadSnapshot(), formation: '4-3-3', totalBudget: 1000000 };
     bridge.services.applyAutoBuildResult(result, request);
     expect(document.querySelectorAll('.pitch .slot.occupied')).toHaveLength(11);
-    expect(document.querySelector('#total-cost').value).toBe('990,000');
+    expect(document.querySelector('#total-cost').value).toBe('930,000');
     expect(document.querySelector('#total-chemistry').value).toBe('33');
     expect(document.querySelector('#manager-slot').textContent).toContain('Smart Manager');
     expect(document.querySelectorAll('.pitch .is-out-of-position')).toHaveLength(0);
@@ -70,8 +70,8 @@ describe('auto build pitch integration', () => {
     expect(leftWing.dataset.cardId).toBe(String(currentSquad.LW.card_id));
     expect(leftWing.classList.contains('is-locked')).toBe(true);
     expect(leftWing.classList.contains('is-owned')).toBe(true);
-    expect(document.querySelector('#total-cost').value).toBe('900,000');
-    expect(rebuilt.totalCost).toBe(900000);
+    expect(document.querySelector('#total-cost').value).toBe('840,000');
+    expect(rebuilt.totalCost).toBe(840000);
     bridge.services.resetTargetBudget();
     expect(document.querySelector('#target-budget').value).toBe('');
     expect(document.querySelector('#budget-percentage').textContent).toBe('Unlimited');
@@ -85,6 +85,6 @@ describe('auto build pitch integration', () => {
     expect(document.querySelectorAll('.pitch .slot.occupied')).toHaveLength(11);
     expect(leftWing.classList.contains('is-locked')).toBe(true);
     expect(leftWing.classList.contains('is-owned')).toBe(true);
-    expect(document.querySelector('#total-cost').value).toBe('900,000');
+    expect(document.querySelector('#total-cost').value).toBe('840,000');
   });
 });
