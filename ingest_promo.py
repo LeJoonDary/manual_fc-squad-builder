@@ -196,7 +196,7 @@ def get_or_create_club(name, league_id=None):
 
 def extract_player_urls_from_squad(squad_url):
     """스쿼드/프로모 페이지에서 15개 이상의 선수 카드 URL 추출"""
-    clean_url = squad_url.split("?")[0].rstrip("/") + "/"
+    clean_url = squad_url.strip()
     print(f"▶ 프로모 스쿼드 페이지 로드 중: {clean_url}")
     resp = requests.get(clean_url, headers=HEADERS, timeout=15)
     if resp.status_code != 200:

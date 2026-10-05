@@ -1,0 +1,54 @@
+#ronaldo, 84, gold, https://www.youtube.com/shorts/9gRG8KEmrc0
+#stanway, 86, gold, https://www.youtube.com/shorts/2S_bqMBUUbo
+#haaland, 91, gold, https://www.youtube.com/shorts/t2_O9RhvKLs
+#raphinha, 89, potm, https://www.youtube.com/shorts/Dh5hp6IvI0o
+#olise, 91, potm, https://www.youtube.com/shorts/4UNYUdCAo6g
+#pedro goncalves, 83, glory, https://www.youtube.com/shorts/HAGYeNsGJvI
+#walcott, 85, hall, https://www.youtube.com/shorts/x-69M_H6-Sc
+#nico williams, 84, gold, https://www.youtube.com/shorts/jXmEa5OWrKc
+#de jong, 86, gold, https://www.youtube.com/shorts/6PrUhDAv0LY
+#russo, 88, gold, https://www.youtube.com/shorts/UTgvTKajYcw
+#messi, 89, gold, https://www.youtube.com/shorts/Wc03y99yVjo
+#kane, 90, gold, https://www.youtube.com/shorts/WfjKHc-l9kU
+#chawinga, 87, gold, https://www.youtube.com/shorts/BmXadmwJLfQ
+#patri guijarro, 88, gold, https://www.youtube.com/shorts/LHIQFX-8lKg
+#raphinha, 88, gold, https://www.youtube.com/shorts/4BBZY5LOr7g
+#bouaddi, 83, glory, https://www.youtube.com/shorts/LjAlkVBcKfA
+#remy, 84, hall of fut, https://www.youtube.com/shorts/k44SKqn20AA
+#adeyemi, 82, gold, https://www.youtube.com/shorts/FuV3OVcX204
+#rodrigo mora, 83, glory, https://www.youtube.com/shorts/QJmFPm3Gars
+#lavelle, 87, gold, https://www.youtube.com/shorts/AqNcoh0YC5s
+#david luiz, 85, hall of fut, https://www.youtube.com/shorts/fgyHHUukh4g
+#david, 82, totw, https://www.youtube.com/shorts/3X-TRlF6dYo
+#pepe, 89, icon, https://www.youtube.com/shorts/K3Mp-bUvyJY
+#kika nazareth, 86, glory, https://www.youtube.com/shorts/k0BzlmPwX58
+#nusa, 85, glory, https://www.youtube.com/shorts/62Jv89JG3vM
+#bisseck, 85, glory, https://www.youtube.com/shorts/JhbuVl4qQmc
+#aubameyang, 86, glory, https://www.youtube.com/shorts/K__UKjTjXxI
+#ratiu, 85, glory, https://www.youtube.com/shorts/L9nnKKQylNI
+#renato veiga, 84, glory, https://www.youtube.com/shorts/dBSqzN0NdX4
+#frattesi, 84, glory, https://www.youtube.com/shorts/erO6heZ4oBA
+#malen, 85, potm, https://www.youtube.com/shorts/Z0VZSuXC2Js
+#gross, 84, potm, https://www.youtube.com/shorts/dTfOvVLGTt4
+#akliouche, 85, glory, https://www.youtube.com/shorts/3lzBnoRvOxw
+#gordon, 86, glory, https://www.youtube.com/shorts/OyQ9PxrjPmg
+#nico paz, 87, glory, https://www.youtube.com/shorts/2StfOdygYZ4
+#lookman, 86, glory, https://www.youtube.com/shorts/ZF4geJWfw7A
+#rashford, 82, gold, https://www.youtube.com/shorts/c5tOLpxGEh0
+#malen, 83, gold, https://www.youtube.com/shorts/MnL_qCmmHHE
+#pavlovic, 83, gold, https://www.youtube.com/shorts/tR55qD0BnSk
+#vicky lopez, 84, gold, https://www.youtube.com/shorts/djkpzWM8c4c
+#foden, 84, gold, https://www.youtube.com/shorts/NzhCcoldUxA
+#rudiger, 83, gold, https://www.youtube.com/shorts/VZEBqXs2CyI
+#kika nazareth, 83, gold, https://www.youtube.com/shorts/jMT8cfVIro4
+#thuram, 86, totw, https://www.youtube.com/shorts/Tnz5wGeLzJA
+#barella, 87, gold, https://www.youtube.com/shorts/lVzUandWWX4
+#beerensteyn, 83, gold, https://www.youtube.com/shorts/9sh2AIBg5so
+#cherki, 86, gold, https://www.youtube.com/shorts/EoKfigdI26M
+#musiala, 87, gold, https://www.youtube.com/shorts/aSmbl82_2yk
+#rummenigge, 86, debut international, https://www.youtube.com/shorts/6sexi_ZYCX8
+#isak, 86, gold, https://www.youtube.com/shorts/avJ2YeLqfzQ
+#harder, 88, glory, https://www.youtube.com/shorts/0sPRy9JmL58
+#diomande, 84, gold, https://www.youtube.com/shorts/duPoMhtBbHo
+#semenyo, 85, gold, https://www.youtube.com/shorts/6p6mDqK-F8c
+
