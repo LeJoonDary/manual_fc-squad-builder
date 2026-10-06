@@ -1,6 +1,6 @@
 // Node.js 22.18+: node test_fetch_candidates.js
 import assert from 'node:assert/strict';
-import { fetchCandidatePlayers } from './utils/autoBuildUtils.ts';
+import { fetchCandidatePlayers, getMaxSlotPrice } from './utils/autoBuildUtils.ts';
 import { createCandidateMockDb, mockCandidate } from './scripts/mocks/candidateDb.js';
 
 const rows = ['ST', 'LW', 'RW', 'CAM', 'CM', 'CDM', 'LM', 'RM', 'CB', 'LB', 'RB', 'GK']
@@ -16,6 +16,6 @@ const isThreeBack = false;
 const candidates = await fetchCandidatePlayers(totalBudget, formation, isThreeBack, supabase);
 const format = value => Math.round(value).toLocaleString('en-US');
 console.log(`\n⚽ 후보군 필터링 · Mock DB · ${formation} · 총예산 ${format(totalBudget)} C`);
-assert.ok(supabase.calls.every(call => call.limit === 120 && call.max === totalBudget));
+assert.ok(supabase.calls.every(call => call.limit === 120 && call.max === getMaxSlotPrice(call.positions[0], 'attack', totalBudget, totalBudget)));
 assert.ok(candidates.every(card => card.price <= totalBudget));
 console.log(`✅ 중복 제거 후 ${candidates.length}명 · 가격과 조회 제한 검증 완료\n`);

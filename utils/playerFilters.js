@@ -11,7 +11,7 @@ export function createDefaultFilters() {
     positions: new Set(), onlyPrimary: false, hasAllPositions: false,
     selectedNormalIds: [], selectedPlusIds: [], requireAllPlaystyles: false,
     minPlaystyles: '', maxPlaystyles: '', minPlaystylesPlus: '', maxPlaystylesPlus: '',
-    selectedRoles: [], hasAllRoles: false,
+    selectedRoles: [], hasAllRoles: false, isStrictRoleMode: false,
     acceleTypes: new Set(), preferredFoot: '', gender: '', bodyTypes: new Set(),
     minHeight: '', maxHeight: '', minWeight: '', maxWeight: '', minAge: '', maxAge: '',
     nation: '', league: '', club: '', rarities: new Set(), stats: defaultStats(),
@@ -23,6 +23,9 @@ export function buildPlayerQuery(db, filters) {
   const relations = JSON.parse(JSON.stringify(filters, (_, value) => value instanceof Set ? [...value] : value));
   // Name matching happens in playerSearch.js, before the visible result limit.
   relations.name = '';
+  // Soft role preferences affect auto-build scoring, not catalog eligibility.
+
+  relations.hasAllRoles = false; // Requirements from different positions are alternatives for one card.
   relations.selectedPlayStyles = selectedPlaystyles(filters);
   let query = db.rpc('filter_player_cards', { filters: relations }, { count: 'exact' })
     .select(`*, players!inner(id,name,long_name)${activeStats(filters.stats).length ? ', player_stats!inner(card_id)' : ''}`);

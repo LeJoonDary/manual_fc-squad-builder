@@ -143,3 +143,13 @@ test('broad name totals exclude regex false positives and reuse matching IDs acr
   expect(requests[1].url.searchParams.get('select')).toBe('id,players!inner(id,name,long_name)');
   expect(requests[3].url.searchParams.get('id')).toBe('in.(41,42,43)');
 });
+
+test.each([false, true])('catalog role eligibility follows strict toggle %s', async isStrictRoleMode => {
+  const filters = createDefaultFilters();
+  filters.isStrictRoleMode = isStrictRoleMode;
+  filters.selectedRoles = [{ position: 'ST', name: 'Poacher', level: 1 }, { position: 'CM', name: 'Playmaker', level: 2 }];
+  const { db, requests } = database();
+  await buildPlayerQuery(db, filters);
+  expect(requests[0].body.filters.selectedRoles).toEqual(filters.selectedRoles);
+  expect(requests[0].body.filters.hasAllRoles).toBe(false);
+});

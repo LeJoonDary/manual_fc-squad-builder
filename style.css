@@ -1217,3 +1217,27 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 .auto-build-focus button { flex: 1 1 85px; min-height: 42px; border: 1px solid #425777; border-radius: 8px; padding: 8px; background: #1b2d47; color: #edf3ff; cursor: pointer; font-size: .72rem; }
 .auto-build-focus button[aria-pressed="true"] { border-color: #63e6be; background: #193f46; color: #9af0d7; }
 .auto-build-focus:disabled { opacity: .6; }
+
+.auto-build-modal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
+.auto-build-modal-grid .excluded-card-versions-manager { margin: 0; min-width: 0; }
+.auto-build-modal-grid button { width: 100%; min-height: 42px; padding: 10px 8px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; color: #cbd5e1; font-size: 12px; font-weight: 500; cursor: pointer; }
+.auto-build-modal-grid button:hover { background: #334155; }
+.auto-build-modal-grid .tactical-roles-trigger { color: #34d399; border-color: #34d3994d; }
+.tactical-roles-dialog { width: min(520px, calc(100vw - 32px)); max-height: 85vh; overflow: auto; padding: 20px; border: 1px solid #334155; border-radius: 16px; color: #e2e8f0; background: #0f172a; }
+.tactical-roles-dialog::backdrop { background: #0009; }
+.tactical-roles-dialog header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.tactical-roles-dialog header button { background: transparent; color: inherit; border: 0; font-size: 28px; cursor: pointer; }
+.tactical-roles-dialog .filter-accordion-content { display: block; }
+
+.tactical-mini-pitch { position: relative; height: 270px; margin: 10px 0 16px; border: 2px solid #a7f3d0; border-radius: 10px; background: repeating-linear-gradient(0deg, #087c50 0 45px, #12885a 45px 90px); }
+.tactical-mini-pitch::before { content: ''; position: absolute; top: 50%; width: 100%; border-top: 1px solid #ffffff70; }
+.tactical-slot { position: absolute; transform: translate(-50%, -50%); min-width: 42px; padding: 7px; border: 1px solid #94a3b8; border-radius: 8px; background: #0f172a; color: white; cursor: pointer; font-size: 12px; }
+.tactical-slot[aria-pressed="true"] { border-color: #facc15; outline: 2px solid #facc15; }
+.tactical-role-dot { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #34d399; right: -3px; top: -3px; }
+
+.auto-build-modal-grid { grid-template-columns: minmax(0, 1fr); }
+.tactical-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.tactical-tabs button, .tactical-clear-all, .tactical-roles-dialog .role-option-row button { padding: 8px 12px; background: #1e293b; color: #cbd5e1; border: 1px solid #475569; border-radius: 6px; cursor: pointer; }
+.tactical-tabs button[aria-pressed="true"], .tactical-roles-dialog .role-option-row button[aria-pressed="true"] { color: #34d399; border-color: #34d399; }
+.tactical-roles-dialog .position-role-subfilter { max-height: 35vh; overflow-y: auto; }
+.tactical-clear-all { margin-top: 12px; width: 100%; }

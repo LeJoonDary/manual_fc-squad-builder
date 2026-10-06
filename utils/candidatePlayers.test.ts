@@ -6,6 +6,16 @@ import { createCandidateMockDb, mockCandidate } from '../scripts/mocks/candidate
 const client = (db: ReturnType<typeof createCandidateMockDb>) => db as unknown as SupabaseClient;
 
 describe('candidate pruning', () => {
+  it('filters fullbacks/GK at fixed caps before the 120-row limit and loads CB aerial attributes', async () => {
+    const rows = ['LB', 'RB', 'GK', 'CB'].flatMap((position, i) => [
+      mockCandidate(i * 2, [position], 40000, 80), mockCandidate(i * 2 + 1, [position], 40001, 99),
+    ]);
+    const db = createCandidateMockDb(rows);
+    const cards = await fetchCandidatePlayers(500000, '4-3-3', false, client(db));
+    expect(cards.map(card => card.id).sort()).toEqual([0, 2, 4, 6, 7]);
+    expect(db.calls.every(call => call.limit === 120)).toBe(true);
+    expect(db.calls.every(call => call.select.includes('gender,height') && call.select.includes('jumping'))).toBe(true);
+  });
   it.each([0, 1000000])('bounds every position to one top-120 query with thousands of cards (budget %s)', async budget => {
     const rows = Array.from({ length: 2000 }, (_, i) => mockCandidate(i + 1, ['ST', 'LW', 'RW', 'CM', 'CB', 'LB', 'RB', 'GK'], 50000, 80 + i % 20));
     const db = createCandidateMockDb(rows);
@@ -19,7 +29,7 @@ describe('candidate pruning', () => {
       expect(call.range).toBeUndefined();
       expect(call.positions).toHaveLength(1);
       expect(call.ovrMin).toBe(80);
-      expect(call.max).toBe(budget || undefined);
+      expect(call.max).toBe(budget ? ({ ST: 595000, LW: 340000, RW: 340000, CM: 120000, CB: 200000, LB: 80000, RB: 80000, GK: 80000 }[call.positions[0]]) : undefined);
       expect(call.select).not.toContain('*');
       expect(call.select).toContain('player_stats(pac,sho,pas,dri,def,phy');
       expect(call.select).toContain('card_roles(role_level,roles(position,role_name))');
@@ -100,13 +110,13 @@ describe('candidate pruning', () => {
     rows.push(mockCandidate(103, ['GK'], -1, 100));
     const db = createCandidateMockDb(rows);
     const cards = await fetchCandidatePlayers(1000000, '4-3-3 (4)', false, client(db));
-    expect(cards.filter(c => c.candidateGroups.includes('FW'))).toHaveLength(22);
-    expect(cards.some(card => card.id === 101)).toBe(true);
+    expect(cards.filter(c => c.candidateGroups.includes('FW'))).toHaveLength(21);
+    expect(cards.some(card => card.id === 101)).toBe(false);
     expect(cards.find(c => c.id === 100)?.candidateGroups).toEqual(['FW', 'MF']);
     expect(cards.find(c => c.id === 100)?.card_positions).toHaveLength(2);
     expect(cards.filter(c => Number(c.id) >= 102)).toHaveLength(0);
     expect(new Set(cards.map(c => c.id)).size).toBe(cards.length);
-    expect(db.calls.every(call => call.max === 1000000)).toBe(true);
+    expect(db.calls.every(call => call.max === ({ ST: 595000, LW: 340000, RW: 340000, CAM: 680000, CM: 120000, CB: 200000, LB: 80000, RB: 80000, GK: 80000 }[call.positions[0]]))).toBe(true);
     expect(db.calls.every(call => call.limit === 120 && call.range === undefined)).toBe(true);
     for (const call of db.calls.filter(call => call.max !== undefined)) {
       expect(call.table).toBe('card_versions');
@@ -143,4 +153,24 @@ it.each([{ min: 75, max: 99 }, { min: 45, max: 74 }])('applies OVR bounds to eve
   });
   expect(db.calls.every(call => call.ovrMin === Math.max(80, squadOvrRange.min) && call.ovrMax === squadOvrRange.max)).toBe(true);
   expect(cards.map(card => card.id)).toEqual([]);
+});
+
+it('filters required roles in the DB before the 120-row limit while preserving full role joins', async () => {
+  const { createClient } = await import('@supabase/supabase-js');
+  const calls: URL[] = [];
+  const db = createClient('https://example.supabase.co', 'test-key', {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: async url => { calls.push(new URL(String(url))); return new Response('[]', { headers: { 'Content-Type': 'application/json' } }); } },
+  });
+  await fetchCandidatePlayers(1000000, '4-3-3', false, db, {
+    isStrictRoleMode: true, slotRoleRequirements: { ST: { roleName: 'Advanced Forward', minLevel: 1 } },
+  });
+  const st = calls.find(url => url.searchParams.get('candidate_positions.positions.name') === 'in.(ST)')!;
+  expect(st.searchParams.get('required_roles.roles.role_name')).toBe('eq.Advanced Forward');
+  expect(st.searchParams.get('required_roles.roles.position')).toBe('eq.ST');
+  expect(st.searchParams.get('required_roles.role_level')).toBe('gte.1');
+  expect(st.searchParams.get('limit')).toBe('120');
+  expect(st.searchParams.get('select')).toContain('required_roles:card_roles!inner');
+  expect(st.searchParams.get('select')).toContain('card_roles(role_level,roles(position,role_name))');
+  expect(calls.filter(url => url.searchParams.has('required_roles.role_level'))).toHaveLength(1);
 });

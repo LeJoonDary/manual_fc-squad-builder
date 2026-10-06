@@ -4,7 +4,7 @@ import { ExcludedCardVersionsManager } from './ExcludedCardVersionsManager.jsx';
 import { excludedCardVersionsStore } from '../utils/excludedCardVersions.js';
 import { fetchCandidatePlayers, generateOptimalSquad, getRemainingAutoBuildBudget } from '../utils/autoBuildUtils.ts';
 
-export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {} }) {
+export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {}, getRoleOptions = () => ({}), openTacticalRoles = () => {} }) {
   const budgetHost = useRef(null);
   useEffect(() => {
     // Retain the existing input node and its budget/progress event listeners.
@@ -42,9 +42,11 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       }
       const snapshot = getSquadSnapshot();
       const exclusionSnapshot = excludedCardVersionsStore.getState();
-      const options = { currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], focus, excludeZeroPriceCards: true };
+      const roleOptions = structuredClone(getRoleOptions());
+      const options = { ...roleOptions, currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], focus, excludeZeroPriceCards: true };
       const candidates = await fetchCandidatePlayers(totalBudget, formation, isThreeBack, supabase, options);
       const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, true, options);
+      if (JSON.stringify(getRoleOptions()) !== JSON.stringify(roleOptions)) throw new Error('Role settings changed during the build. Try again.');
       if (excludedCardVersionsStore.getState() !== exclusionSnapshot) {
         throw new Error('Exclusions changed during the build. Try again with the current exclusions.');
       }
@@ -79,7 +81,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
           <span className="auto-build-chevron" aria-hidden="true">{isAutoBuildSettingsOpen ? '∧' : '∨'}</span>
         </button>
       </h2>
-      <ExcludedCardVersionsManager supabase={supabase} />
+      <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}>🎯 Tactical Roles / Playstyles ({Object.values(getRoleOptions().slotRequirements ?? {}).filter(req => req?.role || req?.playstyle).length})</button></div>
         <div id="auto-build-details" className="auto-build-details" hidden={!isAutoBuildSettingsOpen}>
           <div ref={budgetHost} />
           <div className="auto-build-total">Locked Player Cost {lockedCost.toLocaleString('en-US')} C<br />

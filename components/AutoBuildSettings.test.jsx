@@ -172,3 +172,45 @@ describe('Auto Build UI workflow', () => {
     expect(container.querySelector('[role="status"]')).not.toBeNull();
   });
 });
+
+it('passes role settings to retrieval and generation', async () => {
+  const roleOptions = { isStrictRoleMode: true, slotRoleRequirements: { ST: { roleName: 'Poacher', minLevel: 1 } } };
+  await act(async () => root.render(<AutoBuildSettings {...props} getRoleOptions={() => roleOptions} />));
+  await act(async () => button().click());
+  expect(fetchCandidatePlayers.mock.lastCall[4]).toMatchObject(roleOptions);
+  expect(generateOptimalSquad.mock.lastCall[5]).toMatchObject(roleOptions);
+  expect(props.applyAutoBuildResult).toHaveBeenCalled();
+});
+
+it('does not apply a result after role requirements change during generation', async () => {
+  const roleOptions = { isStrictRoleMode: false, slotRoleRequirements: {} };
+  await act(async () => root.render(<AutoBuildSettings {...props} getRoleOptions={() => roleOptions} />));
+  generateOptimalSquad.mockImplementationOnce(async () => {
+    roleOptions.isStrictRoleMode = true;
+    return result;
+  });
+  await act(async () => button().click());
+  expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
+  expect(container.querySelector('[role="alert"]').textContent).toContain('Role settings changed');
+});
+
+it('places both working modal triggers in the two-column settings grid', async () => {
+  const openTacticalRoles = vi.fn();
+  await act(async () => root.render(<AutoBuildSettings {...props} openTacticalRoles={openTacticalRoles} />));
+  const grid = container.querySelector('.auto-build-modal-grid');
+  expect(grid.querySelector('.excluded-card-versions-toggle').textContent).toContain('Manage Excluded Cards (');
+  await act(async () => grid.querySelector('.tactical-roles-trigger').click());
+  expect(openTacticalRoles).toHaveBeenCalledOnce();
+});
+
+it('refreshes the role badge when slot settings change', async () => {
+  const state = { slotRequirements: {} };
+  await act(async () => root.render(<AutoBuildSettings {...props} getRoleOptions={() => state} />));
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('(0)');
+  state.slotRequirements = { LCM: { role: { name: 'Holding', minLevel: 1 } }, RCM: { playstyle: { idOrName: 'Technical', isPlus: true } } };
+  await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('(2)');
+  state.slotRequirements = {};
+  await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('(0)');
+});

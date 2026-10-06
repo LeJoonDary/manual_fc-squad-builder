@@ -13,7 +13,7 @@ import { createPlayerPagination, PLAYER_PAGE_SIZE } from './utils/playerPaginati
 import { createPlayerDetailModal } from './components/PlayerDetailModal.js';
 import { STAT_KEYS, defaultStats, activeStats, renderStatInputs } from './utils/statFilters.js';
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
-import { fetchPlaystyleOptions } from './utils/playstyleFilters.js';
+import { fetchPlaystyleOptions, PLAYSTYLE_CATEGORIES } from './utils/playstyleFilters.js';
 import { createPlaystyleIcons } from './components/PlaystyleIcons.js';
 import { renderPlaystyleGrid } from './components/PlaystyleFilterGrid.js';
 import { PLAYER_CARD_SELECT } from './utils/playerCards.js';
@@ -88,7 +88,6 @@ const maxPlaystylesInput = document.querySelector('#max-playstyles');
 const minPlaystylesPlusInput = document.querySelector('#min-playstyles-plus');
 const maxPlaystylesPlusInput = document.querySelector('#max-playstyles-plus');
 const roleFilterList = document.querySelector('#role-filter-list');
-const hasAllSelectedRoles = document.querySelector('#has-all-selected-roles');
 const minHeightInput = document.querySelector('#min-height');
 const maxHeightInput = document.querySelector('#max-height');
 const minWeightInput = document.querySelector('#min-weight');
@@ -188,9 +187,14 @@ function updatePitchViewport() {
 const pitchResizeObserver = new ResizeObserver(updatePitchViewport);
 pitchResizeObserver.observe(squadWorkspace);
 updatePitchViewport();
+let tacticalRolesDialog = null;
+let selectedSlotPos = 'ST';
+const tacticalSlotRoles = {};
+const tacticalSlotPlaystyles = {};
+let tacticalTab = 'roles';
 const updateAutoBuildFormation = mountAutoBuildSettings(
   document.querySelector('#auto-build-settings'), currentFormation, () => targetBudget,
-  { budgetSection: document.querySelector('.budget-summary'), supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad: () => structuredClone(squad), resetTargetBudget },
+  { budgetSection: document.querySelector('.budget-summary'), supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad: () => structuredClone(squad), resetTargetBudget, openTacticalRoles, getRoleOptions },
 );
 function resetTargetBudget() {
   targetBudgetInput.value = '';
@@ -432,13 +436,7 @@ document.querySelector('#detailed-stats-form').addEventListener('submit', event 
 });
 document.querySelector('#clear-stats').addEventListener('click', () => { resetStatInputs(); searchPlayers(); });
 
-hasAllSelectedRoles.addEventListener('change', () => {
-  void handleHasAllRolesChange();
-});
 
-hasAllSelectedRoles.addEventListener('pointerdown', () => {
-  pendingPanelScrollPositions = capturePlayerPanelScrollPositions();
-});
 
 document.querySelectorAll('[data-misc-filter]').forEach((button) => {
   button.addEventListener('click', () => {
@@ -624,21 +622,6 @@ function resetDualRangeControls() {
     minInput.dispatchEvent(new Event('input', { bubbles: true }));
     maxInput.dispatchEvent(new Event('input', { bubbles: true }));
   });
-}
-
-async function handleHasAllRolesChange() {
-  try {
-    filters.hasAllRoles = Boolean(hasAllSelectedRoles?.checked);
-
-    // 선택된 롤이 없으면 AND/OR 분기를 건너뛰고 기본 검색만 실행합니다.
-    if (!Array.isArray(filters.selectedRoles)) filters.selectedRoles = [];
-    const scrollPositions = pendingPanelScrollPositions ?? capturePlayerPanelScrollPositions();
-    pendingPanelScrollPositions = null;
-    await searchPlayers(scrollPositions);
-  } catch (error) {
-    console.error('Has All Selected Roles toggle error:', error);
-    renderPlayerGridMessage('Unable to apply role filters. Please try again.', true);
-  }
 }
 
 function setupFilterCommandBar() {
@@ -895,9 +878,98 @@ function renderAffiliationOptions() {
   renderClubOptions();
 }
 
+function getRoleOptions() {
+  const slots = FORMATIONS.find(item => item.name === currentFormation).slots;
+  const requirements = {};
+  for (const slot of slots) {
+    const legacy = filters.selectedRoles.find(role => role.position === normalizeChemistryPosition(slot.position));
+    const req = Object.hasOwn(tacticalSlotRoles, slot.position) ? tacticalSlotRoles[slot.position] : (legacy ? { roleName: legacy.name, minLevel: legacy.level } : undefined);
+    if (req) requirements[slot.position] = req;
+  }
+  const slotRequirements = {};
+  for (const slot of slots) {
+    const role = requirements[slot.position];
+    const playstyle = tacticalSlotPlaystyles[slot.position];
+    if (role || playstyle) slotRequirements[slot.position] = {
+      ...(role ? { role: { name: role.roleName, minLevel: role.minLevel } } : {}),
+      ...(playstyle ? { playstyle } : {}),
+    };
+  }
+  return { slotRequirements };
+
+}
+function renderTacticalPitch() {
+  if (!tacticalRolesDialog) return;
+  const pitch = tacticalRolesDialog.querySelector('.tactical-mini-pitch');
+  pitch.replaceChildren();
+  const formation = FORMATIONS.find(item => item.name === currentFormation);
+  if (!formation.slots.some(slot => slot.position === selectedSlotPos)) selectedSlotPos = formation.slots.find(slot => normalizeChemistryPosition(slot.position) === 'ST')?.position ?? formation.slots[0].position;
+  tacticalRolesDialog.querySelector('.tactical-formation-name').textContent = currentFormation;
+  const requirements = getRoleOptions().slotRequirements;
+  for (const slot of formation.slots) {
+    const node = document.createElement('button');
+    node.type = 'button';
+    node.className = 'tactical-slot';
+    node.dataset.slot = slot.position;
+    node.style.left = slot.x + '%'; node.style.top = slot.y + '%';
+    node.textContent = slot.position;
+    node.setAttribute('aria-pressed', String(selectedSlotPos === slot.position));
+    node.setAttribute('aria-label', slot.position + (requirements[slot.position] ? ' role configured' : ' select role'));
+    if (requirements[slot.position]) { const dot = document.createElement('span'); dot.className = 'tactical-role-dot'; node.append(dot); }
+    node.addEventListener('click', () => { selectedSlotPos = slot.position; renderRoleFilterRows(); });
+    pitch.append(node);
+  }
+}
+function openTacticalRoles() {
+  if (tacticalRolesDialog) return;
+  const content = document.querySelector('.position-role-subfilter');
+  const originalParent = content.parentNode;
+  const originalNext = content.nextSibling;
+  const trigger = document.activeElement;
+  const dialog = document.createElement('dialog');
+  tacticalRolesDialog = dialog;
+  dialog.className = 'tactical-roles-dialog';
+  dialog.setAttribute('aria-labelledby', 'tactical-roles-title');
+  dialog.innerHTML = '<header><h2 id="tactical-roles-title">Tactical Roles / Playstyles</h2><button type="button" aria-label="Close Tactical Roles">×</button></header>';
+  const map = document.createElement('div');
+  map.innerHTML = '<p class="tactical-formation-name"></p><div class="tactical-mini-pitch" aria-label="Formation slots"></div>';
+  const tabs = document.createElement('div');
+  tabs.className = 'tactical-tabs';
+  for (const [tab, label] of [['roles', '🎭 Roles'], ['playstyles', '⚡ Playstyles']]) {
+    const button = document.createElement('button'); button.type = 'button'; button.dataset.tab = tab; button.textContent = label;
+    button.addEventListener('click', () => { tacticalTab = tab; renderRoleFilterRows(); });
+    tabs.append(button);
+  }
+  const reset = document.createElement('button'); reset.type = 'button'; reset.className = 'tactical-clear-all'; reset.textContent = 'Clear All';
+  reset.addEventListener('click', () => {
+    filters.selectedRoles = [];
+    for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
+    for (const key of Object.keys(tacticalSlotPlaystyles)) delete tacticalSlotPlaystyles[key];
+    renderRoleFilterRows();
+  });
+  tacticalTab = 'roles';
+  dialog.append(map, tabs, content, reset);
+  document.body.append(dialog);
+  dialog.querySelector('button').addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener('close', () => {
+    originalParent.insertBefore(content, originalNext);
+    tacticalRolesDialog = null;
+    dialog.remove();
+    renderRoleFilterRows();
+    trigger?.focus();
+  }, { once: true });
+  renderRoleFilterRows();
+  dialog.showModal();
+}
 function renderRoleFilterRows() {
   roleFilterList.replaceChildren();
-  const selectedPositions = [...filters.positions];
+  if (tacticalRolesDialog) {
+    tacticalRolesDialog.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tab === tacticalTab)));
+  }
+  renderTacticalPitch();
+  window.dispatchEvent(new Event('auto-build-context-change'));
+  const selectedPositions = tacticalRolesDialog ? [normalizeChemistryPosition(selectedSlotPos)] : [...filters.positions];
   const subfilter = roleFilterList.closest('.position-role-subfilter');
   if (subfilter) subfilter.hidden = selectedPositions.length === 0;
 
@@ -906,26 +978,53 @@ function renderRoleFilterRows() {
   allChip.className = 'role-all-chip';
   allChip.classList.toggle('is-selected', filters.selectedRoles.length === 0);
   allChip.setAttribute('aria-pressed', String(filters.selectedRoles.length === 0));
-  allChip.textContent = 'All / Any';
+  allChip.textContent = tacticalRolesDialog ? 'Clear slot role' : 'All / Any';
   allChip.addEventListener('click', () => {
-    filters.selectedRoles = [];
-    filters.hasAllRoles = false;
-    hasAllSelectedRoles.checked = false;
+    if (tacticalRolesDialog) {
+      if (tacticalTab === 'playstyles') delete tacticalSlotPlaystyles[selectedSlotPos];
+      else tacticalSlotRoles[selectedSlotPos] = null;
+    } else {
+      filters.selectedRoles = [];
+      for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
+    }
     renderRoleFilterRows();
     searchPlayers();
   });
   roleFilterList.append(allChip);
 
+  if (tacticalRolesDialog && tacticalTab === 'playstyles') {
+    allChip.textContent = 'Clear slot Playstyle';
+    for (const [category, names] of Object.entries(PLAYSTYLE_CATEGORIES)) {
+      const heading = document.createElement('h3'); heading.textContent = category; roleFilterList.append(heading);
+      for (const name of names) {
+        const row = document.createElement('div'); row.className = 'role-option-row';
+        const label = document.createElement('span'); label.textContent = name; row.append(label);
+        for (const isPlus of [false, true]) {
+          const button = document.createElement('button'); button.type = 'button'; button.textContent = isPlus ? '금특+' : '은특';
+          button.setAttribute('aria-label', name + (isPlus ? ' Playstyle+' : ' Playstyle'));
+          const req = tacticalSlotPlaystyles[selectedSlotPos];
+          const selected = req?.idOrName === name && req?.isPlus === isPlus;
+          button.setAttribute('aria-pressed', String(selected));
+          button.addEventListener('click', () => {
+            if (selected) delete tacticalSlotPlaystyles[selectedSlotPos];
+            else tacticalSlotPlaystyles[selectedSlotPos] = { idOrName: name, isPlus };
+            renderRoleFilterRows();
+          });
+          row.append(button);
+        }
+        roleFilterList.append(row);
+      }
+    }
+    return;
+  }
   ROLE_DATA.filter(({ pos }) => selectedPositions.includes(pos)).forEach(({ pos, roles }) => {
     const group = document.createElement('section');
     group.className = 'role-filter-group';
     const heading = document.createElement('h3');
-    heading.textContent = pos;
+    heading.textContent = tacticalRolesDialog ? selectedSlotPos : pos;
     group.append(heading);
     roles.forEach((roleName) => {
-      const roleIsActive = filters.selectedRoles.some(
-        (role) => role.position === pos && role.name === roleName,
-      );
+      const roleIsActive = isRoleSelected(pos, roleName, 1) || isRoleSelected(pos, roleName, 2);
       const row = document.createElement('div');
       row.className = 'role-option-row';
       row.classList.toggle('is-active', roleIsActive);
@@ -957,26 +1056,35 @@ function renderRoleFilterRows() {
     roleFilterList.append(group);
   });
 
-  const requireAllSwitch = hasAllSelectedRoles.closest('.filter-switch');
-  if (requireAllSwitch) requireAllSwitch.hidden = filters.selectedRoles.length === 0;
 }
 
 function isRoleSelected(position, name, level) {
+  if (tacticalRolesDialog) { const req = getRoleOptions().slotRequirements[selectedSlotPos]; return req?.role?.name === name && req?.role?.minLevel === level; }
   return filters.selectedRoles.some(
     (role) => role.position === position && role.name === name && role.level === level,
   );
 }
 
 function toggleRoleFilter(position, name, level) {
+  if (tacticalRolesDialog) {
+    if (isRoleSelected(position, name, level)) tacticalSlotRoles[selectedSlotPos] = null;
+    else tacticalSlotRoles[selectedSlotPos] = { roleName: name, minLevel: level };
+    return;
+  }
   const roleIndex = filters.selectedRoles.findIndex(
     (role) => role.position === position && role.name === name && role.level === level,
   );
   if (roleIndex >= 0) filters.selectedRoles.splice(roleIndex, 1);
-  else filters.selectedRoles.push({ position, name, level });
+  else {
+    filters.selectedRoles = filters.selectedRoles.filter(role => role.position !== position);
+    filters.selectedRoles.push({ position, name, level });
+  }
 }
 
 function clearAllFilters() {
   Object.assign(filters, createDefaultFilters());
+  for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
+  for (const key of Object.keys(tacticalSlotPlaystyles)) delete tacticalSlotPlaystyles[key];
   resetStatInputs();
 
   playerNameSearch.value = '';
@@ -991,7 +1099,6 @@ function clearAllFilters() {
   maxPlaystylesInput.value = '';
   minPlaystylesPlusInput.value = '';
   maxPlaystylesPlusInput.value = '';
-  hasAllSelectedRoles.checked = false;
   [minHeightInput, maxHeightInput, minWeightInput, maxWeightInput, minAgeInput, maxAgeInput].forEach((input) => { input.value = ''; });
   nationFilter.value = '';
   renderSearchableSelect(nationFilter, affiliationCatalog.nations);
