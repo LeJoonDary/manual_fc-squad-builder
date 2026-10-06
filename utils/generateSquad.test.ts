@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { generateOptimalSquad, calculateSquadChemistry, type CandidateGroups } from './autoBuildUtils';
 import { createSquadCandidateRows } from '../scripts/mocks/squadCandidates.js';
 import { getPositionBudgetGroup } from './autoBuildUtils';
+import { FORMATIONS } from './formations.js';
 
 function groups(rows = createSquadCandidateRows()): CandidateGroups {
   const result: CandidateGroups = { FW: [], MF: [], DF: [] };
@@ -10,6 +11,111 @@ function groups(rows = createSquadCandidateRows()): CandidateGroups {
 }
 
 describe('generateOptimalSquad', () => {
+  it('uses the full remaining budget around owned locks', async () => {
+    const rows = createSquadCandidateRows().map(row => ({ ...row,
+      overall: 78 + ((row.id - 1) % 3) * 5,
+      price: (row.id - 1) % 3 === 0 ? 700 : 60000 }));
+    const slots = FORMATIONS.find(item => item.name === '4-3-3')!.slots;
+    const currentSquad = Object.fromEntries(slots.slice(0, 3).map((slot, i) => [slot.position,
+      { card: rows[i * 3], isOwned: true, isLocked: true }]));
+    const result = await generateOptimalSquad('4-3-3', groups(rows), 500000, 30, false, {
+      currentSquad,
+    });
+    expect(result.success).toBe(true);
+    expect(result.totalChemistry).toBeGreaterThanOrEqual(30);
+    expect(result.totalCost).toBeGreaterThan(245000);
+    expect(result.totalCost).toBeLessThanOrEqual(500000);
+    expect(result.squad.filter(player => player.isLocked).every(player => player.price === 0)).toBe(true);
+    expect(new Set(result.squad.map(player => player.playerKey)).size).toBe(11);
+  });
+  it('upgrades a cheap fallback when the first search expires but the squad is within budget', async () => {
+    const base = createSquadCandidateRows().filter(row => (row.id - 1) % 3 === 0);
+    const slots = FORMATIONS.find(item => item.name === '4-3-3')!.slots;
+    const currentSquad = Object.fromEntries(slots.slice(2).map((slot, i) => [slot.position, { card: base[i + 2], isLocked: true }]));
+    const makeWinger = (id: number, playerId: number, price: number, score: number) => ({ ...base[0], id, player_id: playerId, price,
+      player_stats: { pac: score, sho: score, dri: score, phy: score, composure: score } });
+    // These high-meta versions conflict with the sole ST and exhaust the first DFS.
+    const blocked = Array.from({ length: 400 }, (_, i) => makeWinger(1000 + i, base[1].player_id, 2000, 99));
+    const cheap = makeWinger(2000, 2000, 650, 50);
+    const upgrade = makeWinger(2001, 2001, 150000, 95);
+    const result = await generateOptimalSquad('4-3-3', groups([...base.slice(1), ...blocked, cheap, upgrade]), 1000000, 30, false, {
+      currentSquad,
+    });
+    expect(result.iterations).toBeGreaterThan(350);
+    expect(result.success).toBe(true);
+    expect(result.squad.find(player => player.slotPosition === 'LW')?.id).toBe('2001');
+  });
+  it('selects stronger cards above soft targets instead of a 650-coin card, preserving locks and input budgets', async () => {
+    const rows = createSquadCandidateRows().map(row => ({ ...row, price: (row.id - 1) % 3 === 0 ? 650 : (row.id - 1) % 3 === 1 ? 150000 : 200000 }));
+    const slots = FORMATIONS.find(item => item.name === '4-3-3')!.slots;
+    const goalkeeper = rows.find(row => row.card_positions[0].positions.name === 'GK' && row.price === 200000)!;
+    const options = { currentSquad: { GK: { card: goalkeeper, isLocked: true } } };
+    const before = structuredClone(options);
+    for (const candidateRows of [rows, [...rows].reverse()]) {
+      const result = await generateOptimalSquad('4-3-3', groups(candidateRows), 2000000, 30, false, options);
+      expect(result.success).toBe(true);
+      expect(result.totalChemistry).toBeGreaterThanOrEqual(30);
+      expect(result.squad.find(player => player.slotPosition === 'GK')?.id).toBe(String(goalkeeper.id));
+      expect(result.squad.some(player => !player.isLocked && player.price > 166000)).toBe(true);
+      expect(result.totalCost).toBeGreaterThanOrEqual(1700000);
+      expect(result.totalCost).toBeLessThanOrEqual(2000000);
+    }
+    expect(options).toEqual(before);
+  });
+
+  it('keeps a shared player unique when no single-card upgrade is feasible', async () => {
+    const base = createSquadCandidateRows().filter(row => (row.id - 1) % 3 === 0);
+    const slots = FORMATIONS.find(item => item.name === '4-3-3')!.slots;
+    const currentSquad = Object.fromEntries(slots.slice(2).map((slot, i) => [slot.position, { card: base[i + 2], isLocked: true }]));
+    const make = (row: typeof base[number], id: number, score: number) => ({ ...row, id, player_id: id, price: 100000,
+      player_stats: { pac: score, sho: score, dri: score, phy: score, composure: score } });
+    const shared = { ...make(base[0], 900, 95), card_positions: [
+      { is_primary: true, positions: { name: 'LW' } }, { is_primary: false, positions: { name: 'ST' } },
+    ] };
+    const winger = make(base[0], 901, 80);
+    const striker = { ...make(base[1], 902, 50), price: 650 };
+    const result = await generateOptimalSquad('4-3-3', groups([...base.slice(2), shared, winger, striker]), 1000000, 30, false, {
+      currentSquad,
+    });
+    expect(result.success).toBe(true);
+    expect(result.squad.find(player => player.slotPosition === 'LW')?.id).toBe('900');
+    expect(result.squad.find(player => player.slotPosition === 'ST')?.id).toBe('902');
+    expect(result.squad.filter(player => player.isLocked).map(player => player.id)).toEqual(base.slice(2).map(row => String(row.id)));
+  });
+
+  it('prefers the new pace-weighted slot score over persisted meta_score and overall', async () => {
+    const rows = createSquadCandidateRows().map(row => {
+      if (row.card_positions[0].positions.name !== 'ST') return row;
+      const fast = (row.id - 1) % 3 === 0;
+      const stat = fast ? 70 : 80;
+      return { ...row, price: 30000, overall: fast ? 70 : 99, meta_score: fast ? 0 : 999,
+        face_stats: { pac: fast ? 91 : 80, sho: stat, dri: stat, phy: stat },
+        detail_stats: { composure: stat } };
+    });
+    const result = await generateOptimalSquad('4-3-3', groups(rows), 0, 0, false);
+    expect(result.success).toBe(true);
+    const striker = result.squad.find(player => player.slotPosition === 'ST');
+    expect(striker?.card.overall).toBe(70);
+    expect(striker?.card.meta_score).toBe(0);
+    expect(striker?.metaScore).toBeCloseTo(81.5 * 1.2);
+  });
+
+  it('selects male CB candidates using the joined gender bonus in both CB slots', async () => {
+    const rows = createSquadCandidateRows().map(row => {
+      if (row.card_positions[0].positions.name !== 'CB') return row;
+      const male = (row.id - 1) % 3 === 0;
+      const score = male ? 80 : 82;
+      return { ...row, price: 30000, players: { ...row.players, gender: male ? 'Male' : 'Female' },
+        player_stats: { pac: score, def: score, phy: score } };
+    });
+    const result = await generateOptimalSquad('4-3-3', groups(rows), 0, 0, false);
+    expect(result.success).toBe(true);
+    const defenders = result.squad.filter(player => ['LCB', 'RCB'].includes(player.slotPosition));
+    expect(defenders).toHaveLength(2);
+    expect(defenders.every(player => player.card.players.gender === 'Male')).toBe(true);
+    defenders.forEach(player => expect(player.metaScore).toBeCloseTo(86));
+  });
+
   it('excludes only the banned card through candidates, ownership and fallback', async () => {
     const rows = createSquadCandidateRows();
     const versions = rows.filter(row => row.card_positions[0].positions.name === 'LW');
@@ -19,10 +125,10 @@ describe('generateOptimalSquad', () => {
       const result = await generateOptimalSquad('4-3-3', groups(rows), budget, 0, false, {
         excludedCardVersionIds: [String(banned.id)], currentSquad: { LW: { card: { raw: banned }, isOwned: true } },
       });
-      expect(result.squad).toHaveLength(11);
+      expect(result.squad).toHaveLength(budget === 0 ? 11 : 0);
       expect(result.squad.every(player => player.id !== String(banned.id))).toBe(true);
-      expect(result.squad.find(player => player.slotPosition === 'LW')?.playerKey).toBe('999');
-      expect(result.status).toBe(budget === 0 ? 'success' : 'fallback');
+      if (budget === 0) expect(result.squad.find(player => player.slotPosition === 'LW')?.playerKey).toBe('999');
+      expect(result.status).toBe(budget === 0 ? 'success' : 'incomplete');
     }
     await expect(generateOptimalSquad('4-3-3', groups(rows), 0, 0, false, {
       excludedCardVersionIds: [banned.id], currentSquad: { LW: { card: banned, isLocked: true } },
@@ -46,8 +152,8 @@ describe('generateOptimalSquad', () => {
     const isolated = base.map((row, i) => ({ ...row, price: 1000, club_id: 100 + i, league_id: 100 + i,
       players: { ...row.players, nation_id: 100 + i } }));
     const linked = base.map(row => ({ ...row, id: row.id + 1000, player_id: row.id + 1000, price: 1100 }));
-    const result = await generateOptimalSquad('4-3-3', groups([...isolated, ...linked]), 100, 33, false);
-    expect(result.status).toBe('fallback');
+    const result = await generateOptimalSquad('4-3-3', groups([...isolated, ...linked]), 12100, 33, false);
+    expect(result.status).toBe('success');
     expect(result.totalChemistry).toBe(33);
     expect(result.totalCost).toBeLessThanOrEqual(12100);
     expect(result.squad).toHaveLength(11);
@@ -65,8 +171,8 @@ describe('generateOptimalSquad', () => {
     expect(new Set(result.squad.map(p => p.playerKey)).size).toBe(11);
     expect(calculateSquadChemistry(result.squad, true).totalChemistry).toBe(result.totalChemistry);
     // GK uses OVR; attackers use the missing-composure fallback of 75.
-    expect(result.squad.find(player => player.slotPosition === 'GK')?.metaScore).toBe(99);
-    expect(result.teamMetaScore).toBeCloseTo((86.7 * 3 + 88 * 7 + 99) / 11);
+    expect(result.squad.find(player => player.slotPosition === 'GK')?.metaScore).toBe(100);
+    expect(result.teamMetaScore).toBeCloseTo((87.96 * 1.2 * 3 + 89 * 7 + 100) / 11);
     expect(result.iterations).toBeLessThanOrEqual(1500);
     expect(candidates).toEqual(snapshot);
   });
@@ -97,9 +203,9 @@ describe('generateOptimalSquad', () => {
     expect(empty.squad).toEqual([]);
     const impossible = await generateOptimalSquad('4-3-3', groups(), 1, 33, false);
     expect(impossible.success).toBe(false);
-    expect(impossible.status).toBe('fallback');
-    expect(impossible.squad).toHaveLength(11);
-    expect(impossible.totalCost).toBe(330000);
+    expect(impossible.status).toBe('incomplete');
+    expect(impossible.squad).toHaveLength(0);
+    expect(impossible.totalCost).toBeLessThanOrEqual(1);
     expect(impossible.iterations).toBeLessThanOrEqual(1500);
   });
 

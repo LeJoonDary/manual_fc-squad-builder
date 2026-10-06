@@ -15,6 +15,11 @@ export function createCandidateMockDb(rows, error = null) {
         order(column, options) { call.orders.push({ column, ...options }); return query; },
         or(value) { call.or = value; return query; },
         not(column, operator, value) { call.not = { column, operator, value }; return query; },
+        async range(from, to) {
+          call.range = { from, to };
+          const result = await query.limit(to + 1);
+          return { ...result, data: result.data.slice(from) };
+        },
         async limit(value) {
           call.limit = value;
           const data = rows.filter(row => (!call.or || !['ICON', 'SPECIAL_ICON', 'HERO', 'SPECIAL_HERO'].includes(row.card_type))

@@ -21,18 +21,17 @@ describe('owned, locked and special-card constraints', () => {
       excludeZeroPriceCards: true,
       currentSquad: { LW: { card: locked, isLocked: true }, ST: { card: free, isOwned: true }, RW: { card: missing, isOwned: true } },
     });
-    expect(result.squad).toHaveLength(11);
+    expect(result.squad).toHaveLength(budget === 0 ? 11 : 1);
     expect(result.squad[0]).toMatchObject({ id: '9001', isLocked: true, price: 0 });
     expect(result.squad.filter(p => !p.isLocked).every(p => Number(p.card.price) > 0)).toBe(true);
-    expect(result.status).toBe(budget === 0 ? 'success' : 'fallback');
+    expect(result.status).toBe(budget === 0 ? 'success' : 'incomplete');
   });
   it('builds around a 3M locked defender using a separate 1M allowance for open DF slots', async () => {
     const { rows } = fixture();
     const locked = { ...rows.find(row => row.card_positions[0].positions.name === 'CB')!, price: 3000000 };
-    const options = { currentSquad: { LCB: { card: locked, isLocked: true } },
-      budgetAllocations: { FW: 500000, MF: 500000, DF: 1000000 } };
+    const options = { currentSquad: { LCB: { card: locked, isLocked: true } } };
     const db = createCandidateMockDb(rows);
-    const candidates = await fetchCandidatePlayers(5000000, options.budgetAllocations, '4-3-3', false,
+    const candidates = await fetchCandidatePlayers(5000000, '4-3-3', false,
       db as unknown as SupabaseClient, options);
     const result = await generateOptimalSquad('4-3-3', candidates, 5000000, 0, false, options);
     expect(result.success).toBe(true);
@@ -41,36 +40,16 @@ describe('owned, locked and special-card constraints', () => {
     expect(result.totalCost).toBeLessThanOrEqual(5000000);
   });
 
-  it('fills every open slot at minimum available prices even when locks already exceed the target', async () => {
+  it('keeps the target price filter when locks already exceed the budget', async () => {
     const { rows } = fixture();
     const locked = { ...rows[0], price: 3000000 };
-    const options = { currentSquad: { LW: { card: locked, isLocked: true } },
-      budgetAllocations: { FW: 0, MF: 0, DF: 0 } };
+    const options = { currentSquad: { LW: { card: locked, isLocked: true } } };
     const db = createCandidateMockDb(rows);
-    const candidates = await fetchCandidatePlayers(100, options.budgetAllocations, '4-3-3', false,
+    const candidates = await fetchCandidatePlayers(100, '4-3-3', false,
       db as unknown as SupabaseClient, options);
-    const result = await generateOptimalSquad('4-3-3', candidates, 100, 0, false, options);
-    expect(result.status).toBe('fallback');
-    expect(result.success).toBe(false);
-    expect(result.squad).toHaveLength(11);
-    expect(new Set(result.squad.map(p => p.playerKey)).size).toBe(11);
-    expect(result.totalCost).toBe(3300000);
-    expect(result.squad[0]).toMatchObject({ id: String(locked.id), isLocked: true });
-  });
-  it('enforces only total spending, allowing transfers between groups', async () => {
-    const { rows, groups } = fixture();
-    const options = { currentSquad: { LW: { card: rows[0], isLocked: true } },
-      budgetAllocations: { FW: 90000, MF: 90000, DF: 150000 } };
-    const result = await generateOptimalSquad('4-3-3', groups, 330000, 0, false, options);
-    expect(result.success).toBe(true);
-    for (const group of ['FW', 'MF', 'DF'] as const) {
-      expect(result.squad.filter(p => getPositionBudgetGroup(p.slotPosition, false) === group)
-        .reduce((sum, p) => sum + p.price, 0)).toBeLessThanOrEqual(options.budgetAllocations[group]);
-    }
-    const impossible = await generateOptimalSquad('4-3-3', groups, 1000000, 0, false,
-      { budgetAllocations: { FW: 0, MF: 500000, DF: 500000 } });
-    expect(impossible.success).toBe(true);
-    expect(impossible.squad.filter(p => getPositionBudgetGroup(p.slotPosition, false) === 'FW').reduce((sum, p) => sum + p.price, 0)).toBeGreaterThan(0);
+    await expect(generateOptimalSquad('4-3-3', candidates, 100, 0, false, options))
+      .rejects.toThrow('Locked players exceed the target budget');
+    expect(db.calls.every(call => call.max <= 100 && call.limit <= 120)).toBe(true);
   });
   it('keeps a locked card in its exact slot with zero owned cost despite higher-scoring candidates', async () => {
     const { rows, groups } = fixture();
@@ -125,7 +104,7 @@ describe('owned, locked and special-card constraints', () => {
     rows[2].card_type = 'SPECIAL_ICON';
     const owned = { ...rows[0], price: 9000000 };
     const db = createCandidateMockDb(rows);
-    const result = await fetchCandidatePlayers(1000000, { FW: 400000, MF: 350000, DF: 250000 }, '4-3-3', false,
+    const result = await fetchCandidatePlayers(1000000, '4-3-3', false,
       db as unknown as SupabaseClient, { currentSquad: { LW: { card: owned, isOwned: true } }, maxSpecialCards: 0 });
     expect(result.find(card => card.id === owned.id)).toMatchObject({ isOwned: true, price: 9000000 });
     expect(result.some(card => card.id === rows[2].id)).toBe(false);

@@ -25,20 +25,33 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 
 describe('Auto Build UI workflow', () => {
-  it('defaults the zero-price toggle on, passes changes through and restores it on reset', async () => {
-    const toggle = container.querySelector('#exclude-zero-price-cards');
-    expect(toggle.checked).toBe(true);
-    expect(toggle.closest('label').nextElementSibling.textContent).toContain('Include Manager Boost');
-    await act(async () => button().click());
-    expect(fetchCandidatePlayers.mock.calls[0][5].excludeZeroPriceCards).toBe(true);
-    expect(generateOptimalSquad.mock.calls[0][5].excludeZeroPriceCards).toBe(true);
-    await act(async () => toggle.click());
-    await act(async () => button().click());
-    expect(fetchCandidatePlayers.mock.calls[1][5].excludeZeroPriceCards).toBe(false);
-    expect(generateOptimalSquad.mock.calls[1][5].excludeZeroPriceCards).toBe(false);
+  it('offers only chemistry, the existing max budget and focus in the build controls', async () => {
     await act(async () => container.querySelector('.auto-build-heading').click());
+    expect(container.textContent).not.toContain('Customize');
+    expect(container.textContent).not.toContain('Budget Allocation');
+    expect(container.querySelectorAll('#auto-build-details input')).toHaveLength(1);
+    const buttons = container.querySelectorAll('.auto-build-focus button');
+    expect(buttons).toHaveLength(3);
+    expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+    for (const [index, focus] of ['attack', 'balanced', 'defense'].entries()) {
+      await act(async () => buttons[index].click());
+      await act(async () => button().click());
+      expect(generateOptimalSquad.mock.lastCall[5].focus).toBe(focus);
+      expect(fetchCandidatePlayers.mock.lastCall[4].focus).toBe(focus);
+      expect(Object.keys(generateOptimalSquad.mock.lastCall[5])).not.toContain('slotBudgetTargets');
+    }
     await act(async () => container.querySelector('.auto-build-reset').click());
-    expect(toggle.checked).toBe(true);
+    expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('passes locked owned cards unchanged and rejects an over-budget fallback', async () => {
+    const currentSquad = { LW: { card: { id: 1 }, isOwned: true, isLocked: true } };
+    await act(async () => root.render(<AutoBuildSettings {...props} getCurrentSquad={() => currentSquad} />));
+    generateOptimalSquad.mockResolvedValueOnce({ ...result, success: false, status: 'fallback', totalCost: 1100000 });
+    await act(async () => button().click());
+    expect(generateOptimalSquad.mock.lastCall[5].currentSquad).toBe(currentSquad);
+    expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
+    expect(container.querySelector('[role="alert"]')).not.toBeNull();
   });
   it('shows excluded names, passes exclusions to generation and lets the user unban', async () => {
     await act(async () => excludedCardVersionsStore.ban(77, 'Excluded Player'));
@@ -50,14 +63,14 @@ describe('Auto Build UI workflow', () => {
     expect(document.querySelector('#exclusion-panel-excluded').hidden).toBe(false);
     expect(list.textContent).toContain('Excluded Player');
     await act(async () => button().click());
-    expect(fetchCandidatePlayers.mock.calls[0][5].excludedCardVersionIds).toEqual(['77']);
+    expect(fetchCandidatePlayers.mock.calls[0][4].excludedCardVersionIds).toEqual(['77']);
     expect(generateOptimalSquad.mock.calls[0][5].excludedCardVersionIds).toEqual(['77']);
     await act(async () => list.querySelector('input[type="checkbox"]').click());
     await act(async () => document.querySelector('.exclusion-bulk-actions button').click());
     expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
     expect(list.textContent).toContain('No excluded cards');
     await act(async () => button().click());
-    expect(fetchCandidatePlayers.mock.calls[1][5].excludedCardVersionIds).toEqual([]);
+    expect(fetchCandidatePlayers.mock.calls[1][4].excludedCardVersionIds).toEqual([]);
   });
 
   it('rejects a result if exclusions changed while generation was in progress', async () => {
@@ -83,7 +96,7 @@ describe('Auto Build UI workflow', () => {
     expect(details.hidden).toBe(false);
     expect(details.firstElementChild.contains(input)).toBe(true);
     expect(container.querySelector('.auto-build-total').textContent).toContain('Unlimited budget');
-    expect(container.querySelector('.auto-build-ratios').disabled).toBe(true);
+    expect(container.querySelector('.auto-build-ratios')).toBeNull();
     input.value = '123';
     input.dispatchEvent(new Event('input', { bubbles: true }));
     expect(onInput).toHaveBeenCalledOnce();
@@ -92,23 +105,6 @@ describe('Auto Build UI workflow', () => {
     expect(details.querySelector('input')).toBe(input);
     expect(input.value).toBe('123');
   });
-  it('synchronizes sliders and comma-formatted coin inputs within the remaining budget', async () => {
-    await act(async () => container.querySelector('.auto-build-heading').click());
-    const change = async (id, value) => act(async () => {
-      const input = container.querySelector(id);
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    await change('#budget-allocation-MF', '100,000');
-    await change('#budget-ratio-FW', '40');
-    expect(container.querySelector('#budget-allocation-FW').value).toBe('400,000');
-    await change('#budget-allocation-FW', '250,000');
-    expect(Number(container.querySelector('#budget-ratio-FW').value)).toBe(25);
-    expect(Number(container.querySelector('#budget-ratio-FW').max)).toBeCloseTo(56.6666);
-    await change('#budget-allocation-FW', '999,999');
-    expect(container.querySelector('#budget-allocation-FW').value).toBe('250,000');
-  });
-
   it('updates the remaining budget when locks or ownership change without remounting', async () => {
     const currentSquad = { LCB: { card: { id: 1, price: 3000000 }, isLocked: true } };
     await act(async () => root.render(<AutoBuildSettings {...props} getTargetBudget={() => 10000000}
@@ -128,54 +124,6 @@ describe('Auto Build UI workflow', () => {
     expect(container.querySelector('.auto-build-total').textContent).toContain('Locked Player Cost 0 C');
   });
 
-  it('applies a completed cheap fallback and shows the budget shortfall without an error', async () => {
-    const fallback = { ...result, success: false, status: 'fallback', totalCost: 1100000 };
-    generateOptimalSquad.mockResolvedValueOnce(fallback);
-    await act(async () => button().click());
-    expect(props.applyAutoBuildResult).toHaveBeenCalledWith(fallback, expect.anything());
-    expect(container.querySelector('[role="alert"]')).toBeNull();
-    expect(container.querySelector('[role="status"]').textContent).toContain('100,000 C Over Budget');
-  });
-  it('accepts coin amounts and rejects allocations above the total budget', async () => {
-    await act(async () => container.querySelector('.auto-build-heading').click());
-    const input = container.querySelector('#budget-allocation-FW');
-    expect(input.type).toBe('text');
-    const setValue = async value => act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    await setValue('200000');
-    expect(input.value).toBe('200,000');
-    await setValue('900000');
-    expect(input.value).toBe('200,000');
-    expect(container.querySelector('[role="alert"]').textContent).toContain('remaining budget');
-    await act(async () => button().click());
-    expect(fetchCandidatePlayers.mock.calls[0][1]).toEqual({ FW: 200000, MF: 333333, DF: 333334 });
-  });
-
-  it('rescales allocations when the total budget changes', async () => {
-    await act(async () => root.render(<AutoBuildSettings {...props} getTargetBudget={() => 500000} />));
-    await act(async () => button().click());
-    expect(fetchCandidatePlayers.mock.calls[0][1]).toEqual({ FW: 166666, MF: 166666, DF: 166667 });
-    expect(container.querySelector('[role="alert"]')).toBeNull();
-  });
-  it('passes ownership/locks and the special cap, and resets settings and budget', async () => {
-    const currentSquad = { LW: { card: { id: 1 }, isOwned: true, isLocked: true } };
-    const resetTargetBudget = vi.fn();
-    await act(async () => root.render(<AutoBuildSettings {...props} getCurrentSquad={() => currentSquad} resetTargetBudget={resetTargetBudget} />));
-    await act(async () => container.querySelector('.auto-build-heading').click());
-    const select = container.querySelector('#auto-build-special-mode');
-    await act(async () => { select.value = 'none'; select.dispatchEvent(new Event('change', { bubbles: true })); });
-    await act(async () => container.querySelector('.auto-build-manager-switch input').click());
-    await act(async () => button().click());
-    expect(generateOptimalSquad).toHaveBeenLastCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, false, { currentSquad, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: 0 });
-    await act(async () => container.querySelector('.auto-build-reset').click());
-    expect(resetTargetBudget).toHaveBeenCalledOnce();
-    expect(select.value).toBe('unlimited');
-    expect(container.querySelector('.auto-build-manager-switch input').checked).toBe(true);
-    expect(container.querySelector('#min-chemistry').value).toBe('33');
-    expect(['FW', 'MF', 'DF'].map(group => container.querySelector(`#budget-allocation-${group}`).value)).toEqual(['333,333', '333,333', '333,334']);
-  });
   it('shows loading, prevents duplicate clicks, applies success and resets loading', async () => {
     let resolve;
     fetchCandidatePlayers.mockImplementation(() => new Promise(done => { resolve = done; }));
@@ -186,8 +134,8 @@ describe('Auto Build UI workflow', () => {
     await act(async () => button().click());
     expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
     await act(async () => resolve([{ id: 1 }]));
-    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, { FW: 333333, MF: 333333, DF: 333334 }, '4-3-3', false, props.supabase, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
-    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, budgetAllocations: { FW: 333333, MF: 333333, DF: 333334 }, maxSpecialCards: null });
+    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, '4-3-3', false, props.supabase, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, focus: 'attack' });
+    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, focus: 'attack' });
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(result, { snapshot: 'snapshot', formation: '4-3-3', totalBudget: 1000000 });
     expect(button().disabled).toBe(false);
     expect(container.querySelector('[role="status"]').textContent).toContain('Squad built successfully!');
@@ -196,7 +144,7 @@ describe('Auto Build UI workflow', () => {
   it('uses unlimited mode at zero budget', async () => {
     await act(async () => root.render(<AutoBuildSettings {...props} getTargetBudget={() => 0} />));
     await act(async () => button().click());
-    expect(fetchCandidatePlayers.mock.calls[0][1]).toEqual({ FW: 0, MF: 0, DF: 0 });
+    expect(fetchCandidatePlayers.mock.calls[0][0]).toBe(0);
     expect(props.applyAutoBuildResult).toHaveBeenCalled();
     expect(button().disabled).toBe(false);
   });

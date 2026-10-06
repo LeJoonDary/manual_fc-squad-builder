@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ExcludedCardVersionsManager } from './ExcludedCardVersionsManager.jsx';
 import { excludedCardVersionsStore } from '../utils/excludedCardVersions.js';
-import { fetchCandidatePlayers, generateOptimalSquad, getCandidateBudgetPlan, getRemainingAutoBuildBudget } from '../utils/autoBuildUtils.ts';
+import { fetchCandidatePlayers, generateOptimalSquad, getRemainingAutoBuildBudget } from '../utils/autoBuildUtils.ts';
 
 export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {} }) {
   const budgetHost = useRef(null);
@@ -17,6 +17,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
   const [feedback, setFeedback] = useState(null);
   const buildingRef = useRef(false);
   const [isAutoBuildSettingsOpen, setIsAutoBuildSettingsOpen] = useState(false);
+  const [focus, setFocus] = useState('attack');
   const [, refreshContext] = useState(0);
   useEffect(() => {
     const refresh = () => refreshContext(value => value + 1);
@@ -25,33 +26,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
   }, []);
   const { lockedCost, distributableBudget, unlimited } = getRemainingAutoBuildBudget(
     Math.max(0, Number(getTargetBudget()) || 0), formation, { currentSquad: getCurrentSquad() });
-  const initialAllocations = () => {
-    const amount = Math.floor(distributableBudget / 3);
-    return { FW: amount, MF: amount, DF: distributableBudget - amount * 2 };
-  };
-  const [allocationState, setAllocationState] = useState(() => ({ basis: distributableBudget, amounts: initialAllocations() }));
-  // Preserve the user's proportions when target budget, locks or ownership change.
-  const budgetAllocations = allocationState.basis === distributableBudget ? allocationState.amounts
-    : allocationState.basis === 0 ? initialAllocations()
-    : Object.fromEntries(Object.entries(allocationState.amounts).map(([group, amount]) =>
-      [group, Math.floor(amount / allocationState.basis * distributableBudget)]));
-  const allocatedTotal = Object.values(budgetAllocations).reduce((sum, value) => sum + value, 0);
-  const setBudgetAllocations = amounts => setAllocationState({ basis: distributableBudget, amounts });
-  const maximumAmount = group => Math.max(0, distributableBudget - allocatedTotal + budgetAllocations[group]);
-  const percentage = amount => distributableBudget > 0 ? amount / distributableBudget * 100 : 0;
-  const updateAllocation = (group, amount) => {
-    if (!Number.isSafeInteger(amount) || amount < 0 || amount > maximumAmount(group)) {
-      setFeedback({ type: 'error', text: 'Position budgets cannot exceed the remaining budget.' });
-      return;
-    }
-    setFeedback(null);
-    setBudgetAllocations({ ...budgetAllocations, [group]: amount });
-  };
   const [minChemistry, setMinChemistry] = useState(33);
-  const [considerManager, setConsiderManager] = useState(true);
-  const [excludeZeroPriceCards, setExcludeZeroPriceCards] = useState(true);
-  const [specialMode, setSpecialMode] = useState('unlimited');
-  const [specialCount, setSpecialCount] = useState(1);
   const isThreeBack = formation.startsWith('3');
 
   async function handleAutoBuild() {
@@ -67,15 +42,13 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       }
       const snapshot = getSquadSnapshot();
       const exclusionSnapshot = excludedCardVersionsStore.getState();
-      const options = { currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], budgetAllocations: { ...budgetAllocations }, maxSpecialCards: specialMode === 'unlimited' ? null : specialMode === 'none' ? 0 : specialCount };
-      options.excludeZeroPriceCards = excludeZeroPriceCards;
-      getCandidateBudgetPlan(totalBudget, budgetAllocations, formation, isThreeBack, options);
-      const candidates = await fetchCandidatePlayers(totalBudget, { ...budgetAllocations }, formation, isThreeBack, supabase, options);
-      const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, considerManager, options);
+      const options = { currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], focus, excludeZeroPriceCards: true };
+      const candidates = await fetchCandidatePlayers(totalBudget, formation, isThreeBack, supabase, options);
+      const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, true, options);
       if (excludedCardVersionsStore.getState() !== exclusionSnapshot) {
         throw new Error('Exclusions changed during the build. Try again with the current exclusions.');
       }
-      if (!result.success && result.status !== 'fallback') {
+      if ((!result.success && result.status !== 'fallback') || (totalBudget > 0 && result.totalCost > totalBudget)) {
         throw new Error('No squad meets your requirements. Increase your budget or lower the chemistry target.');
       }
       applyAutoBuildResult(result, { snapshot, formation, totalBudget });
@@ -91,14 +64,8 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
   function resetSettings() {
     if (buildingRef.current) return;
     resetTargetBudget();
-    const remaining = getRemainingAutoBuildBudget(getTargetBudget(), formation, { currentSquad: getCurrentSquad() }).distributableBudget;
-    const amount = Math.floor(remaining / 3);
-    setAllocationState({ basis: remaining, amounts: { FW: amount, MF: amount, DF: remaining - amount * 2 } });
+    setFocus('attack');
     setMinChemistry(33);
-    setConsiderManager(true);
-    setExcludeZeroPriceCards(true);
-    setSpecialMode('unlimited');
-    setSpecialCount(1);
     setFeedback(null);
   }
 
@@ -116,66 +83,22 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
         <div id="auto-build-details" className="auto-build-details" hidden={!isAutoBuildSettingsOpen}>
           <div ref={budgetHost} />
           <div className="auto-build-total">Locked Player Cost {lockedCost.toLocaleString('en-US')} C<br />
-            {unlimited ? 'Unlimited budget · Prioritize the chemistry target with no price limit' : `Remaining Budget ${distributableBudget.toLocaleString('en-US')} C · Allocated ${allocatedTotal.toLocaleString('en-US')} C`}</div>
-          <fieldset className="auto-build-ratios" aria-describedby="auto-build-position-help" disabled={isAutoBuilding || unlimited}>
-            <legend>Budget Allocation by Position</legend>
-            {Object.entries({ FW: 'Attackers (FW)', MF: 'Midfielders (MF)', DF: 'Defenders (DF + GK)' }).map(([group, label]) => (
-              <div className="auto-build-range" key={group}>
-                <label htmlFor={`budget-allocation-${group}`} title={label}>{group === 'DF' ? 'DF + GK' : group}</label>
-                <output htmlFor={`budget-ratio-${group}`}>{unlimited ? 'Unlimited' : `${percentage(budgetAllocations[group]).toFixed(1)}%`}</output>
-                <input id={`budget-ratio-${group}`} type="range" min="0" step="any"
-                  aria-label={`${label} budget percentage`} aria-valuetext={`${percentage(budgetAllocations[group]).toFixed(1)}%`}
-                  max={percentage(maximumAmount(group))} value={percentage(budgetAllocations[group])}
-                  disabled={isAutoBuilding || distributableBudget === 0}
-                  onChange={event => updateAllocation(group, Math.min(maximumAmount(group), Math.round(Number(event.target.value) / 100 * distributableBudget)))} />
-                <input id={`budget-allocation-${group}`} type="text" inputMode="numeric"
-                  aria-label={`${label} budget in coins`} value={unlimited ? '' : budgetAllocations[group].toLocaleString('en-US')} placeholder="Unlimited"
-                  onChange={event => {
-                    const text = event.target.value.replace(/,/g, '').trim();
-                    if (!/^\d*$/.test(text)) return;
-                    updateAllocation(group, Number(text));
-                  }} />
-              </div>
-            ))}
-          </fieldset>
-          <div id="auto-build-position-help" className="auto-build-help">
-            <span aria-hidden="true">ⓘ</span>
-            <div>
-              <p>Target search budget for open positions. The builder dynamically balances total budget across selected groups.</p>
-              <p>Attacking midfielders (CAM) are budgeted as attackers (FW).</p>
-              <p>{isThreeBack
-                ? 'Currently using a 3-back formation. Wide midfielders (LM/RM) are evaluated as wing-backs using their face stats and budgeted as midfielders (MF).'
-                : 'Currently using a 4-back formation. Wide midfielders (LM/RM) are budgeted as attackers (FW).'}</p>
+            {unlimited ? 'Unlimited budget · Prioritize the chemistry target with no price limit' : `Remaining Budget ${distributableBudget.toLocaleString('en-US')} C`}</div>
+          <fieldset className="auto-build-focus" disabled={isAutoBuilding}>
+            <legend>Squad Focus</legend>
+            <div className="auto-build-focus-options">
+              {[['attack', '⚡ Attack Focus'], ['balanced', '⚖ Balanced'], ['defense', '🛡 Defense Focus']].map(([value, label]) => (
+                <button key={value} type="button" aria-pressed={focus === value} onClick={() => setFocus(value)}>{label}</button>
+              ))}
             </div>
-          </div>
+          </fieldset>
           <div className="auto-build-range">
             <label htmlFor="min-chemistry">Min Chemistry Target</label>
             <output htmlFor="min-chemistry">{minChemistry} / 33</output>
             <input id="min-chemistry" type="range" min="0" max="33" step="1" value={minChemistry} disabled={isAutoBuilding}
               onChange={event => setMinChemistry(Number(event.target.value))} />
           </div>
-          <label className="filter-switch auto-build-price-switch">
-            <input id="exclude-zero-price-cards" type="checkbox" checked={excludeZeroPriceCards} disabled={isAutoBuilding} onChange={event => setExcludeZeroPriceCards(event.target.checked)} />
-            <span className="filter-switch-control" aria-hidden="true" />
-            <span>Exclude 0-Coin Cards (Untradeable / SBC)</span>
-          </label>
-          <label className="filter-switch auto-build-manager-switch">
-            <input type="checkbox" checked={considerManager} disabled={isAutoBuilding} onChange={event => setConsiderManager(event.target.checked)} />
-            <span className="filter-switch-control" aria-hidden="true" />
-            <span>Include Manager Boost</span>
-          </label>
-          <div className="auto-build-special">
-            <label htmlFor="auto-build-special-mode">Icon / Hero Limit</label>
-            <select id="auto-build-special-mode" value={specialMode} disabled={isAutoBuilding} onChange={event => setSpecialMode(event.target.value)}>
-              <option value="unlimited">Unlimited</option>
-              <option value="limited">Custom Limit</option>
-              <option value="none">None</option>
-            </select>
-            {specialMode === 'limited' && <label>Max Players
-              <input aria-label="Maximum Icons / Heroes" type="number" min="1" max="11" step="1" value={specialCount} disabled={isAutoBuilding}
-                onChange={event => setSpecialCount(Math.max(1, Math.min(11, Math.round(Number(event.target.value) || 1))))} /> players
-            </label>}
-          </div>
+
         </div>
       <div className={`auto-build-actions${isAutoBuildSettingsOpen ? ' is-expanded' : ''}`}>
         {isAutoBuildSettingsOpen && <button type="button" className="auto-build-reset" disabled={isAutoBuilding} onClick={resetSettings}>Reset Settings</button>}
