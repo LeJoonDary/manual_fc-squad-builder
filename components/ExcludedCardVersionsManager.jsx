@@ -268,7 +268,7 @@ export function ExcludedCardVersionsManager({ supabase }) {
   const [open, setOpen] = useState(false);
   return <section className="excluded-card-versions-manager">
     <button type="button" className="excluded-card-versions-toggle" aria-haspopup="dialog" aria-expanded={open}
-      onClick={() => setOpen(true)}>🚫 Manage Excluded Cards ({totalCount})</button>
+      onClick={() => setOpen(true)}><span className="settings-trigger-icon" aria-hidden="true">🚫</span><span className="settings-trigger-label">Manage Excluded Cards ({totalCount})</span></button>
     {open && <ExclusionDialog supabase={supabase} onClose={() => setOpen(false)} />}
   </section>;
 }

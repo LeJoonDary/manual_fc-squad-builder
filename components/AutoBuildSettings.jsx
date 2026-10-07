@@ -84,7 +84,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
           <span className="auto-build-chevron" aria-hidden="true">{isAutoBuildSettingsOpen ? '∧' : '∨'}</span>
         </button>
       </h2>
-      <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}>🎯 Tactical Roles ({activeRolesCount}개) / Playstyles ({activePlaystylesCount}개)</button></div>
+      <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}><span className="settings-trigger-icon" aria-hidden="true">🎯</span><span className="settings-trigger-label">Tactical Roles ({activeRolesCount}개) / Playstyles ({activePlaystylesCount}개)</span></button></div>
         <div id="auto-build-details" className="auto-build-details" hidden={!isAutoBuildSettingsOpen}>
           <div ref={budgetHost} />
           <div className="auto-build-total">Locked Player Cost {lockedCost.toLocaleString('en-US')} C<br />

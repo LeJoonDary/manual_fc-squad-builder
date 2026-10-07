@@ -1,0 +1,7 @@
+.metaxi-logo { display: inline-block; flex-shrink: 0; vertical-align: middle; overflow: visible; transition: transform .2s ease, filter .2s ease; }
+.metaxi-logo-word { color: #f1f5f9; }
+.metaxi-logo-accent { color: #34d399; filter: drop-shadow(0 0 4px rgb(16 185 129 / 50%)); }
+.metaxi-logo:hover, .brand:focus-visible .metaxi-logo { transform: scale(1.05); filter: brightness(1.1); }
+.metaxi-logo-host { display: inline-flex; align-items: center; }
+@media (max-width: 560px) { .metaxi-logo-host .metaxi-logo { width: 128px; height: 32px; } }
+@media (prefers-reduced-motion: reduce) { .metaxi-logo { transition: none; } }

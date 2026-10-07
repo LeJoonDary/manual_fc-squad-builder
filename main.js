@@ -173,12 +173,12 @@ function updatePitchViewport() {
   const pitch = pitchFrame.querySelector('.pitch');
   const height = Number.parseFloat(pitch.style.getPropertyValue('--formation-height'));
   if (!squadWorkspace.clientWidth || !pitchFrame.clientHeight) return;
-  const stacked = window.matchMedia('(max-width: 640px)').matches;
+  const stacked = window.matchMedia('(max-width: 1023px)').matches;
   const panelWidth = document.querySelector('.chemistry-panel').offsetWidth;
   const gap = Number.parseFloat(getComputedStyle(squadWorkspace).columnGap);
   const availableWidth = stacked ? squadWorkspace.clientWidth : squadWorkspace.clientWidth - panelWidth - gap;
   const fit = fitPitchViewport(availableWidth, pitchFrame.clientHeight, height);
-  pitch.style.setProperty('--pitch-width', `${fit.width}px`);
+  pitch.style.setProperty('--pitch-width', `${fit.scale > 0 ? availableWidth / fit.scale : fit.width}px`);
   pitch.style.setProperty('--pitch-scale', fit.scale);
   squadWorkspace.style.setProperty('--fitted-pitch-width', `${Math.min(availableWidth, fit.width * fit.scale)}px`);
   squadWorkspace.style.setProperty('--fitted-pitch-height', `${Math.min(pitchFrame.clientHeight, fit.fittedHeight)}px`);

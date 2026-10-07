@@ -1220,7 +1220,7 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 
 .auto-build-modal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }
 .auto-build-modal-grid .excluded-card-versions-manager { margin: 0; min-width: 0; }
-.auto-build-modal-grid button { display: flex; align-items: center; justify-content: center; text-align: center; gap: 8px; width: 100%; min-height: 42px; padding: 10px 8px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; color: #cbd5e1; font-size: 12px; font-weight: 500; cursor: pointer; }
+.auto-build-modal-grid button { display: flex; align-items: center; justify-content: flex-start; text-align: left; gap: 10px; width: 100%; min-height: 42px; padding: 10px 16px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; color: #cbd5e1; font-size: 12px; font-weight: 500; cursor: pointer; }
 .auto-build-modal-grid button:hover { background: #334155; }
 .auto-build-modal-grid .tactical-roles-trigger { color: #34d399; border-color: #34d3994d; }
 .tactical-roles-dialog { width: min(520px, calc(100vw - 32px)); max-height: 85vh; overflow: auto; padding: 20px; border: 1px solid #334155; border-radius: 16px; color: #e2e8f0; background: #0f172a; }
@@ -1267,3 +1267,103 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 .tactical-playstyle-tooltip::after { content: ''; position: absolute; top: 100%; left: calc(50% - 3px); width: 6px; height: 6px; transform: translateY(-3px) rotate(45deg); background: #0f172a; border-right: 1px solid #334155; border-bottom: 1px solid #334155; }
 .tactical-playstyle-tooltip span { color: #34d399; }
 .tactical-playstyle-item:hover .tactical-playstyle-tooltip, .tactical-playstyle-item:focus-within .tactical-playstyle-tooltip { visibility: visible; opacity: 1; }
+/* MetaXI shared responsive shell and tactical board. */
+body { min-height: 100vh; background: #020617; color: #f1f5f9; }
+.app-header { background: #020617e6; border-bottom-color: #1e293bcc; z-index: 50; }
+.app-header-inner { justify-content: flex-start; gap: 40px; min-height: 80px; }
+.app-header .main-nav { align-self: center; gap: 8px; }
+.app-header .nav-tab { min-height: 40px; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; color: #94a3b8; }
+.app-header .nav-tab.is-active { color: #f1f5f9; background: #1e293bcc; box-shadow: 0 2px 6px #0003; }
+.app-header .nav-tab.is-active::after { left: 8px; right: 8px; height: 2px; background: #34d399; }
+.app-header .nav-tab:hover { color: #e2e8f0; }
+.app-header-inner, body.is-squad-active .app-header-inner,
+.app-shell.is-squad-active, .app-shell.is-players-active { width: 100%; max-width: 1560px; margin-inline: auto; padding-inline: 24px; }
+.app-shell.is-squad-active { padding-block: 16px; }
+body.is-squad-active .app-header { flex-basis: 80px; }
+body.is-squad-active .app-header-inner { height: 80px; }
+.brand { gap: 14px; }
+.metaxi-brand-asset { display: block; width: auto; height: 44px; object-fit: contain; filter: drop-shadow(0 0 12px #10b98180); }
+.metaxi-brand-name { color: #f1f5f9; font-size: 24px; font-weight: 900; letter-spacing: .08em; }
+.metaxi-brand-name span { color: #34d399; }
+#squad-builder-page .page-heading { margin: 0; }
+#squad-builder-page .eyebrow { color: #34d399; font-size: 11px; font-weight: 800; letter-spacing: .16em; }
+#squad-builder-page h1 { margin: 4px 0 0; color: #f1f5f9; font-size: 24px; font-weight: 900; letter-spacing: -.025em; }
+#squad-builder-page .status { margin: 4px 0 16px; font-size: 12px; }
+.app-shell.is-squad-active .squad-workspace { justify-content: start; align-items: start; gap: 24px; }
+.app-shell.is-squad-active .pitch-scroll { max-height: 880px; align-self: start; }
+.app-shell.is-squad-active .pitch { top: 0; left: 0; transform: scale(var(--pitch-scale, 0)); transform-origin: top left; border: 2px solid #10b98166; border-radius: 16px; background: radial-gradient(ellipse at 50% 50%, #10b98138 0%, #062016a6 55%, #020805f2 100%), #05110c; box-shadow: 0 0 50px #10b98133; isolation: isolate; }
+.pitch::before { inset: 0; width: auto; height: auto; transform: none; border: 0; border-radius: inherit; background: url('/metaxi-background.png') center / cover no-repeat; opacity: .9; mix-blend-mode: screen; z-index: -2; }
+.pitch::after { inset: 0; width: auto; height: auto; transform: none; border: 0; border-radius: inherit; background: transparent; box-shadow: inset 0 0 0 1px #34d39933; z-index: -1; }
+.app-shell.is-squad-active .chemistry-panel { align-self: start; border-color: #33415580; background: #0f172ab3; border-radius: 16px; }
+.pitch .slot:not(.occupied) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 115px; min-width: 0; height: 155px; border: 1px solid #64748bb3; border-radius: 12px; background: #1e293bbf; backdrop-filter: blur(12px); box-shadow: 0 12px 28px #0006; color: #f1f5f9; transition: border-color .2s, box-shadow .2s, transform .2s; }
+.pitch .slot:not(.occupied) > span { font-size: 16px; font-weight: 900; letter-spacing: .12em; text-shadow: 0 1px 3px #0005; }
+.pitch .slot:not(.occupied)::before { content: ''; position: absolute; inset: 5px; pointer-events: none; color: #94a3b8; background: linear-gradient(currentColor,currentColor) left top/8px 2px no-repeat, linear-gradient(currentColor,currentColor) left top/2px 8px no-repeat, linear-gradient(currentColor,currentColor) right top/8px 2px no-repeat, linear-gradient(currentColor,currentColor) right top/2px 8px no-repeat, linear-gradient(currentColor,currentColor) left bottom/8px 2px no-repeat, linear-gradient(currentColor,currentColor) left bottom/2px 8px no-repeat, linear-gradient(currentColor,currentColor) right bottom/8px 2px no-repeat, linear-gradient(currentColor,currentColor) right bottom/2px 8px no-repeat; }
+.pitch .slot:not(.occupied)::after { content: '+ Select'; position: static; color: #94a3b8; font-size: 11px; font-weight: 600; }
+.pitch .slot:not(.occupied):hover, .pitch .slot:not(.occupied):focus-visible { border-color: #34d399; background: #334155cc; color: #6ee7b7; box-shadow: 0 0 20px #10b98173; transform: translate(-50%, calc(-50% - 4px)); outline: none; }
+.pitch .slot:not(.occupied):hover::before, .pitch .slot:not(.occupied):focus-visible::before { color: #34d399; }
+.pitch .slot:not(.occupied):hover::after, .pitch .slot:not(.occupied):focus-visible::after { color: #e2e8f0; }
+.pitch .slot.occupied { background: transparent; border: 0; backdrop-filter: none; }
+.pitch .slot.occupied > .slot-card-body { filter: drop-shadow(0 4px 12px #0009); }
+.pitch .formation-label { top: 50%; width: 80px; height: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 1px solid #10b98166; border-radius: 50%; background: #020617cc; color: #34d399; backdrop-filter: blur(12px); font-size: 12px; font-weight: 800; letter-spacing: .06em; box-shadow: 0 0 15px #10b98133; pointer-events: none; }
+.pitch .formation-label::before { content: 'FORMATION'; font-size: 8px; letter-spacing: .1em; color: #94a3b8; }
+.pitch .manager-slot { border-style: solid; border-color: #334155b3; background: #0f172acc; backdrop-filter: blur(12px); }
+@media (min-width: 1024px) { .app-header-inner, body.is-squad-active .app-header-inner, .app-shell.is-squad-active, .app-shell.is-players-active { padding-inline: 32px; } }
+@media (max-width: 640px) {
+  .app-header-inner, body.is-squad-active .app-header-inner, .app-shell.is-squad-active, .app-shell.is-players-active { padding-inline: 16px; }
+  .app-shell.is-squad-active .squad-workspace { gap: 12px; }
+  .metaxi-brand-name { font-size: 18px; }
+  .metaxi-brand-asset { height: 36px; }
+  .app-header-inner, body.is-squad-active .app-header-inner { gap: 16px; }
+  .app-header .main-nav { gap: 4px; }
+  .app-header .nav-tab { padding: 8px; font-size: 12px; }
+  .brand { gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { .pitch .slot:not(.occupied) { transition: none; } }
+
+@media (max-width: 380px) { .app-header-inner, body.is-squad-active .app-header-inner { gap: 8px; padding-inline: 12px; } .metaxi-brand-name { font-size: 15px; } .metaxi-brand-asset { height: 32px; } .app-header .nav-tab { padding-inline: 6px; } }
+/* Center the complete two-column workspace, with the sidebar at its right edge. */
+body { position: relative; isolation: isolate; overflow-x: hidden; }
+body::before, body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: -1; }
+body::before { background: url('/metaxi-background.png') center / cover no-repeat; opacity: .25; mix-blend-mode: screen; }
+body::after { background: linear-gradient(#02061799, transparent 45%, #020617); }
+body.is-squad-active { height: auto; min-height: 100dvh; overflow-y: auto; }
+body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 100%; }
+.app-shell.is-squad-active { flex: none; overflow: visible; padding-block: 24px; }
+.app-shell.is-squad-active #squad-builder-page { width: 100%; }
+.app-shell.is-squad-active .squad-workspace { width: 100%; grid-template-columns: minmax(0, 1fr) 390px; grid-template-rows: auto; gap: 32px; justify-content: center; overflow: visible; flex: none; }
+.app-shell.is-squad-active .pitch-scroll { height: 880px; max-height: none; overflow: visible; }
+.app-shell.is-squad-active .chemistry-panel { height: 880px; max-height: none; }
+.brand:hover .metaxi-brand-asset { transform: scale(1.05); }
+.metaxi-brand-asset { transition: transform .2s ease; }
+.app-shell.is-squad-active .pitch { border-width: 1px; box-shadow: 0 0 50px #10b98140; }
+.pitch::before { inset: auto; left: 50%; top: 50%; width: var(--formation-height, 1125px); height: var(--pitch-width, 900px); transform: translate(-50%, -50%) rotate(90deg) scale(1.45); background-image: url('/metaxi-background3.png'); opacity: .95; }
+.pitch::after { background: radial-gradient(ellipse at center, transparent 45%, #02061740); box-shadow: inset 0 0 0 1px #34d3994d; }
+@media (min-width: 1280px) { .app-shell.is-squad-active .squad-workspace { grid-template-columns: minmax(0, 1fr) 420px; } }
+@media (max-width: 1023px) {
+  .app-shell.is-squad-active .squad-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; }
+  .app-shell.is-squad-active .pitch-scroll { height: min(880px, calc((100vw - 48px) * 1.25)); }
+  .app-shell.is-squad-active .chemistry-panel { grid-row: 2; height: auto; max-height: none; overflow: visible; }
+}
+@media (max-width: 640px) { .app-shell.is-squad-active .pitch-scroll { height: calc((100vw - 32px) * 1.25); } }
+@media (prefers-reduced-motion: reduce) { .metaxi-brand-asset { transition: none; } }
+
+/* Readable brand, outer positions and coin values. */
+.metaxi-brand-asset { height: 56px; filter: drop-shadow(0 0 16px #10b98199); }
+.brand { gap: 16px; }
+.metaxi-brand-name span { margin-left: 6px; filter: drop-shadow(0 0 8px #10b98180); }
+.app-shell.is-squad-active .pitch { border: 2px solid #10b98166; }
+.pitch .slot:not(.occupied) { width: 122px; height: 165px; border: 2px solid #475569cc; background: #0f172ae6; box-shadow: 0 12px 30px #0009, 0 0 10px #10b98115; }
+.pitch .slot:not(.occupied)::before { color: #34d399b3; }
+.pitch .slot:not(.occupied) > span { font-size: 18px; color: #f1f5f9; text-shadow: 0 2px 4px #000c; }
+.pitch .slot:not(.occupied)::after { font-size: 12px; font-weight: 700; color: #cbd5e1; }
+.pitch .slot:not(.occupied):hover, .pitch .slot:not(.occupied):focus-visible { background: #1e293b; border-color: #34d399; box-shadow: 0 0 22px #10b98180; }
+.pitch .slot:not(.occupied):hover > span, .pitch .slot:not(.occupied):focus-visible > span { color: #6ee7b7; }
+.pitch .slot.occupied > .card-price-badge { margin-top: 4px; padding: 4px 10px; min-height: 28px; border: 1px solid #fbbf2499; border-radius: 999px; background: #020617e6; box-shadow: 0 0 10px #fbbf244d; color: #fcd34d; font-size: 15px; font-weight: 900; letter-spacing: -.025em; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.pitch .slot.is-owned > .card-price-badge { border-color: #fbbf2499; color: #fcd34d; }
+.pitch .slot.occupied > .card-price-badge s { font-size: 11px; color: #94a3b8; }
+@media (min-width: 1536px) { .app-shell.is-squad-active .pitch-scroll, .app-shell.is-squad-active .chemistry-panel { height: 940px; } }
+@media (max-width: 640px) { .metaxi-brand-asset { height: 44px; } .brand { gap: 8px; } .pitch .slot:not(.occupied) { width: 110px; height: 150px; } }
+@media (max-width: 380px) { .metaxi-brand-asset { height: 38px; } .brand { gap: 4px; } }
+
+.settings-trigger-icon { flex-shrink: 0; font-size: 14px; }
+.settings-trigger-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
