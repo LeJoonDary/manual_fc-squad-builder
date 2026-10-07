@@ -6,7 +6,7 @@ import { createSquadCandidateRows } from '../scripts/mocks/squadCandidates.js';
 import { getPositionBudgetGroup } from './autoBuildUtils.ts';
 
 const bridge = vi.hoisted(() => ({ services: null }));
-vi.mock('./playstyleFilters.js', async importOriginal => ({ ...(await importOriginal()), fetchPlaystyleOptions: async () => [] }));
+vi.mock('./playstyleFilters.js', async importOriginal => ({ ...(await importOriginal()), fetchPlaystyleOptions: async () => [{ id: 7, name: 'Intercept', category: 'Defending', image_url: '/silver.png', image_url_plus: '/gold.png' }] }));
 vi.mock('./affiliations.js', async importOriginal => ({ ...(await importOriginal()),
   fetchAffiliations: async () => ({ leagues: [], nations: [], clubs: [] }),
 }));
@@ -95,11 +95,11 @@ it('connects exclusive Role+/Role++ choices and Require Selected Roles to auto b
   const doublePlus = () => document.querySelector('#role-filter-list button[aria-label="ST Advanced Forward Role++ filters"]');
   plus().click();
   expect(bridge.services.getRoleOptions()).toEqual({
-    slotRequirements: { ST: { role: { name: 'Advanced Forward', minLevel: 1 } } },
+    slotRequirements: { ST: { roles: [{ name: 'Advanced Forward', minLevel: 1 }] } },
   });
   doublePlus().click();
   expect(plus().getAttribute('aria-pressed')).toBe('false');
-  expect(bridge.services.getRoleOptions().slotRequirements.ST.role.minLevel).toBe(2);
+  expect(bridge.services.getRoleOptions().slotRequirements.ST.roles[0].minLevel).toBe(2);
   expect(document.querySelector('#has-all-selected-roles')).toBeNull();
   document.querySelector('.role-all-chip').click();
   expect(bridge.services.getRoleOptions()).toEqual({ slotRequirements: {} });
@@ -118,21 +118,31 @@ it('opens Tactical Roles independently of catalog position filters and restores 
   dialog.querySelector('[data-slot="LCM"]').click();
   expect(dialog.querySelector('[aria-label="CM Playmaker Role+ filters"]')).not.toBeNull();
   dialog.querySelector('[aria-label="CM Playmaker Role+ filters"]').click();
-  expect(bridge.services.getRoleOptions().slotRequirements.LCM).toEqual({ role: { name: 'Playmaker', minLevel: 1 } });
+  expect(bridge.services.getRoleOptions().slotRequirements.LCM).toEqual({ roles: [{ name: 'Playmaker', minLevel: 1 }] });
   expect(dialog.querySelector('[data-slot="LCM"] .tactical-role-dot')).not.toBeNull();
   dialog.querySelector('[data-slot="RCM"]').click();
   expect(dialog.querySelector('[aria-label="CM Playmaker Role+ filters"]').getAttribute('aria-pressed')).toBe('false');
   dialog.querySelector('[aria-label="CM Holding Role++ filters"]').click();
   expect(Object.keys(bridge.services.getRoleOptions().slotRequirements)).toEqual(['LCM', 'RCM']);
+  dialog.querySelector('[aria-label="CM Playmaker Role+ filters"]').click();
+  expect(bridge.services.getRoleOptions().slotRequirements.RCM.roles).toHaveLength(2);
+  dialog.querySelector('[aria-label="CM Playmaker Role++ filters"]').click();
+  expect(bridge.services.getRoleOptions().slotRequirements.RCM.roles).toEqual([{ name: 'Holding', minLevel: 2 }, { name: 'Playmaker', minLevel: 2 }]);
+  dialog.querySelector('[aria-label="CM Playmaker Role++ filters"]').click();
+  expect(bridge.services.getRoleOptions().slotRequirements.RCM.roles).toEqual([{ name: 'Holding', minLevel: 2 }]);
   dialog.querySelector('[data-tab="playstyles"]').click();
   expect(dialog.querySelector('[aria-label="CM Holding Role++ filters"]')).toBeNull();
-  expect(dialog.querySelectorAll('.role-option-row').length).toBeGreaterThanOrEqual(34);
-  dialog.querySelector('[aria-label="Intercept Playstyle"]').click();
+  expect(dialog.querySelectorAll('.tactical-playstyle-diamond')).toHaveLength(1);
+  dialog.querySelector('[data-playstyle-id="7"]').click();
   expect(bridge.services.getRoleOptions().slotRequirements.RCM).toEqual({
-    role: { name: 'Holding', minLevel: 2 }, playstyle: { idOrName: 'Intercept', isPlus: false },
+    roles: [{ name: 'Holding', minLevel: 2 }], playstyles: [{ id: 7, name: 'Intercept', isPlus: false }],
   });
-  dialog.querySelector('[aria-label="Intercept Playstyle+"]').click();
-  expect(bridge.services.getRoleOptions().slotRequirements.RCM.playstyle.isPlus).toBe(true);
+  dialog.querySelector('[data-playstyle-id="7"]').click();
+  expect(bridge.services.getRoleOptions().slotRequirements.RCM.playstyles[0].isPlus).toBe(true);
+  expect(dialog.querySelector('[data-playstyle-id="7"] img').getAttribute('src')).toBe('/gold.png');
+  dialog.querySelector('[data-playstyle-id="7"]').click();
+  expect(bridge.services.getRoleOptions().slotRequirements.RCM.playstyles).toBeUndefined();
+  expect(dialog.querySelector('[data-playstyle-id="7"] img').getAttribute('src')).toBe('/silver.png');
   expect(Object.keys(bridge.services.getRoleOptions().slotRequirements)).toHaveLength(2);
   dialog.querySelector('.tactical-clear-all').click();
   expect(bridge.services.getRoleOptions()).toEqual({ slotRequirements: {} });

@@ -2,7 +2,7 @@ import { test, expect } from 'vitest';
 import { matchesPlaystyleFilters, fetchPlaystyleOptions } from './playstyleFilters.js';
 import { createClient } from '@supabase/supabase-js';
 
-test('loads icon metadata and excludes NULL normal icons in the database query', async () => {
+test('loads icon metadata including missing URLs for fallback handling', async () => {
   const urls = [];
   const db = createClient('https://example.supabase.co', 'test-key', {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -15,8 +15,8 @@ test('loads icon metadata and excludes NULL normal icons in the database query',
   });
   const options = await fetchPlaystyleOptions(db);
   expect(options[0].image_url_plus).toBe('/plus.png');
-  expect(urls[0].searchParams.get('image_url')).toBe('not.is.null');
-  expect(urls[0].searchParams.get('image_url_plus')).toBe('not.is.null');
+  expect(urls[0].searchParams.get('image_url')).toBeNull();
+  expect(urls[0].searchParams.get('image_url_plus')).toBeNull();
   expect(urls[0].searchParams.get('select')).toBe('id,name,image_url,image_url_plus,category');
 });
 

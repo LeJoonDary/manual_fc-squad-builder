@@ -1,3 +1,4 @@
+import { createPlaystylesGridSelector } from './components/PlaystylesGridSelector.js';
 import { formatSlotPosition } from './utils/pitchCardLabels.js';
 import { createPlayerCard } from './components/PlayerCard.js';
 import { handlePitchSlotClick } from './utils/pitchSlotInteraction.js';
@@ -13,7 +14,7 @@ import { createPlayerPagination, PLAYER_PAGE_SIZE } from './utils/playerPaginati
 import { createPlayerDetailModal } from './components/PlayerDetailModal.js';
 import { STAT_KEYS, defaultStats, activeStats, renderStatInputs } from './utils/statFilters.js';
 import { fetchAffiliations, clubsForLeague, renderSearchableSelect } from './utils/affiliations.js';
-import { fetchPlaystyleOptions, PLAYSTYLE_CATEGORIES } from './utils/playstyleFilters.js';
+import { fetchPlaystyleOptions } from './utils/playstyleFilters.js';
 import { createPlaystyleIcons } from './components/PlaystyleIcons.js';
 import { renderPlaystyleGrid } from './components/PlaystyleFilterGrid.js';
 import { PLAYER_CARD_SELECT } from './utils/playerCards.js';
@@ -191,6 +192,8 @@ let tacticalRolesDialog = null;
 let selectedSlotPos = 'ST';
 const tacticalSlotRoles = {};
 const tacticalSlotPlaystyles = {};
+let tacticalPlaystylesList = [];
+let tacticalPlaystylesStatus = 'loading';
 let tacticalTab = 'roles';
 const updateAutoBuildFormation = mountAutoBuildSettings(
   document.querySelector('#auto-build-settings'), currentFormation, () => targetBudget,
@@ -816,9 +819,16 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
 
 async function loadPlaystyleFilterOptions() {
   playstyleFilterGrid.textContent = 'Loading PlayStyles…';
+  tacticalPlaystylesStatus = 'loading';
+  if (tacticalRolesDialog) renderRoleFilterRows();
   try {
-    renderPlaystyleFilterButtons(await fetchPlaystyleOptions(supabase));
+    tacticalPlaystylesList = await fetchPlaystyleOptions(supabase);
+    tacticalPlaystylesStatus = 'ready';
+    renderPlaystyleFilterButtons(tacticalPlaystylesList);
+    if (tacticalRolesDialog) renderRoleFilterRows();
   } catch (error) {
+    tacticalPlaystylesStatus = 'error';
+    if (tacticalRolesDialog) renderRoleFilterRows();
     console.error('Playstyle master lookup failed:', error);
     playstyleFilterGrid.textContent = 'Unable to load PlayStyles. ';
     const retry = document.createElement('button');
@@ -880,19 +890,15 @@ function renderAffiliationOptions() {
 
 function getRoleOptions() {
   const slots = FORMATIONS.find(item => item.name === currentFormation).slots;
-  const requirements = {};
-  for (const slot of slots) {
-    const legacy = filters.selectedRoles.find(role => role.position === normalizeChemistryPosition(slot.position));
-    const req = Object.hasOwn(tacticalSlotRoles, slot.position) ? tacticalSlotRoles[slot.position] : (legacy ? { roleName: legacy.name, minLevel: legacy.level } : undefined);
-    if (req) requirements[slot.position] = req;
-  }
   const slotRequirements = {};
   for (const slot of slots) {
-    const role = requirements[slot.position];
-    const playstyle = tacticalSlotPlaystyles[slot.position];
-    if (role || playstyle) slotRequirements[slot.position] = {
-      ...(role ? { role: { name: role.roleName, minLevel: role.minLevel } } : {}),
-      ...(playstyle ? { playstyle } : {}),
+    const roles = Object.hasOwn(tacticalSlotRoles, slot.position) ? tacticalSlotRoles[slot.position] ?? []
+      : filters.selectedRoles.filter(role => role.position === normalizeChemistryPosition(slot.position))
+        .map(role => ({ name: role.name, minLevel: role.level }));
+    const playstyles = tacticalSlotPlaystyles[slot.position];
+    if (roles.length || playstyles?.length) slotRequirements[slot.position] = {
+      ...(roles.length ? { roles } : {}),
+      ...(playstyles?.length ? { playstyles } : {}),
     };
   }
   return { slotRequirements };
@@ -994,27 +1000,28 @@ function renderRoleFilterRows() {
 
   if (tacticalRolesDialog && tacticalTab === 'playstyles') {
     allChip.textContent = 'Clear slot Playstyle';
-    for (const [category, names] of Object.entries(PLAYSTYLE_CATEGORIES)) {
-      const heading = document.createElement('h3'); heading.textContent = category; roleFilterList.append(heading);
-      for (const name of names) {
-        const row = document.createElement('div'); row.className = 'role-option-row';
-        const label = document.createElement('span'); label.textContent = name; row.append(label);
-        for (const isPlus of [false, true]) {
-          const button = document.createElement('button'); button.type = 'button'; button.textContent = isPlus ? '금특+' : '은특';
-          button.setAttribute('aria-label', name + (isPlus ? ' Playstyle+' : ' Playstyle'));
-          const req = tacticalSlotPlaystyles[selectedSlotPos];
-          const selected = req?.idOrName === name && req?.isPlus === isPlus;
-          button.setAttribute('aria-pressed', String(selected));
-          button.addEventListener('click', () => {
-            if (selected) delete tacticalSlotPlaystyles[selectedSlotPos];
-            else tacticalSlotPlaystyles[selectedSlotPos] = { idOrName: name, isPlus };
-            renderRoleFilterRows();
-          });
-          row.append(button);
-        }
-        roleFilterList.append(row);
+    if (tacticalPlaystylesStatus !== 'ready') {
+      const status = document.createElement('p');
+      status.textContent = tacticalPlaystylesStatus === 'loading' ? 'Loading Playstyles…' : 'Playstyles를 불러오지 못했습니다.';
+      roleFilterList.append(status);
+      if (tacticalPlaystylesStatus === 'error') {
+        const retry = document.createElement('button');
+        retry.type = 'button'; retry.textContent = '다시 시도';
+        retry.addEventListener('click', loadPlaystyleFilterOptions);
+        roleFilterList.append(retry);
       }
-    }
+    } else roleFilterList.append(createPlaystylesGridSelector({
+      selectedSlot: selectedSlotPos,
+      playstylesList: tacticalPlaystylesList,
+      currentReqList: tacticalSlotPlaystyles[selectedSlotPos] ?? [],
+      onChange: requirement => {
+        const focusedId = document.activeElement?.dataset.playstyleId;
+        if (requirement.length) tacticalSlotPlaystyles[selectedSlotPos] = requirement;
+        else delete tacticalSlotPlaystyles[selectedSlotPos];
+        renderRoleFilterRows();
+        if (focusedId) roleFilterList.querySelector('[data-playstyle-id="' + focusedId + '"]')?.focus();
+      },
+    }));
     return;
   }
   ROLE_DATA.filter(({ pos }) => selectedPositions.includes(pos)).forEach(({ pos, roles }) => {
@@ -1059,7 +1066,7 @@ function renderRoleFilterRows() {
 }
 
 function isRoleSelected(position, name, level) {
-  if (tacticalRolesDialog) { const req = getRoleOptions().slotRequirements[selectedSlotPos]; return req?.role?.name === name && req?.role?.minLevel === level; }
+  if (tacticalRolesDialog) { const req = getRoleOptions().slotRequirements[selectedSlotPos]; return req?.roles?.some(role => role.name === name && role.minLevel === level) ?? false; }
   return filters.selectedRoles.some(
     (role) => role.position === position && role.name === name && role.level === level,
   );
@@ -1067,8 +1074,11 @@ function isRoleSelected(position, name, level) {
 
 function toggleRoleFilter(position, name, level) {
   if (tacticalRolesDialog) {
-    if (isRoleSelected(position, name, level)) tacticalSlotRoles[selectedSlotPos] = null;
-    else tacticalSlotRoles[selectedSlotPos] = { roleName: name, minLevel: level };
+    const roles = getRoleOptions().slotRequirements[selectedSlotPos]?.roles ?? [];
+    const existing = roles.find(role => role.name === name);
+    tacticalSlotRoles[selectedSlotPos] = !existing ? [...roles, { name, minLevel: level }]
+      : existing.minLevel === level ? roles.filter(role => role.name !== name)
+        : roles.map(role => role.name === name ? { ...role, minLevel: level } : role);
     return;
   }
   const roleIndex = filters.selectedRoles.findIndex(

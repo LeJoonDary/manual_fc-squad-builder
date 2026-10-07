@@ -153,7 +153,7 @@ describe('Auto Build UI workflow', () => {
     generateOptimalSquad.mockResolvedValue({ success: false });
     await act(async () => button().click());
     expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="alert"]').textContent).toBe('No squad meets your requirements. Increase your budget or lower the chemistry target.');
+    expect(container.querySelector('[role="alert"]').textContent).toBe('No squad meets your requirements. Try increasing your budget, lowering the chemistry target, or reducing selected roles & playstyles.');
     expect(button().disabled).toBe(false);
   });
 
@@ -206,11 +206,11 @@ it('places both working modal triggers in the two-column settings grid', async (
 it('refreshes the role badge when slot settings change', async () => {
   const state = { slotRequirements: {} };
   await act(async () => root.render(<AutoBuildSettings {...props} getRoleOptions={() => state} />));
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('(0)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Tactical Roles (0개) / Playstyles (0개)');
   state.slotRequirements = { LCM: { role: { name: 'Holding', minLevel: 1 } }, RCM: { playstyle: { idOrName: 'Technical', isPlus: true } } };
   await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('(2)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Tactical Roles (1개) / Playstyles (1개)');
   state.slotRequirements = {};
   await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('(0)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Tactical Roles (0개) / Playstyles (0개)');
 });

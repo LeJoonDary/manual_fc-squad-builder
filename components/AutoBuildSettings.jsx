@@ -27,6 +27,9 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
   const { lockedCost, distributableBudget, unlimited } = getRemainingAutoBuildBudget(
     Math.max(0, Number(getTargetBudget()) || 0), formation, { currentSquad: getCurrentSquad() });
   const [minChemistry, setMinChemistry] = useState(33);
+  const requirements = Object.values(getRoleOptions().slotRequirements ?? {});
+  const activeRolesCount = requirements.reduce((count, req) => count + (req?.roles?.length ?? (req?.role ? 1 : 0)), 0);
+  const activePlaystylesCount = requirements.reduce((count, req) => count + (req?.playstyles?.length ?? (req?.playstyle ? 1 : 0)), 0);
   const isThreeBack = formation.startsWith('3');
 
   async function handleAutoBuild() {
@@ -51,7 +54,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
         throw new Error('Exclusions changed during the build. Try again with the current exclusions.');
       }
       if ((!result.success && result.status !== 'fallback') || (totalBudget > 0 && result.totalCost > totalBudget)) {
-        throw new Error('No squad meets your requirements. Increase your budget or lower the chemistry target.');
+        throw new Error('No squad meets your requirements. Try increasing your budget, lowering the chemistry target, or reducing selected roles & playstyles.');
       }
       applyAutoBuildResult(result, { snapshot, formation, totalBudget });
       setFeedback(result.status === 'fallback' ? { type: 'warning', text: `Built the closest matching squad. Total Cost: ${result.totalCost.toLocaleString('en-US')} C · ${totalBudget === 0 ? 'Unlimited Budget' : result.totalCost > totalBudget ? `${(result.totalCost - totalBudget).toLocaleString('en-US')} C Over Budget` : 'Within Budget'} · Chemistry: ${result.totalChemistry}/33 (Target ${minChemistry})` } : { type: 'success', text: `Squad built successfully! Total Cost: ${result.totalCost.toLocaleString('en-US')} C · Chemistry: ${result.totalChemistry}/33` });
@@ -81,7 +84,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
           <span className="auto-build-chevron" aria-hidden="true">{isAutoBuildSettingsOpen ? '∧' : '∨'}</span>
         </button>
       </h2>
-      <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}>🎯 Tactical Roles / Playstyles ({Object.values(getRoleOptions().slotRequirements ?? {}).filter(req => req?.role || req?.playstyle).length})</button></div>
+      <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}>🎯 Tactical Roles ({activeRolesCount}개) / Playstyles ({activePlaystylesCount}개)</button></div>
         <div id="auto-build-details" className="auto-build-details" hidden={!isAutoBuildSettingsOpen}>
           <div ref={budgetHost} />
           <div className="auto-build-total">Locked Player Cost {lockedCost.toLocaleString('en-US')} C<br />

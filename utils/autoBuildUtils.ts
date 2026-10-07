@@ -6,7 +6,11 @@ import { FORMATIONS } from './formations.js';
 import { getCardCoinPrice, calculateSquadTotalCost } from './squadCost.ts';
 import { getCardVersionId, normalizeExcludedCardVersionIds, validateSquadOvrRange } from './excludedCardVersions.js';
 
+export interface PlaystyleReqItem { id: number; name: string; isPlus: boolean; }
+export interface RoleReqItem { name: string; minLevel: 1 | 2; }
 export interface SlotRequirement {
+  roles?: RoleReqItem[];
+  playstyles?: PlaystyleReqItem[];
   role?: { name: string; minLevel: 1 | 2 };
   playstyle?: { idOrName: string | number; isPlus: boolean };
 }
@@ -205,20 +209,19 @@ export async function fetchCandidatePlayers(
   const select = `${AUTO_BUILD_CANDIDATE_SELECT}, candidate_positions:card_positions!inner(positions!inner(name))`;
   const results = await Promise.all(plan.map(async item => {
     if (!item.positions.length) return { group: item.group, rows: [] };
-    const queryRows = async (cap: number | null, limit: number, cheapest = false, positions = item.positions, roleSlot = positions[0]) => {
-      const req = getRoleRequirement(roleSlot, options);
-      const ps = options.slotRequirements?.[roleSlot]?.playstyle;
+    const queryRows = async (cap: number | null, limit: number, cheapest = false, positions = item.positions, roleSlot = positions[0], req?: { roleName: string; minLevel: 1 | 2 }) => {
+      const styles = requiredPlaystyles(options.slotRequirements?.[roleSlot]);
       const projection = select + (req ? ', required_roles:card_roles!inner(role_level,roles!inner(position,role_name))' : '')
-        + (ps ? ', required_styles:card_playstyles!inner(is_plus,playstyles!inner(id,name))' : '');
+        + styles.map((_, index) => ', ' + styleAlias(index) + ':card_playstyles!inner(is_plus,playstyles!inner(id,name))').join('');
       let query = supabase.from('card_versions').select(projection)
         .in('candidate_positions.positions.name', positions)
         .gte('overall', Math.max(80, squadOvrRange.min)).lte('overall', squadOvrRange.max).gte('price', 0);
       if (req) query = query.eq('required_roles.roles.position', positions[0])
         .eq('required_roles.roles.role_name', req.roleName).gte('required_roles.role_level', req.minLevel);
-      if (ps) {
+      for (const [index, ps] of styles.entries()) {
         const field = typeof ps.idOrName === 'number' || /^\d+$/.test(String(ps.idOrName)) ? 'id' : 'name';
-        query = query.eq('required_styles.playstyles.' + field, ps.idOrName);
-        if (ps.isPlus) query = query.eq('required_styles.is_plus', true);
+        query = query.eq(styleAlias(index) + '.playstyles.' + field, ps.idOrName);
+        if (ps.isPlus) query = query.eq(styleAlias(index) + '.is_plus', true);
       }
       if (options.excludeZeroPriceCards === true) query = query.gt('price', 0);
       if (excluded.size) query = query.not('id', 'in', `(${[...excluded].join(',')})`);
@@ -235,9 +238,15 @@ export async function fetchCandidatePlayers(
     const uniqueRoleSlots = [...new Map(roleSlots.map(slot => [
       JSON.stringify([normalizeChemistryPosition(slot), slotRequirement(slot, options)]), slot,
     ])).values()];
-    const perPosition = await Promise.all(uniqueRoleSlots.map(slot => {
+    const perPosition = await Promise.all(uniqueRoleSlots.map(async slot => {
       const position = normalizeChemistryPosition(slot);
-      return queryRows(unlimited ? null : getMaxSlotPrice(position, focus, totalBudget ?? 0, remainingTotalBudget), 120, false, [position], slot);
+      const roles = requiredRoles(slotRequirement(slot, options));
+      // Each alternative gets its own filtered query before LIMIT; union implements OR.
+      const alternatives = roles.length ? roles : [undefined];
+      const rows = await Promise.all(alternatives.map(role => queryRows(
+        unlimited ? null : getMaxSlotPrice(position, focus, totalBudget ?? 0, remainingTotalBudget),
+        120, false, [position], slot, role ? { roleName: role.name, minLevel: role.minLevel } : undefined)));
+      return rows.flat();
     }));
     return { group: item.group, rows: [...new Map(perPosition.flat().map(row => [row.id, row])).values()] };
 
@@ -375,25 +384,42 @@ export function getMatchedRoleLevel(card: any, position: string, roleName: strin
     return Math.max(highest, Number(row.role_level ?? row.level ?? 0));
   }, 0);
 }
+function requiredRoles(req?: SlotRequirement): RoleReqItem[] {
+  return req?.roles ?? (req?.role ? [req.role] : []);
+}
+function styleAlias(index: number): string { return index === 0 ? 'required_styles' : 'required_styles_' + index; }
+function requiredPlaystyles(req?: SlotRequirement) {
+  return req?.playstyles ? req.playstyles.map(ps => ({ ...ps, idOrName: ps.id })) : req?.playstyle ? [req.playstyle] : [];
+}
+function hasPlaystyle(card: any, target: string | number, goldOnly = false): boolean {
+  const matches = (p: any) => String(p?.playstyle_id ?? p?.id ?? p) === String(target) || p?.name === String(target);
+  return [card, card.raw].filter(Boolean).some(source => {
+    const normal = Array.isArray(source.playstyles) ? source.playstyles : [];
+    const plus = [source.playstyles_plus, source.playstylesPlus].flatMap(rows => Array.isArray(rows) ? rows : []);
+    const joined = Array.isArray(source.card_playstyles) ? source.card_playstyles : [];
+    return plus.some(matches)
+      || normal.some((p: any) => matches(p) && (!goldOnly || p?.is_plus === true || p?.isPlus === true))
+      || joined.some((row: any) => (!goldOnly || row.is_plus === true) && (matches(row) || matches(relation(row.playstyles))));
+  });
+}
 export function matchesSlotRequirements(card: any, req?: SlotRequirement, slotPos = ''): boolean {
   if (!req) return true;
-  if (req.role && getMatchedRoleLevel(card, slotPos, req.role.name) < req.role.minLevel) return false;
-  if (req.playstyle) {
-    const target = String(req.playstyle.idOrName);
-    const matches = (p: any) => String(p?.id ?? p?.playstyle_id ?? p) === target || p?.name === target;
-    const sources = [card, card.raw].filter(Boolean);
-    const has = sources.some(source => {
-      const normal = Array.isArray(source.playstyles) ? source.playstyles : [];
-      const plus = source.playstyles_plus ?? source.playstylesPlus ?? [];
-      return (Array.isArray(plus) && plus.some(matches))
-        || normal.some((p: any) => matches(p) && (!req.playstyle!.isPlus || p?.is_plus === true || p?.isPlus === true))
-        || (source.card_playstyles ?? []).some((row: any) =>
-          (!req.playstyle!.isPlus || row.is_plus === true)
-          && (matches(row) || matches(relation(row.playstyles))));
-    });
-    if (!has) return false;
+  const roles = requiredRoles(req);
+  if (roles.length && !roles.some(role => getMatchedRoleLevel(card, slotPos, role.name) >= role.minLevel)) return false;
+  return requiredPlaystyles(req).every(ps => hasPlaystyle(card, ps.idOrName, ps.isPlus));
+}
+export function evaluateCardScoreWithRequirements(card: any, targetPos: string, req?: SlotRequirement): number {
+  if (!matchesSlotRequirements(card, req, targetPos)) return -9999;
+  const baseScore = calculateMetaPaceScore(card, targetPos);
+  let tacticalBonus = requiredRoles(req).reduce((best, role) => {
+    const level = getMatchedRoleLevel(card, targetPos, role.name);
+    return level >= role.minLevel ? Math.max(best, level >= 2 ? 5 : 2.5) : best;
+  }, 0);
+  for (const ps of requiredPlaystyles(req)) {
+    if (hasPlaystyle(card, ps.idOrName, true)) tacticalBonus += 4;
+    else if (!ps.isPlus && hasPlaystyle(card, ps.idOrName)) tacticalBonus += 2;
   }
-  return true;
+  return baseScore + Math.min(tacticalBonus, 12);
 }
 function slotRequirement(position: string, options: AutoBuildOptions): SlotRequirement | undefined {
   const role = getRoleRequirement(position, options);
@@ -569,7 +595,7 @@ export async function generateOptimalSquad(
     const fixed = prepareCandidate(rawEntryCard(entry), position, threeBack, entry.isOwned === true, true);
     if (!fixed) throw new Error('Check the price and card details of your locked players.');
     if (!meetsRoleRequirement(rawEntryCard(entry), position, options)) throw new Error('A locked player does not meet the selected tactical requirements. Unlock it or change the tactical requirements.');
-    fixed.metaScore = calculateMetaPaceScore(rawEntryCard(entry), position, options) * getFocusWeight(position, focus);
+    fixed.metaScore = evaluateCardScoreWithRequirements(rawEntryCard(entry), position, slotRequirement(position, options)) * getFocusWeight(position, focus);
     fixedPlayers.set(index, fixed);
   });
   const specialCount = (players: GeneratedPlayer[]) => players.filter(p => p.isIcon || p.isHero).length;
@@ -588,7 +614,7 @@ export async function generateOptimalSquad(
       if (prepared && prepared.price > getMaxSlotPrice(position, focus, totalBudget, remainingTotalBudget)) continue;
       if (prepared && (prepared.isIcon || prepared.isHero) && maxSpecial === 0) continue;
       if (prepared) {
-        prepared.metaScore = calculateMetaPaceScore(card, position, options) * getFocusWeight(position, focus);
+        prepared.metaScore = evaluateCardScoreWithRequirements(card, position, slotRequirement(position, options)) * getFocusWeight(position, focus);
         unique.set(prepared.id, prepared);
       }
     }

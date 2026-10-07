@@ -3,7 +3,7 @@ export async function fetchPlaystyleOptions(db) {
   const options = [];
   for (let offset = 0; ; ) {
     const { data, error } = await db.from('playstyles').select('id,name,image_url,image_url_plus,category')
-      .not('image_url', 'is', null).not('image_url_plus', 'is', null).order('id').range(offset, offset + 499);
+      .order('id').range(offset, offset + 499);
     if (error) throw error;
     if (!data?.length) return options.sort((a, b) => a.name.localeCompare(b.name));
     options.push(...data);
