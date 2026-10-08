@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { fitPitchViewport } from './pitchViewport.js';
+import { fitPitchViewport, fitSquadWorkspace } from './pitchViewport.js';
 import { FORMATIONS } from './formations.js';
 
 test('every formation fits the viewport without scrollbars and contains its badges and prices', () => {
@@ -28,4 +28,34 @@ test('every formation fits the viewport without scrollbars and contains its badg
 
 test('hidden frames never produce a negative scale', () => {
   expect(fitPitchViewport(0, 0, 1040).scale).toBe(0);
+});
+
+test('desktop workspace fits laptop, FHD, QHD and 4K with matching sidebar height', () => {
+  for (const [screenWidth, screenHeight] of [[1024, 600], [1366, 768], [1920, 1080], [2560, 1440], [3840, 2160]]) {
+    const tier = screenWidth >= 3200 ? [2200, 500, 48, 1260] : screenWidth >= 1536 ? [1920, 460, 48, 1080] : screenWidth >= 1280 ? [1680, 420, 32, 920] : [1440, 380, 24, 840];
+    const [maxWidth, sidebar, gap, cap] = tier;
+    const width = Math.min(screenWidth, maxWidth) - 64;
+    const height = screenHeight - 80 - 40;
+    for (const header of [60, 100, 140]) {
+      const fit = fitSquadWorkspace(width, height, sidebar, gap, header, cap);
+      expect(fit.pitchWidth + sidebar + gap).toBeLessThanOrEqual(width);
+      expect(fit.pitchHeight + header).toBeLessThanOrEqual(height);
+      expect(fit.pitchHeight).toBeLessThanOrEqual(cap);
+      expect(fit.pitchWidth / fit.pitchHeight).toBeCloseTo(4 / 5);
+    }
+  }
+});
+
+test('QHD and 4K restore the 4:5 pitch and expanded height caps', () => {
+  for (const [width, height, sidebar, cap] of [[1920, 1440, 460, 1080], [2200, 2160, 500, 1260]]) {
+    const layout = fitSquadWorkspace(width - 64, height - 120, sidebar, 48, 90, cap);
+    expect(layout.pitchHeight).toBe(cap);
+    expect(layout.pitchWidth).toBe(cap * 4 / 5);
+    for (const formation of FORMATIONS) {
+      const fit = fitPitchViewport(layout.pitchWidth, layout.pitchHeight, formation.height);
+      expect(fit.fittedHeight).toBeLessThanOrEqual(layout.pitchHeight + .001);
+      expect(fit.scale).toBeGreaterThan(0);
+    }
+  }
+  expect(fitPitchViewport(1008, 1260, 1125).scale).toBeGreaterThan(1);
 });

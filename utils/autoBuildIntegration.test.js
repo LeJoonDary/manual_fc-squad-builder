@@ -16,6 +16,7 @@ vi.mock('../components/AutoBuildSettings.jsx', () => ({ mountAutoBuildSettings: 
 } }));
 
 beforeAll(async () => {
+  vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })));
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
   vi.stubEnv('VITE_SUPABASE_URL', '');
   vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');

@@ -1139,8 +1139,22 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 .pitch-mini-rating > b { font-weight: 900; }
 .pitch-mini-rating > b:last-child { font-size: 12px; }
 
+/* Improve small-card readability within the existing fixed artwork dimensions. */
+.pitch-mini-center { padding: 2px 4px; }
+.pitch-mini-center .pitch-mini-promo { padding: 2px 12px; font-size: 11.5px; font-weight: 900; line-height: 1.2; letter-spacing: .1em; color: #fcd34d; background: rgba(2,6,23,.85); border-color: rgba(251,191,36,.6); text-shadow: 0 1px 3px rgba(0,0,0,.9); box-shadow: 0 0 8px rgba(251,191,36,.25); }
+.pitch-mini-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; padding: 2px 2px 4px; border-top-color: rgba(51,65,85,.6); border-bottom: 0; border-radius: 0 0 8px 8px; background: rgba(2,6,23,.7); text-align: center; }
+.pitch-mini-stats > span { min-width: 0; justify-content: center; }
+.pitch-mini-stats small { font-size: 7.5px; font-weight: 700; line-height: 1; letter-spacing: -.05em; color: #94a3b8; user-select: none; }
+.pitch-mini-stats b { margin-top: 2px; font-size: 12px; font-weight: 900; line-height: 1.25; letter-spacing: -.05em; color: #f1f5f9; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.9); }
+
 /* Separate right-side zones: positions end 8px above the foot/skill row. */
-.pitch-mini-skills { left: auto; right: 4px; top: auto; bottom: 28px; height: 28px; transform: none; flex-direction: row; align-items: center; gap: 3px; }
+.pitch-mini-content > .pitch-mini-skills { position: static; height: auto; transform: none; flex: none; align-self: flex-end; flex-direction: row; align-items: center; gap: 6px; margin: 2px 6px 0; padding: 2px 8px; border: 1px solid rgba(51,65,85,.8); border-radius: 6px; background: rgba(2,6,23,.9); box-shadow: 0 2px 4px rgba(0,0,0,.4); }
+.pitch-mini-content > .pitch-mini-skills > span { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; font-weight: 900; line-height: 1.2; }
+.pitch-mini-skills .pitch-mini-foot { color: #f1f5f9; font-size: 11px; letter-spacing: -.025em; }
+.pitch-mini-skills .pitch-mini-foot + .pitch-mini-skill-values { padding-left: 6px; border-left: 1px solid #475569; }
+.pitch-mini-skills .pitch-mini-skill-values { display: flex; align-items: center; gap: 2px; color: #fcd34d; font-size: 12px; text-shadow: 0 1px 2px #000; }
+.pitch-mini-skill-values b { font-weight: 900; line-height: 1; }
+.pitch-mini-skill-values .pitch-mini-star { color: #fbbf24; font-size: 10px; line-height: 1; }
 .pitch-mini-secondary { display: grid; grid-template-columns: max-content; top: 8px; right: -8px; bottom: auto; max-width: none; max-height: calc(100% - 72px); overflow-y: auto; scrollbar-width: thin; transform: translateX(16px); gap: 2px; align-items: start; }
 .pitch-mini-secondary > span { font-size: 10px; line-height: 1.2; }
 
@@ -1160,14 +1174,16 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 .player-detail-header .player-detail-name-row { gap: 8px; }
 .player-detail-header .player-detail-heading h1 { white-space: normal; overflow-wrap: anywhere; font-size: clamp(1.2rem, 2vw, 1.7rem); }
 .player-detail-header-specs { min-width: 0; }
-.player-detail-header-specs h2 { margin-bottom: 6px; font-size: 10px; letter-spacing: .08em; color: #9fb0c9; }
-.player-detail-header-specs .detail-spec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, 1fr); gap: 8px; }
-.player-detail-header-specs .detail-spec-grid > div { min-width: 0; min-height: 48px; gap: 3px; padding: 6px 7px; align-content: center; }
-.player-detail-header-specs .detail-spec-grid span { font-size: 8px; letter-spacing: .03em; }
-.player-detail-header-specs .detail-spec-grid strong { font-size: 11px; line-height: 1.2; overflow-wrap: anywhere; }
-.player-detail-header-specs .detail-nation-value { gap: 5px; }
-.player-detail-header-specs .detail-nation-value img { width: 18px; height: 12px; }
-.player-detail-header-specs .detail-card-ribbon { padding: 2px 6px; font-size: 9px; }
+.player-detail-header-specs h2 { margin-bottom: 8px; font-size: 11px; font-weight: 700; letter-spacing: .1em; color: #94a3b8; }
+.player-detail-header-specs .detail-spec-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: repeat(2, 1fr); gap: 10px; }
+.player-detail-header-specs .detail-spec-grid > div { display: flex; flex-direction: column; justify-content: center; min-width: 0; min-height: 58px; gap: 2px; padding: 10px; border: 1px solid #1e293b; border-radius: 12px; background: rgba(15,23,42,.8); }
+.player-detail-header-specs .detail-spec-grid > div > span { color: #94a3b8; font-size: 10px; font-weight: 700; letter-spacing: .05em; overflow-wrap: anywhere; }
+.player-detail-header-specs .detail-spec-grid strong { min-width: 0; max-width: 100%; color: #f1f5f9; font-size: 12px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player-detail-header-specs .detail-nation-value { gap: 6px; }
+.player-detail-header-specs .detail-nation-value .detail-nation-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: inherit; font: inherit; text-transform: none; }
+.player-detail-header-specs .detail-nation-value img { width: 16px; height: 12px; object-fit: cover; border-radius: 2px; }
+.player-detail-header-specs .detail-spec-grid .detail-card-ribbon { align-self: flex-start; padding: 2px 8px; border-color: rgba(251,191,36,.5); background: rgba(245,158,11,.1); color: #fcd34d; font-size: 10px; font-weight: 800; }
+.player-detail-header-specs .detail-spec-grid .detail-star-rating { color: #fcd34d; font-weight: 900; }
 .player-detail-body { padding: 12px 18px 18px; gap: 14px; }
 .player-detail-section h2 { margin-bottom: 8px; font-size: 12px; }
 .detail-substats-grid { gap: 10px; }
@@ -1213,6 +1229,29 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 
 .auto-build-focus { margin: 0; padding: 0; border: 0; min-width: 0; }
 .auto-build-focus legend { margin-bottom: 8px; color: #b9c7da; font-size: .75rem; }
+
+.squad-slots { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.squad-slots-label { color: #94a3b8; font-size: 10px; font-weight: 700; letter-spacing: .1em; }
+.squad-slot { position: relative; }
+.squad-slot button { cursor: pointer; font: inherit; }
+.squad-slot-main { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px dashed #334155; border-radius: 8px; background: rgba(2,6,23,.6); color: #94a3b8; font-size: 12px !important; font-weight: 700 !important; }
+.squad-slot.is-saved .squad-slot-main { border-style: solid; background: rgba(15,23,42,.9); color: #e2e8f0; }
+.squad-slot.is-active .squad-slot-main { background: rgba(16,185,129,.15); border-color: #34d399; color: #6ee7b7; box-shadow: 0 0 12px rgba(16,185,129,.3); }
+.squad-slot-info { font-size: 10px; white-space: nowrap; }
+.is-saved .squad-slot-info { padding: 2px 5px; border: 1px solid rgba(16,185,129,.3); border-radius: 4px; background: #1e293b; color: #34d399; }
+.squad-slot-actions { position: absolute; top: 100%; right: 0; z-index: 100; display: none; gap: 4px; padding: 5px; border: 1px solid #334155; border-radius: 6px; background: #0f172a; box-shadow: 0 8px 16px #0008; }
+.squad-slot:hover .squad-slot-actions, .squad-slot:focus-within .squad-slot-actions { display: flex; }
+.squad-slot-actions button { padding: 4px 7px; border: 0; border-radius: 4px; background: #1e293b; color: #cbd5e1; font-size: 10px; }
+.squad-slot-actions button:last-child { background: #4c0519; color: #fda4af; }
+.squad-slot button:hover { border-color: #64748b; filter: brightness(1.15); }
+.squad-slot button:focus-visible { outline: 2px solid #6ee7b7; outline-offset: 2px; }
+@media (max-width: 800px) {
+  #squad-builder-page .page-heading { flex-wrap: wrap; }
+  .squad-slots { justify-content: flex-start; }
+}
+@media (hover: none) {
+  .squad-slot-actions { position: static; display: flex; margin-top: 3px; }
+}
 .auto-build-focus-options { display: flex; flex-wrap: wrap; gap: 6px; }
 .auto-build-focus button { flex: 1 1 85px; min-height: 42px; border: 1px solid #425777; border-radius: 8px; padding: 8px; background: #1b2d47; color: #edf3ff; cursor: pointer; font-size: .72rem; }
 .auto-build-focus button[aria-pressed="true"] { border-color: #63e6be; background: #193f46; color: #9af0d7; }
@@ -1367,3 +1406,85 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 
 .settings-trigger-icon { flex-shrink: 0; font-size: 14px; }
 .settings-trigger-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Pitch-width header with bottom-aligned presets. */
+.pitch-column { display: flex; flex-direction: column; min-width: 0; width: 100%; grid-row: 1; }
+#squad-builder-page .pitch-heading { width: 100%; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; padding: 0 4px 4px; }
+.pitch-heading-title { flex: 1 1 210px; min-width: 0; }
+#squad-builder-page .pitch-heading .status { margin: 4px 0 0; white-space: normal; overflow-wrap: anywhere; }
+.pitch-heading .squad-slots { margin-left: auto; justify-content: flex-end; align-items: flex-end; align-self: flex-end; }
+.pitch-column > .pitch-scroll { flex: none; width: 100%; }
+@media (min-width: 1024px) {
+  .app-shell.is-squad-active .chemistry-panel { position: sticky; top: 96px; }
+}
+
+/* Center the pitch and sidebar as one compact group, with no expanding grid track. */
+.app-header-inner, body.is-squad-active .app-header-inner, .app-shell.is-squad-active { box-sizing: border-box; width: 100%; max-width: 1280px; margin-inline: auto; padding-inline: 24px; }
+.app-header-inner, body.is-squad-active .app-header-inner { height: 80px; min-height: 80px; }
+.app-header .metaxi-brand-asset { height: 48px; width: auto; object-fit: contain; }
+.app-shell.is-squad-active { display: flex; justify-content: center; align-items: flex-start; min-height: calc(100vh - 80px); padding-block: 24px; }
+.app-shell.is-squad-active #squad-builder-page { flex: none; align-items: center; width: 100%; max-width: 100%; }
+.app-shell.is-squad-active .squad-workspace { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; width: 100%; max-width: 100%; margin-inline: auto; }
+.app-shell.is-squad-active .pitch-column { flex: none; width: 840px; max-width: 100%; }
+.app-shell.is-squad-active .chemistry-panel { position: static; flex: none; width: 840px; max-width: 100%; }
+/* 840 + 390 + 32 gap + 48 page padding: keep both columns unshrunk. */
+@media (min-width: 1310px) {
+  .app-header-inner, body.is-squad-active .app-header-inner, .app-shell.is-squad-active { max-width: 1310px; }
+  .app-shell.is-squad-active { padding-inline: 24px; }
+  .app-shell.is-squad-active .squad-workspace { flex-direction: row; align-items: flex-start; }
+  .app-shell.is-squad-active .chemistry-panel { position: sticky; top: 96px; width: 390px; }
+}
+@media (min-width: 1370px) {
+  .app-header-inner, body.is-squad-active .app-header-inner, .app-shell.is-squad-active { max-width: 1370px; }
+  .app-shell.is-squad-active .pitch-column { width: 880px; }
+  .app-shell.is-squad-active .chemistry-panel { width: 410px; }
+}
+.app-shell.is-squad-active .pitch-scroll { height: auto; aspect-ratio: 4 / 5; max-height: 920px; }
+#squad-builder-page .pitch-heading .eyebrow { margin: 0 0 4px; line-height: 1; }
+#squad-builder-page .pitch-heading h1 { margin: 0; line-height: 1; }
+#squad-builder-page .pitch-heading .status { margin-top: 6px; line-height: 1.2; }
+@media (max-width: 600px) {
+  .app-header-inner, body.is-squad-active .app-header-inner { height: auto; min-height: 80px; flex-wrap: wrap; gap: 8px 16px; padding-block: 8px; }
+}
+
+/* Desktop viewport fit: measured heading space, shared pitch/sidebar height. */
+@media (min-width: 1024px) {
+  body.is-squad-active { height: 100dvh; min-height: 0; overflow: hidden; }
+  body.is-squad-active .app-header { position: relative; flex: 0 0 80px; height: 80px; }
+  body.is-squad-active .app-header-inner { height: 100%; min-height: 0; }
+  .app-shell.is-squad-active { flex: 1 1 0; height: 0; min-height: 0; max-width: 1440px; padding: 20px 32px; overflow: hidden; --max-pitch-height: 840px; }
+  .app-shell.is-squad-active #squad-builder-page { height: 100%; min-height: 0; }
+  .app-shell.is-squad-active .squad-workspace { height: 100%; min-height: 0; flex-direction: row; align-items: flex-start; justify-content: center; gap: 24px; }
+  .app-shell.is-squad-active .pitch-column { flex: none; width: var(--viewport-pitch-width, 440px); max-width: 100%; min-height: 0; }
+  #squad-builder-page .pitch-heading { margin-bottom: 8px; padding-bottom: 0; gap: 6px; }
+  #squad-builder-page .pitch-heading h1 { font-size: 20px; }
+  #squad-builder-page .pitch-heading .status { max-height: 29px; overflow: auto; font-size: 11px; }
+  .pitch-heading .squad-slots { gap: 4px; }
+  .pitch-heading .squad-slots-label { display: none; }
+  .pitch-heading .squad-slot-main { padding: 5px 7px; gap: 4px; }
+  .app-shell.is-squad-active .pitch-scroll { height: var(--viewport-pitch-height, 550px); max-height: var(--max-pitch-height); min-height: 0; aspect-ratio: 4 / 5; }
+  .app-shell.is-squad-active .chemistry-panel { position: static; flex: none; width: 380px; height: var(--viewport-pitch-height, 550px); min-height: 0; max-height: var(--max-pitch-height); margin-top: var(--pitch-header-height, 70px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+  .app-shell.is-squad-active .chemistry-panel-header { flex: none; }
+  .app-shell.is-squad-active .chemistry-panel-scroll { flex: none; overflow: visible; }
+}
+@media (min-width: 1280px) {
+  .app-shell.is-squad-active { max-width: 1680px; --max-pitch-height: 920px; }
+  .app-shell.is-squad-active .squad-workspace { gap: 32px; }
+  .app-shell.is-squad-active .chemistry-panel { width: 420px; }
+  #squad-builder-page .pitch-heading h1 { font-size: 24px; }
+}
+@media (max-width: 1023px) {
+  body.is-squad-active { height: auto; min-height: 100dvh; overflow-y: auto; }
+  .app-shell.is-squad-active .chemistry-panel { position: static; height: auto; max-height: none; margin-top: 0; overflow: visible; }
+}
+
+@media (min-width: 1536px) {
+  .app-shell.is-squad-active { max-width: 1920px; --max-pitch-height: 1080px; }
+  .app-shell.is-squad-active .squad-workspace { gap: 48px; }
+  .app-shell.is-squad-active .chemistry-panel { width: 460px; }
+  #squad-builder-page .pitch-heading h1 { font-size: 30px; }
+}
+@media (min-width: 3200px) {
+  .app-shell.is-squad-active { max-width: 2200px; --max-pitch-height: 1260px; }
+  .app-shell.is-squad-active .chemistry-panel { width: 500px; }
+}

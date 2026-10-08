@@ -192,6 +192,10 @@ export function createPlayerDetailModal({
     const nationTile = createDetailValue('Nation', nation?.name ?? card.nation ?? '-');
     const nationValue = nationTile.querySelector('strong');
     nationValue.classList.add('detail-nation-value');
+    const nationName = document.createElement('span');
+    nationName.className = 'detail-nation-name';
+    nationName.textContent = nationValue.textContent;
+    nationValue.replaceChildren(nationName);
     if (typeof nation?.flag_url === 'string' && nation.flag_url.trim()) {
       const flag = document.createElement('img');
       flag.src = nation.flag_url;
@@ -202,9 +206,13 @@ export function createPlayerDetailModal({
     const specs = [
       ['League', card.league ?? '-'],
       ['Club', card.club ?? '-'],
+      ['Skill Moves', card.sm == null ? '—' : `${card.sm}★`],
+      ['Weak Foot', card.wf == null ? '—' : `${card.wf}★`],
       ['Card Version', formatCardVersion(card.version).toUpperCase()],
       ['Height / Weight', `${card.height == null ? '—' : `${card.height}cm`} / ${card.weight == null ? '—' : `${card.weight}kg`}`],
-      ['Accele & Body Type', `${card.accele_type || '—'} / ${card.body_type || '—'}`],
+      ['Accele Type', card.accele_type || '—'],
+      ['Body Type', card.body_type || '—'],
+      ['Foot', card.preferred_foot || '—'],
     ];
     playerDetailBio.replaceChildren(nationTile, ...specs.map(([label, value]) => createDetailValue(label, value)));
   }
@@ -219,7 +227,9 @@ export function createPlayerDetailModal({
     labelElement.textContent = label;
     const valueElement = document.createElement('strong');
     valueElement.textContent = value;
+    valueElement.title = value;
     if (label === 'Card Version') valueElement.className = 'detail-card-ribbon';
+    if (label === 'Skill Moves' || label === 'Weak Foot') valueElement.className = 'detail-star-rating';
     item.append(labelElement, valueElement);
     return item;
   }

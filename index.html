@@ -21,17 +21,16 @@
 
     <main class="app-shell is-squad-active">
       <section id="squad-builder-page" class="tab-page" role="tabpanel" aria-label="Squad Builder">
-        <header class="page-heading">
-        <div>
-          <p class="eyebrow">SQUAD BUILDER</p>
-          <h1>4-3-3 Squad</h1>
-        </div>
-
-        </header>
-
-        <p id="status" class="status" aria-live="polite">Select a position to add a player.</p>
-
         <div class="squad-workspace">
+          <div class="pitch-column">
+            <header class="page-heading pitch-heading">
+              <div class="pitch-heading-title">
+                <p class="eyebrow">SQUAD BUILDER</p>
+                <h1>4-3-3 Squad</h1>
+                <p id="status" class="status" aria-live="polite">Select a position to add a player.</p>
+              </div>
+              <div id="squad-slots" class="squad-slots" role="group" aria-label="Saved squad presets"></div>
+            </header>
           <div class="pitch-scroll" aria-label="Responsive formation pitch">
           <section class="pitch" aria-label="4-3-3 Formation">
             <button id="manager-slot" class="manager-slot" type="button" aria-haspopup="dialog">
@@ -54,6 +53,7 @@
             <button class="slot defense right" data-position="RB" type="button"><span>RB</span></button>
             <button class="slot goalkeeper" data-position="GK" type="button"><span>GK</span></button>
           </section>
+          </div>
           </div>
 
           <aside class="chemistry-panel" aria-label="Chemistry breakdown">

@@ -7,6 +7,7 @@ import { createPitchExcludeButton, syncPitchExclusions } from './components/Pitc
 import { excludedCardVersionsStore } from './utils/excludedCardVersions.js';
 import { createPitchChemistryBadge } from './components/PitchChemistryBadge.js';
 import { createPitchMiniCard } from './components/PitchMiniCard.js';
+import { createSquadSlots } from './components/SquadSlots.js';
 import { getCardBackground } from './utils/cardBackground.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { loadPlayerDetail } from './utils/playerCatalog.js';
@@ -24,7 +25,7 @@ import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
 import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
 import { FORMATIONS, reassignFormation } from './utils/formations.js';
-import { fitPitchViewport } from './utils/pitchViewport.js';
+import { fitPitchViewport, fitSquadWorkspace } from './utils/pitchViewport.js';
 import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts';
 import { calculateBudgetStatus } from './utils/budget.ts';
 import { mountAutoBuildSettings } from './components/AutoBuildSettings.jsx';
@@ -170,13 +171,21 @@ initialFormation.slots.forEach(({ position, x, y }) => {
 const pitchFrame = document.querySelector('.pitch-scroll');
 const squadWorkspace = document.querySelector('.squad-workspace');
 function updatePitchViewport() {
+  if (window.matchMedia('(min-width: 1024px)').matches && squadWorkspace.clientHeight) {
+    const heading = document.querySelector('.pitch-heading');
+    const layout = fitSquadWorkspace(squadWorkspace.clientWidth, squadWorkspace.clientHeight,
+      document.querySelector('.chemistry-panel').offsetWidth,
+      Number.parseFloat(getComputedStyle(squadWorkspace).columnGap),
+      heading.offsetHeight + 8,
+      Number.parseFloat(getComputedStyle(squadWorkspace).getPropertyValue('--max-pitch-height')) || 840);
+    squadWorkspace.style.setProperty('--viewport-pitch-width', `${layout.pitchWidth}px`);
+    squadWorkspace.style.setProperty('--viewport-pitch-height', `${layout.pitchHeight}px`);
+    squadWorkspace.style.setProperty('--pitch-header-height', `${layout.headerHeight}px`);
+  }
   const pitch = pitchFrame.querySelector('.pitch');
   const height = Number.parseFloat(pitch.style.getPropertyValue('--formation-height'));
-  if (!squadWorkspace.clientWidth || !pitchFrame.clientHeight) return;
-  const stacked = window.matchMedia('(max-width: 1023px)').matches;
-  const panelWidth = document.querySelector('.chemistry-panel').offsetWidth;
-  const gap = Number.parseFloat(getComputedStyle(squadWorkspace).columnGap);
-  const availableWidth = stacked ? squadWorkspace.clientWidth : squadWorkspace.clientWidth - panelWidth - gap;
+  const availableWidth = pitchFrame.clientWidth;
+  if (!availableWidth || !pitchFrame.clientHeight) return;
   const fit = fitPitchViewport(availableWidth, pitchFrame.clientHeight, height);
   pitch.style.setProperty('--pitch-width', `${fit.scale > 0 ? availableWidth / fit.scale : fit.width}px`);
   pitch.style.setProperty('--pitch-scale', fit.scale);
@@ -187,6 +196,8 @@ function updatePitchViewport() {
 }
 const pitchResizeObserver = new ResizeObserver(updatePitchViewport);
 pitchResizeObserver.observe(squadWorkspace);
+pitchResizeObserver.observe(pitchFrame);
+pitchResizeObserver.observe(document.querySelector('.pitch-heading'));
 updatePitchViewport();
 let tacticalRolesDialog = null;
 let selectedSlotPos = 'ST';
@@ -245,9 +256,9 @@ function applyAutoBuildResult(result, request) {
   updateSquadChemistry();
   status.textContent = result.status === 'fallback' ? 'Added 11 budget players. Review the total cost and chemistry.' : 'Applied the auto-built squad of 11 players and manager settings.';
 }
-function applyFormation(formation) {
+function applyFormation(formation, savedPlayers = null) {
   closeModal();
-  const nextSquad = reassignFormation(squad, formation.slots);
+  const nextSquad = savedPlayers ?? reassignFormation(squad, formation.slots);
   Object.keys(squad).forEach(key => delete squad[key]);
   const pitch = document.querySelector('.pitch');
   pitch.querySelectorAll('.slot').forEach(slot => slot.remove());
@@ -2262,3 +2273,22 @@ function getCardStats(card, includeAll = false) {
 updateSquadChemistry();
 
 excludedCardVersionsStore.subscribe(syncPitchExclusions);
+
+const squadSlots = createSquadSlots({
+  mount: document.querySelector('#squad-slots'),
+  getCurrent: () => ({
+    formation: currentFormation,
+    players: squad,
+    manager: managerState,
+    totalCost: calculateSquadTotalCost(squad),
+    totalChemistry: calculateChemistry(getChemistrySquad(), getManagerChemistryBonus()).totalChemistry,
+  }),
+  loadSquad: saved => {
+    managerModal.hidden = true;
+    managerState = saved.manager;
+    applyFormation(FORMATIONS.find(item => item.name === saved.formation), saved.players);
+    renderManagerSlot();
+  },
+  notify: message => { status.textContent = message; },
+});
+window.addEventListener('auto-build-context-change', () => squadSlots.sync());

@@ -20,15 +20,15 @@ export function createPitchMiniCard(card, styles = [], catalog = {}, { createRev
   const skills = element('span', 'pitch-mini-skills');
   const foot = String(card.preferred_foot ?? '').trim();
   const footLabel = /^(right|r|오른발)$/i.test(foot) ? 'R' : /^(left|l|왼발)$/i.test(foot) ? 'L' : '';
-  if (footLabel) skills.append(element('span', '', footLabel));
+  if (footLabel) skills.append(element('span', 'pitch-mini-foot', footLabel));
   if (card.sm != null || card.wf != null) {
-    const stars = element('span', '', `${card.sm ?? '–'}★${card.wf ?? '–'}`);
+    const stars = element('span', 'pitch-mini-skill-values');
+    stars.append(element('b', '', card.sm ?? '–'), element('span', 'pitch-mini-star', '★'), element('b', '', card.wf ?? '–'));
     stars.title = `Skill Moves ${card.sm ?? '–'} / Weak Foot ${card.wf ?? '–'}`;
     skills.append(stars);
   }
   if (positions.childElementCount) badges.append(positions);
   if (plus.childElementCount) badges.append(plus);
-  if (skills.childElementCount) badges.append(skills);
   const name = element('strong', 'pitch-mini-name', card.name ?? '');
   name.title = card.name ?? '';
   const promo = element('span', 'pitch-mini-promo', formatCardVersion(card.version));
@@ -66,6 +66,8 @@ export function createPitchMiniCard(card, styles = [], catalog = {}, { createRev
   content.classList.toggle('has-secondary', positions.childElementCount > 0);
   const center = element('span', 'pitch-mini-center');
   center.append(promo);
-  content.append(header, affiliations, badges, center, stats);
+  content.append(header, affiliations, badges, center);
+  if (skills.childElementCount) content.append(skills);
+  content.append(stats);
   return content;
 }

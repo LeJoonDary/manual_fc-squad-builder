@@ -1,6 +1,6 @@
 
 import { expect, it } from 'vitest';
-import { generateOptimalSquad, withinLeagueLimit, clubSynergyBonus, getPositionBudgetGroup, type CandidateGroups } from './autoBuildUtils';
+import { generateOptimalSquad, withinLeagueLimit, clubSynergyBonus, evaluateHybridStructure, fitsHybridSkeleton, HYBRID_SKELETONS, getPositionBudgetGroup, type CandidateGroups } from './autoBuildUtils';
 import { FORMATIONS } from './formations.js';
 const slots = FORMATIONS.find(f => f.name === '4-3-3')!.slots;
 const make = (id: number, position: string, leagueId: number, clubId: number, score = 85, price = 1000) => ({
@@ -17,6 +17,51 @@ it('enforces six real league members and treats numeric/string IDs equally', () 
   expect(withinLeagueLimit(six)).toBe(true);
   expect(withinLeagueLimit([...six, { league_id: '100' }])).toBe(false);
   expect(withinLeagueLimit([...six, { leagueId: 200 }, { leagueId: 100, isIcon: true }])).toBe(true);
+  expect(withinLeagueLimit([...six, { leagueId: 100, isHero: true }])).toBe(true);
+  expect(withinLeagueLimit(six, 5)).toBe(false);
+});
+
+it.each(HYBRID_SKELETONS)('assembles the feasible template %j before relaxing the league cap', async (...pattern) => {
+  const leagues = pattern.flatMap((count, index) => Array(Number(count)).fill(index + 1));
+  const rows = slots.map((slot, i) => make(100 + i, slot.position, leagues[i], Math.floor(i / 2) + 1));
+  const result = await generateOptimalSquad('4-3-3', grouped(rows), 1000000, 0, false);
+  expect(result.success).toBe(true);
+  expect(fitsHybridSkeleton(result.squad, pattern)).toBe(true);
+  expect(withinLeagueLimit(result.squad, 5)).toBe(true);
+});
+
+it('prefers a hybrid over stronger mono-league candidates and keeps it after upgrades', async () => {
+  const rows = slots.flatMap((slot, i) => [make(100 + i, slot.position, 1, 1, 99, 10000),
+    make(200 + i, slot.position, 2, 2, 88, 10000), make(300 + i, slot.position, 3, 3, 87, 10000)]);
+  const result = await generateOptimalSquad('4-3-3', grouped(rows), 1000000, 0, false);
+  expect(result.success).toBe(true);
+  const counts = [...new Set(result.squad.map(p => p.leagueId))].map(id => result.squad.filter(p => p.leagueId === id).length).sort((a, b) => b - a);
+  expect(HYBRID_SKELETONS.map(pattern => [...pattern])).toContainEqual(counts);
+});
+
+it('rewards club pairs and ignores special cards in league caps', () => {
+  expect(evaluateHybridStructure([{ leagueId: 1, clubId: 1 }, { leagueId: 2, clubId: 1 }])).toBe(40);
+  expect(evaluateHybridStructure(Array.from({ length: 6 }, () => ({ leagueId: 1 })))).toBe(-500);
+  expect(fitsHybridSkeleton([{ leagueId: 1 }, { leagueId: 2, isHero: true }], [1])).toBe(true);
+});
+
+it('uses six regulars only when a five-player-cap build is unavailable', async () => {
+  const rows = slots.map((slot, i) => make(500 + i, slot.position, i < 6 ? 1 : 2, 1));
+  const result = await generateOptimalSquad('4-3-3', grouped(rows), 1000000, 0, false);
+  expect(result.success).toBe(true);
+  expect(withinLeagueLimit(result.squad)).toBe(true);
+  expect(withinLeagueLimit(result.squad, 5)).toBe(false);
+});
+
+it('avoids low Gold chemistry fillers at a million coins and bounds recovery to two', async () => {
+  const gold = slots.map((slot, i) => ({ ...make(100 + i, slot.position, 1 + i % 3, 1, 99), overall: 82, version: 'Gold' }));
+  const quality = slots.map((slot, i) => make(200 + i, slot.position, 1 + i % 3, 1, 85));
+  const result = await generateOptimalSquad('4-3-3', grouped([...gold, ...quality]), 1000000, 0, false);
+  expect(result.success).toBe(true);
+  expect(result.squad.every(p => p.card.overall > 83)).toBe(true);
+  const scarce = await generateOptimalSquad('4-3-3', grouped([...gold.slice(0, 2), ...quality.slice(2)]), 1000000, 0, false);
+  expect(scarce.success).toBe(true);
+  expect(scarce.squad.filter(p => p.card.overall <= 83)).toHaveLength(2);
 });
 it.each([0, 1, 2, 3, 4])('awards club synergy only for resulting clusters of 2–4 (%s existing)', count => {
   expect(clubSynergyBonus({ clubId: '7' }, Array.from({ length: count }, () => ({ clubId: 7 })))).toBe(count >= 1 && count <= 3 ? 4 : 0);
