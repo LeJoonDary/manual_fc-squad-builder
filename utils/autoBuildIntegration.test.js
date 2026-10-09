@@ -49,7 +49,7 @@ describe('auto build pitch integration', () => {
     const request = { snapshot: bridge.services.getSquadSnapshot(), formation: '4-3-3', totalBudget: 1000000 };
     bridge.services.applyAutoBuildResult(result, request);
     expect(document.querySelectorAll('.pitch .slot.occupied')).toHaveLength(11);
-    expect(document.querySelector('#total-cost').value).toBe('852,750');
+    expect(document.querySelector('#total-cost').value).toBe(result.totalCost.toLocaleString('en-US'));
     expect(document.querySelector('#total-chemistry').value).toBe('33');
     expect(document.querySelector('#manager-slot').textContent).toContain('Smart Manager');
     expect(document.querySelectorAll('.pitch .is-out-of-position')).toHaveLength(0);
@@ -71,8 +71,8 @@ describe('auto build pitch integration', () => {
     expect(leftWing.dataset.cardId).toBe(String(currentSquad.LW.card_id));
     expect(leftWing.classList.contains('is-locked')).toBe(true);
     expect(leftWing.classList.contains('is-owned')).toBe(true);
-    expect(document.querySelector('#total-cost').value).toBe('762,750');
-    expect(rebuilt.totalCost).toBe(762750);
+    expect(document.querySelector('#total-cost').value).toBe(rebuilt.totalCost.toLocaleString('en-US'));
+    expect(rebuilt.totalCost).toBe(810000);
     bridge.services.resetTargetBudget();
     expect(document.querySelector('#target-budget').value).toBe('');
     expect(document.querySelector('#budget-percentage').textContent).toBe('Unlimited');
@@ -86,7 +86,8 @@ describe('auto build pitch integration', () => {
     expect(document.querySelectorAll('.pitch .slot.occupied')).toHaveLength(11);
     expect(leftWing.classList.contains('is-locked')).toBe(true);
     expect(leftWing.classList.contains('is-owned')).toBe(true);
-    expect(document.querySelector('#total-cost').value).toBe('822,750');
+    expect(document.querySelector('#total-cost').value).toBe(cheap.totalCost.toLocaleString('en-US'));
+    expect(cheap.totalCost).toBe(900000);
   });
 });
 
@@ -146,6 +147,14 @@ it('opens Tactical Roles independently of catalog position filters and restores 
   expect(dialog.querySelector('[data-playstyle-id="7"] img').getAttribute('src')).toBe('/silver.png');
   expect(Object.keys(bridge.services.getRoleOptions().slotRequirements)).toHaveLength(2);
   dialog.querySelector('.tactical-clear-all').click();
+  expect(bridge.services.getRoleOptions()).toEqual({ slotRequirements: {} });
+  expect(dialog.querySelectorAll('.tactical-role-dot')).toHaveLength(0);
+  dialog.querySelector('[data-playstyle-id="7"]').click();
+  dialog.querySelector('[data-tab="roles"]').click();
+  dialog.querySelector('[aria-label="CM Holding Role++ filters"]').click();
+  expect(bridge.services.getRoleOptions().slotRequirements.RCM.roles).toHaveLength(1);
+  expect(bridge.services.getRoleOptions().slotRequirements.RCM.playstyles).toHaveLength(1);
+  bridge.services.clearRolesAndPlaystyles();
   expect(bridge.services.getRoleOptions()).toEqual({ slotRequirements: {} });
   expect(dialog.querySelectorAll('.tactical-role-dot')).toHaveLength(0);
   expect(dialog.textContent).not.toContain('Require Selected Roles');

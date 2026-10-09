@@ -1,3 +1,4 @@
+import { getCardFaceStats } from '../utils/cardFaceStats.js';
 import { getCardBackground } from '../utils/cardBackground.js';
 
 // Shared DOM card component for the Players tab and selection modal.
@@ -164,24 +165,7 @@ export function createPlayerCard(card, {
   details.append(preferredFoot, skills);
   const stats = document.createElement('div');
   stats.className = 'browser-player-stats grid grid-cols-6 gap-1 text-center';
-  const rawStats = unwrapRelation(card.raw?.player_stats) ?? {};
-  const rawPlayer = unwrapRelation(card.raw?.players) ?? {};
-  // Read display aliases without changing the shared card data mapping.
-  const statValue = (...keys) => {
-    for (const key of keys) {
-      const value = card[key] ?? rawStats[key] ?? rawPlayer[key];
-      if (value !== undefined && value !== null && value !== '') return value;
-    }
-    return '-';
-  };
-  const displayedStats = [
-    ['PAC', statValue('pace', 'pac')],
-    ['SHO', statValue('shooting', 'sho')],
-    ['PAS', statValue('passing', 'pas')],
-    ['DRI', statValue('dribbling', 'dri')],
-    ['DEF', statValue('defending', 'def')],
-    ['PHY', statValue('physicality', 'phy')],
-  ];
+  const displayedStats = getCardFaceStats(card, getCardPosition(card));
   for (const [label, value] of displayedStats) {
     const item = document.createElement('div');
     item.className = 'browser-player-stat';

@@ -118,3 +118,10 @@ test('overflow opens details without selecting the squad card; cached playstyle 
   expect(onShowDetails).toHaveBeenCalledWith(card);
   expect([...node.querySelectorAll('img')].map(image => image.getAttribute('src'))).toEqual(['/finesse-plus.png', '/rapid.png']);
 });
+
+
+test('GK catalog card shows keeper labels and values', () => {
+  const node = renderCard({ assignedPosition: 'GK', pac: 59, sho: 24, def: 52, player_stats: [{ gk_diving: 91, gk_handling: 90, gk_kicking: 89, gk_reflexes: 88, gk_positioning: 87, sprint_speed: 52 }] });
+  expect([...node.querySelectorAll('.browser-player-stat-label')].map(n => n.textContent)).toEqual(['DIV','HAN','KIC','REF','SPD','POS']);
+  expect([...node.querySelectorAll('.browser-player-stat-value')].map(n => n.textContent)).toEqual(['91','90','89','88','52','87']);
+});

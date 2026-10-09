@@ -57,7 +57,8 @@ it.each(['attack', 'balanced', 'defense'] as const)('produces distinct allocatio
     make(110, 'ST', 350000, 99), make(111, 'ST', 300000, 90), make(112, 'ST', 250000, 85),
     make(120, 'CB', 500000, 99), make(121, 'CB', 450000, 95), make(122, 'CB', 300000, 90),
     make(130, 'LW', 400000, 99), make(131, 'LW', 300000, 90), make(132, 'LW', 250000, 85), make(133, 'LW', 200000, 84)];
-  const expected = { attack: [110, 131, 102], balanced: [110, 131, 122], defense: [110, 133, 121] };
+  // Focus still constrains candidate prices; complete squads use the same global formula.
+  const expected = { attack: [110, 131, 102], balanced: [110, 131, 122], defense: [110, 131, 122] };
   for (const input of [rows, [...rows].reverse()]) {
     const groups: CandidateGroups = { FW: [], MF: [], DF: [] };
     input.forEach(row => groups[getPositionBudgetGroup(row.position, false)].push(row));

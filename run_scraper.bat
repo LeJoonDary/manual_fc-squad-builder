@@ -1,18 +1,8 @@
 @echo off
 chcp 65001 > nul
-title FC 27 카드 시세 자동 수집기
+cd /d "%~dp0"
 
-echo ===================================================
-echo   FC 27 선수 카드 시세 일괄 수집을 시작합니다.
-echo   (OVR 80 이상 전체 대상 / 안전 딜레이 3.5초)
-echo ===================================================
-echo.
+REM python -u 옵션으로 버퍼링 없이 scraper.txt에 실시간 즉시 기록
+python -u scrape_prices.py --delay 3.5 >> scraper.txt 2>&1
 
-python scrape_prices.py --batch 3000 --delay 3.5
-
-echo.
-echo ===================================================
-echo   모든 시세 수집 및 DB 업데이트가 완료되었습니다!
-echo ===================================================
-echo.
-pause
+exit 0

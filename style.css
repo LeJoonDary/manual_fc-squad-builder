@@ -1302,10 +1302,6 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 
 .tactical-playstyle-item { position: relative; padding: 4px; }
 .tactical-playstyle-item:hover, .tactical-playstyle-item:focus-within { z-index: 2; }
-.tactical-playstyle-tooltip { position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%); z-index: 50; width: max-content; max-width: 220px; padding: 5px 10px; border: 1px solid #334155; border-radius: 6px; background: #0f172a; color: #f1f5f9; box-shadow: 0 8px 20px #0008; font-size: 11px; font-weight: 600; text-align: center; pointer-events: none; visibility: hidden; opacity: 0; transition: none; }
-.tactical-playstyle-tooltip::after { content: ''; position: absolute; top: 100%; left: calc(50% - 3px); width: 6px; height: 6px; transform: translateY(-3px) rotate(45deg); background: #0f172a; border-right: 1px solid #334155; border-bottom: 1px solid #334155; }
-.tactical-playstyle-tooltip span { color: #34d399; }
-.tactical-playstyle-item:hover .tactical-playstyle-tooltip, .tactical-playstyle-item:focus-within .tactical-playstyle-tooltip { visibility: visible; opacity: 1; }
 /* MetaXI shared responsive shell and tactical board. */
 body { min-height: 100vh; background: #020617; color: #f1f5f9; }
 .app-header { background: #020617e6; border-bottom-color: #1e293bcc; z-index: 50; }
@@ -1427,18 +1423,6 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .app-shell.is-squad-active .squad-workspace { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; width: 100%; max-width: 100%; margin-inline: auto; }
 .app-shell.is-squad-active .pitch-column { flex: none; width: 840px; max-width: 100%; }
 .app-shell.is-squad-active .chemistry-panel { position: static; flex: none; width: 840px; max-width: 100%; }
-/* 840 + 390 + 32 gap + 48 page padding: keep both columns unshrunk. */
-@media (min-width: 1310px) {
-  .app-header-inner, body.is-squad-active .app-header-inner, .app-shell.is-squad-active { max-width: 1310px; }
-  .app-shell.is-squad-active { padding-inline: 24px; }
-  .app-shell.is-squad-active .squad-workspace { flex-direction: row; align-items: flex-start; }
-  .app-shell.is-squad-active .chemistry-panel { position: sticky; top: 96px; width: 390px; }
-}
-@media (min-width: 1370px) {
-  .app-header-inner, body.is-squad-active .app-header-inner, .app-shell.is-squad-active { max-width: 1370px; }
-  .app-shell.is-squad-active .pitch-column { width: 880px; }
-  .app-shell.is-squad-active .chemistry-panel { width: 410px; }
-}
 .app-shell.is-squad-active .pitch-scroll { height: auto; aspect-ratio: 4 / 5; max-height: 920px; }
 #squad-builder-page .pitch-heading .eyebrow { margin: 0 0 4px; line-height: 1; }
 #squad-builder-page .pitch-heading h1 { margin: 0; line-height: 1; }
@@ -1452,39 +1436,77 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   body.is-squad-active { height: 100dvh; min-height: 0; overflow: hidden; }
   body.is-squad-active .app-header { position: relative; flex: 0 0 80px; height: 80px; }
   body.is-squad-active .app-header-inner { height: 100%; min-height: 0; }
-  .app-shell.is-squad-active { flex: 1 1 0; height: 0; min-height: 0; max-width: 1440px; padding: 20px 32px; overflow: hidden; --max-pitch-height: 840px; }
+  .app-shell.is-squad-active { flex: 1 1 0; height: 0; min-height: 0; max-width: 1968px; padding: 12px 24px; overflow: hidden; --max-pitch-height: 1600px; }
   .app-shell.is-squad-active #squad-builder-page { height: 100%; min-height: 0; }
-  .app-shell.is-squad-active .squad-workspace { height: 100%; min-height: 0; flex-direction: row; align-items: flex-start; justify-content: center; gap: 24px; }
+  .app-shell.is-squad-active .squad-workspace { height: 100%; min-height: 0; flex-direction: row; align-items: flex-start; justify-content: center; gap: 20px; }
   .app-shell.is-squad-active .pitch-column { flex: none; width: var(--viewport-pitch-width, 440px); max-width: 100%; min-height: 0; }
   #squad-builder-page .pitch-heading { margin-bottom: 8px; padding-bottom: 0; gap: 6px; }
-  #squad-builder-page .pitch-heading h1 { font-size: 20px; }
+  #squad-builder-page .pitch-heading h1 { font-size: 24px; }
   #squad-builder-page .pitch-heading .status { max-height: 29px; overflow: auto; font-size: 11px; }
   .pitch-heading .squad-slots { gap: 4px; }
   .pitch-heading .squad-slots-label { display: none; }
   .pitch-heading .squad-slot-main { padding: 5px 7px; gap: 4px; }
   .app-shell.is-squad-active .pitch-scroll { height: var(--viewport-pitch-height, 550px); max-height: var(--max-pitch-height); min-height: 0; aspect-ratio: 4 / 5; }
-  .app-shell.is-squad-active .chemistry-panel { position: static; flex: none; width: 380px; height: var(--viewport-pitch-height, 550px); min-height: 0; max-height: var(--max-pitch-height); margin-top: var(--pitch-header-height, 70px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+  .app-shell.is-squad-active .chemistry-panel { position: static; flex: none; width: 360px; height: var(--viewport-pitch-height, 550px); min-height: 0; max-height: var(--max-pitch-height); margin-top: var(--pitch-header-height, 70px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
   .app-shell.is-squad-active .chemistry-panel-header { flex: none; }
   .app-shell.is-squad-active .chemistry-panel-scroll { flex: none; overflow: visible; }
 }
 @media (min-width: 1280px) {
-  .app-shell.is-squad-active { max-width: 1680px; --max-pitch-height: 920px; }
   .app-shell.is-squad-active .squad-workspace { gap: 32px; }
-  .app-shell.is-squad-active .chemistry-panel { width: 420px; }
-  #squad-builder-page .pitch-heading h1 { font-size: 24px; }
+  .app-shell.is-squad-active .chemistry-panel { width: 400px; }
+}
+@media (min-width: 1536px) {
+  .app-shell.is-squad-active .chemistry-panel { width: 440px; }
 }
 @media (max-width: 1023px) {
   body.is-squad-active { height: auto; min-height: 100dvh; overflow-y: auto; }
   .app-shell.is-squad-active .chemistry-panel { position: static; height: auto; max-height: none; margin-top: 0; overflow: visible; }
 }
 
-@media (min-width: 1536px) {
-  .app-shell.is-squad-active { max-width: 1920px; --max-pitch-height: 1080px; }
-  .app-shell.is-squad-active .squad-workspace { gap: 48px; }
-  .app-shell.is-squad-active .chemistry-panel { width: 460px; }
-  #squad-builder-page .pitch-heading h1 { font-size: 30px; }
+
+.settings-inline-control { position: relative; width: 100%; min-width: 0; }
+.settings-inline-control > .tactical-roles-trigger, .settings-inline-control > .excluded-card-versions-toggle { width: 100%; padding-right: 38px; }
+.settings-inline-control > .settings-inline-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; color: #94a3b8; background: transparent; cursor: pointer; }
+.settings-inline-control > .settings-inline-clear:hover { color: #fb7185; background: #f43f5e1a; }
+.excluded-card-versions-manager .settings-inline-clear:hover { color: #fb7185; background: #f43f5e1a; }
+.settings-inline-clear:focus-visible { outline: 2px solid #6ee7b7; outline-offset: 2px; }
+
+.priority-positions { margin-top: 8px; border: 1px solid #334155; border-radius: 10px; background: #0f172a99; padding: 10px; }
+.priority-positions-trigger { width: 100%; text-align: left; }
+.priority-positions-header { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; color: #fcd34d; font-size: 12px; }
+.priority-position-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.priority-position-chips button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; background: #1e293b; color: #cbd5e1; border: 1px solid #475569; border-radius: 6px; font-weight: 700; }
+.priority-position-chips button[aria-pressed="true"] { background: #f59e0b; color: #0f172a; border-color: #fbbf24; }
+.priority-position-rank { border-radius: 50%; background: #0f172a; color: #fbbf24; min-width: 16px; text-align: center; font-size: 10px; }
+.priority-positions p { color: #94a3b8; font-size: 11px; line-height: 1.5; margin: 10px 0 0; }
+.priority-positions button:disabled { opacity: .5; cursor: not-allowed; }
+
+.auto-build-settings .tactical-roles-trigger,
+.auto-build-settings .priority-positions-trigger {
+  width: 100%; background: rgb(30 41 59 / .8); color: #fff; font-weight: 500;
+  padding: 10px 16px; border: 1px solid rgb(51 65 85 / .6); border-radius: 8px;
+  display: flex; align-items: center; justify-content: space-between; transition: background .15s;
 }
-@media (min-width: 3200px) {
-  .app-shell.is-squad-active { max-width: 2200px; --max-pitch-height: 1260px; }
-  .app-shell.is-squad-active .chemistry-panel { width: 500px; }
+.auto-build-settings .tactical-roles-trigger:hover,
+.auto-build-settings .priority-positions-trigger:hover { background: #1e293b; }
+.auto-build-settings .settings-trigger-label { color: #fff; }
+.priority-positions-header button { color: #cbd5e1; background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 4px 8px; }
+
+.auto-build-settings .auto-build-modal-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; margin-bottom: 0; }
+.auto-build-settings .priority-positions { margin-top: 10px; padding: 0; border: 0; background: transparent; }
+.auto-build-settings .excluded-card-versions-toggle,
+.auto-build-settings .tactical-roles-trigger,
+.auto-build-settings .priority-positions-trigger {
+ width: 100%; min-height: 42px; padding: 10px 16px; border: 1px solid rgb(51 65 85 / .6); border-radius: 8px;
+ background: rgb(30 41 59 / .8); color: #fff; font-size: 14px; font-weight: 500; text-align: left;
+ display: flex; align-items: center; justify-content: space-between; transition: background .15s;
 }
+.auto-build-settings .excluded-card-versions-toggle:hover,
+.auto-build-settings .tactical-roles-trigger:hover,
+.auto-build-settings .priority-positions-trigger:hover { background: rgb(51 65 85 / .8); }
+.auto-build-settings .settings-trigger-content { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-width: 0; }
+.auto-build-settings .settings-trigger-icon { font-size: 16px; flex: none; }
+.auto-build-settings .settings-trigger-label { color: #fff; font-size: 14px; font-weight: 500; text-align: left; }
+.auto-build-settings .priority-positions-chevron { color: #94a3b8; font-size: 12px; }
+.auto-build-settings #priority-position-chips { margin-top: 10px; padding: 12px; background: #0f172a99; border: 1px solid #334155; border-radius: 8px; }
+.tactical-active-tooltip { position: fixed; transform: translate(-50%,-100%); z-index: 50; padding: 4px 10px; background: #020617f2; color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; box-shadow: 0 8px 20px #0008; border: 1px solid #334155; pointer-events: none; user-select: none; white-space: nowrap; }

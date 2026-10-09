@@ -1,10 +1,18 @@
+import { PriorityPositionsSelector } from './PriorityPositionsSelector.jsx';
+import { FORMATIONS } from '../utils/formations.js';
+import { priorityGroup } from '../utils/priorityGroups.js';
+import { TrashIcon } from './TrashIcon.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ExcludedCardVersionsManager } from './ExcludedCardVersionsManager.jsx';
 import { excludedCardVersionsStore } from '../utils/excludedCardVersions.js';
 import { fetchCandidatePlayers, generateOptimalSquad, getRemainingAutoBuildBudget } from '../utils/autoBuildUtils.ts';
 
-export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {}, getRoleOptions = () => ({}), openTacticalRoles = () => {} }) {
+export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {}, getRoleOptions = () => ({}), openTacticalRoles = () => {}, clearRolesAndPlaystyles = () => {} }) {
+  const [keyPositions, setKeyPositions] = useState([]);
+  const formationPositions = [...new Set((FORMATIONS.find(f => f.name === formation)?.slots ?? []).map(s => priorityGroup(s.position)))];
+  const activeKeyPositions = keyPositions.filter(p => formationPositions.includes(p));
+  useEffect(() => { setKeyPositions(previous => previous.filter(p => formationPositions.includes(p))); }, [formation]);
   const budgetHost = useRef(null);
   useEffect(() => {
     // Retain the existing input node and its budget/progress event listeners.
@@ -17,7 +25,6 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
   const [feedback, setFeedback] = useState(null);
   const buildingRef = useRef(false);
   const [isAutoBuildSettingsOpen, setIsAutoBuildSettingsOpen] = useState(false);
-  const [focus, setFocus] = useState('attack');
   const [, refreshContext] = useState(0);
   useEffect(() => {
     const refresh = () => refreshContext(value => value + 1);
@@ -46,15 +53,16 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       const snapshot = getSquadSnapshot();
       const exclusionSnapshot = excludedCardVersionsStore.getState();
       const roleOptions = structuredClone(getRoleOptions());
-      const options = { ...roleOptions, currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], focus, excludeZeroPriceCards: true };
+      const options = { ...roleOptions, currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], keyPositions: [...activeKeyPositions], excludeZeroPriceCards: true };
       const candidates = await fetchCandidatePlayers(totalBudget, formation, isThreeBack, supabase, options);
       const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, true, options);
       if (JSON.stringify(getRoleOptions()) !== JSON.stringify(roleOptions)) throw new Error('Role settings changed during the build. Try again.');
       if (excludedCardVersionsStore.getState() !== exclusionSnapshot) {
         throw new Error('Exclusions changed during the build. Try again with the current exclusions.');
       }
-      if ((!result.success && result.status !== 'fallback') || (totalBudget > 0 && result.totalCost > totalBudget)) {
-        throw new Error('No squad meets your requirements. Try increasing your budget, lowering the chemistry target, or reducing selected roles & playstyles.');
+      if (result.totalChemistry < minChemistry) throw new Error(`No squad reached the chemistry target (${result.totalChemistry}/${minChemistry}). Your current squad was kept. Adjust your budget or requirements and try again.`);
+      if (!result.success || (totalBudget > 0 && result.totalCost > totalBudget)) {
+        throw new Error('Could not fill all 11 slots within your budget and eligibility limits. Add candidates, increase your budget, or review exclusions and tactical requirements.');
       }
       applyAutoBuildResult(result, { snapshot, formation, totalBudget });
       setFeedback(result.status === 'fallback' ? { type: 'warning', text: `Built the closest matching squad. Total Cost: ${result.totalCost.toLocaleString('en-US')} C · ${totalBudget === 0 ? 'Unlimited Budget' : result.totalCost > totalBudget ? `${(result.totalCost - totalBudget).toLocaleString('en-US')} C Over Budget` : 'Within Budget'} · Chemistry: ${result.totalChemistry}/33 (Target ${minChemistry})` } : { type: 'success', text: `Squad built successfully! Total Cost: ${result.totalCost.toLocaleString('en-US')} C · Chemistry: ${result.totalChemistry}/33` });
@@ -68,9 +76,12 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
 
   function resetSettings() {
     if (buildingRef.current) return;
+    try { excludedCardVersionsStore.reset(); }
+    catch (error) { setFeedback({ type: 'error', text: error.message }); return; }
+    clearRolesAndPlaystyles();
     resetTargetBudget();
-    setFocus('attack');
     setMinChemistry(33);
+    setKeyPositions([]);
     setFeedback(null);
   }
 
@@ -84,19 +95,13 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
           <span className="auto-build-chevron" aria-hidden="true">{isAutoBuildSettingsOpen ? '∧' : '∨'}</span>
         </button>
       </h2>
-      <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}><span className="settings-trigger-icon" aria-hidden="true">🎯</span><span className="settings-trigger-label">Tactical Roles ({activeRolesCount}개) / Playstyles ({activePlaystylesCount}개)</span></button></div>
+      <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><div className="settings-inline-control"><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🎯</span><span className="settings-trigger-label">Roles ({activeRolesCount}) / Playstyles ({activePlaystylesCount})</span></span></button>{(activeRolesCount + activePlaystylesCount > 0) && <button type="button" className="settings-inline-clear" aria-label="Clear Roles and Playstyles" title="Clear Roles and Playstyles" onClick={event => { event.stopPropagation(); clearRolesAndPlaystyles(); refreshContext(value => value + 1); }}><TrashIcon /></button>}</div></div>
+      <PriorityPositionsSelector formationPositions={formationPositions} selectedPositions={activeKeyPositions} onChange={setKeyPositions} disabled={isAutoBuilding} />
         <div id="auto-build-details" className="auto-build-details" hidden={!isAutoBuildSettingsOpen}>
           <div ref={budgetHost} />
           <div className="auto-build-total">Locked Player Cost {lockedCost.toLocaleString('en-US')} C<br />
             {unlimited ? 'Unlimited budget · Prioritize the chemistry target with no price limit' : `Remaining Budget ${distributableBudget.toLocaleString('en-US')} C`}</div>
-          <fieldset className="auto-build-focus" disabled={isAutoBuilding}>
-            <legend>Squad Focus</legend>
-            <div className="auto-build-focus-options">
-              {[['attack', '⚡ Attack Focus'], ['balanced', '⚖ Balanced'], ['defense', '🛡 Defense Focus']].map(([value, label]) => (
-                <button key={value} type="button" aria-pressed={focus === value} onClick={() => setFocus(value)}>{label}</button>
-              ))}
-            </div>
-          </fieldset>
+
           <div className="auto-build-range">
             <label htmlFor="min-chemistry">Min Chemistry Target</label>
             <output htmlFor="min-chemistry">{minChemistry} / 33</output>

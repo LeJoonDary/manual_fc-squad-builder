@@ -1,3 +1,4 @@
+import { TrashIcon } from './TrashIcon.jsx';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { excludedCardVersionsStore, getExcludedCardManagementCount, isSquadOvrRangeCustom } from '../utils/excludedCardVersions.js';
@@ -266,9 +267,18 @@ export function ExcludedCardVersionsManager({ supabase }) {
   const exclusionState = useSyncExternalStore(excludedCardVersionsStore.subscribe, excludedCardVersionsStore.getState);
   const totalCount = getExcludedCardManagementCount(exclusionState);
   const [open, setOpen] = useState(false);
+  const [clearError, setClearError] = useState('');
   return <section className="excluded-card-versions-manager">
+    <div className="settings-inline-control">
     <button type="button" className="excluded-card-versions-toggle" aria-haspopup="dialog" aria-expanded={open}
-      onClick={() => setOpen(true)}><span className="settings-trigger-icon" aria-hidden="true">🚫</span><span className="settings-trigger-label">Manage Excluded Cards ({totalCount})</span></button>
+      onClick={() => setOpen(true)}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🚫</span><span className="settings-trigger-label">Manage Excluded Cards ({totalCount})</span></span></button>
+    {exclusionState.excludedCardVersionIds.length > 0 && <button type="button" className="settings-inline-clear" aria-label="Clear excluded cards" title="Clear excluded cards" onClick={event => {
+      event.stopPropagation();
+      try { excludedCardVersionsStore.clear(); setClearError(''); }
+      catch (error) { setClearError(error.message); }
+    }}><TrashIcon /></button>}
+    </div>
+    {clearError && <p role="alert">{clearError}</p>}
     {open && <ExclusionDialog supabase={supabase} onClose={() => setOpen(false)} />}
   </section>;
 }

@@ -58,3 +58,8 @@
 #kvaratskhelia, 89, gold, https://www.youtube.com/shorts/06FWvQdXchU
 #salma paralluelo, 87, gold, https://www.youtube.com/shorts/8bmSVoknw_Y
 #dumornay, 88, gold, https://www.youtube.com/shorts/r4d_4lNZdzU
+
+#adeyemi, 83, ones, https://www.youtube.com/shorts/1ua04cVA4qA
+#valverde, 87, gold, https://www.youtube.com/shorts/nlnaoCm_K5k
+#patati, 84, foundation, https://www.youtube.com/shorts/SUiXq1cJ4wI
+

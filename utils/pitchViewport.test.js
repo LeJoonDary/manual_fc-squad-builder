@@ -32,10 +32,10 @@ test('hidden frames never produce a negative scale', () => {
 
 test('desktop workspace fits laptop, FHD, QHD and 4K with matching sidebar height', () => {
   for (const [screenWidth, screenHeight] of [[1024, 600], [1366, 768], [1920, 1080], [2560, 1440], [3840, 2160]]) {
-    const tier = screenWidth >= 3200 ? [2200, 500, 48, 1260] : screenWidth >= 1536 ? [1920, 460, 48, 1080] : screenWidth >= 1280 ? [1680, 420, 32, 920] : [1440, 380, 24, 840];
-    const [maxWidth, sidebar, gap, cap] = tier;
-    const width = Math.min(screenWidth, maxWidth) - 64;
-    const height = screenHeight - 80 - 40;
+    const sidebar = screenWidth >= 1536 ? 440 : screenWidth >= 1280 ? 400 : 360;
+    const gap = screenWidth >= 1280 ? 32 : 20, cap = 1600;
+    const width = Math.min(screenWidth - 48, 1920);
+    const height = screenHeight - 80 - 24;
     for (const header of [60, 100, 140]) {
       const fit = fitSquadWorkspace(width, height, sidebar, gap, header, cap);
       expect(fit.pitchWidth + sidebar + gap).toBeLessThanOrEqual(width);
@@ -46,16 +46,27 @@ test('desktop workspace fits laptop, FHD, QHD and 4K with matching sidebar heigh
   }
 });
 
-test('QHD and 4K restore the 4:5 pitch and expanded height caps', () => {
-  for (const [width, height, sidebar, cap] of [[1920, 1440, 460, 1080], [2200, 2160, 500, 1260]]) {
-    const layout = fitSquadWorkspace(width - 64, height - 120, sidebar, 48, 90, cap);
-    expect(layout.pitchHeight).toBe(cap);
-    expect(layout.pitchWidth).toBe(cap * 4 / 5);
+test('QHD and 4K use the available height and scale all formation artwork and cards together', () => {
+  for (const [screenHeight, expectedHeight] of [[1440, 1246], [2160, 1600]]) {
+    const layout = fitSquadWorkspace(1920, screenHeight - 104, 440, 32, 90);
+    expect(layout.pitchHeight).toBe(expectedHeight);
+    expect(layout.pitchWidth).toBeCloseTo(expectedHeight * .8);
     for (const formation of FORMATIONS) {
       const fit = fitPitchViewport(layout.pitchWidth, layout.pitchHeight, formation.height);
       expect(fit.fittedHeight).toBeLessThanOrEqual(layout.pitchHeight + .001);
       expect(fit.scale).toBeGreaterThan(0);
+      const laptop = fitPitchViewport(480, 600, formation.height);
+      expect(fit.scale).toBeGreaterThan(laptop.scale);
     }
   }
   expect(fitPitchViewport(1008, 1260, 1125).scale).toBeGreaterThan(1);
+});
+
+test('pitch shrinks continuously only after the margins are exhausted', () => {
+  for (let width = 1144; width > 1024; width--) {
+    const previous = fitSquadWorkspace(width - 48, 1100, 380, 28, 90);
+    const next = fitSquadWorkspace(width - 49, 1100, 380, 28, 90);
+    expect(previous.pitchWidth - next.pitchWidth).toBeCloseTo(1);
+    expect(previous.pitchHeight - next.pitchHeight).toBeCloseTo(1.25);
+  }
 });

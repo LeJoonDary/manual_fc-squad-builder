@@ -243,7 +243,7 @@ test('saved ranges initialize on reopen, external changes sync, and unrelated ba
 
 test('main button and modal count stay synchronized through range and individual card changes', async () => {
   const expectCounts = count => {
-    expect($('.excluded-card-versions-toggle').textContent).toBe('🚫 Manage Excluded Cards (' + count + ')');
+    expect($('.excluded-card-versions-toggle .settings-trigger-label').textContent).toBe('Manage Excluded Cards (' + count + ')');
     expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (' + count + ')');
   };
   expectCounts(0);
@@ -260,7 +260,7 @@ test('main button and modal count stay synchronized through range and individual
   expectCounts(0);
   await click($('.modal-close'));
   await act(async () => excludedCardVersionsStore.setSquadOvrRange({ min: 60, max: 80 }));
-  expect($('.excluded-card-versions-toggle').textContent).toBe('🚫 Manage Excluded Cards (1)');
+  expect($('.excluded-card-versions-toggle .settings-trigger-label').textContent).toBe('Manage Excluded Cards (1)');
   await click($('.excluded-card-versions-toggle'));
   expectCounts(1);
 });

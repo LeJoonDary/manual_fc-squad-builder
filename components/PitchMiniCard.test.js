@@ -27,3 +27,10 @@ test('omits absent optional badges and deduplicates ICON affiliation', () => {
   expect(node.querySelector('.pitch-mini-skills')).toBeNull();
   expect(node.querySelector('.pitch-mini-affiliations').textContent).toBe('ICON');
 });
+
+
+test('GK pitch card shows keeper labels and values', () => {
+  const node = createPitchMiniCard({ position: 'GK', pac: 59, sho: 24, def: 52, player_stats: [{ gk_diving: 91, gk_handling: 90, gk_kicking: 89, gk_reflexes: 88, gk_positioning: 87, sprint_speed: 52 }] });
+  expect([...node.querySelectorAll('.pitch-mini-stats small')].map(n => n.textContent)).toEqual(['DIV','HAN','KIC','REF','SPD','POS']);
+  expect([...node.querySelectorAll('.pitch-mini-stats b')].map(n => n.textContent)).toEqual(['91','90','89','88','52','87']);
+});

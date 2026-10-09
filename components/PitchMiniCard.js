@@ -1,3 +1,4 @@
+import { getCardFaceStats } from '../utils/cardFaceStats.js';
 import { formatCardVersion, pitchAffiliation } from '../utils/pitchCardLabels.js';
 import { createPlaystyleIcons } from './PlaystyleIcons.js';
 
@@ -34,11 +35,9 @@ export function createPitchMiniCard(card, styles = [], catalog = {}, { createRev
   const promo = element('span', 'pitch-mini-promo', formatCardVersion(card.version));
   promo.title = promo.textContent;
   const stats = element('span', 'pitch-mini-stats');
-  const rawStats = Array.isArray(card.raw?.player_stats) ? card.raw.player_stats[0] : card.raw?.player_stats;
-  for (const [label, key, alias] of [['PAC', 'pac', 'pace'], ['SHO', 'sho', 'shooting'],
-    ['PAS', 'pas', 'passing'], ['DRI', 'dri', 'dribbling'], ['DEF', 'def', 'defending'], ['PHY', 'phy', 'physicality']]) {
+  for (const [label, value] of getCardFaceStats(card)) {
     const stat = element('span', '');
-    stat.append(element('small', '', label), element('b', '', card[key] ?? card[alias] ?? rawStats?.[key] ?? '–'));
+    stat.append(element('small', '', label), element('b', '', value));
     stats.append(stat);
   }
   const affiliations = element('span', 'pitch-mini-affiliations');

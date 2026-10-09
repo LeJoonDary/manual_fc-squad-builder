@@ -89,6 +89,7 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
     clear() {
       if (state.excludedCardVersionIds.length) update([], {});
     },
+    reset() { update([], {}, DEFAULT_SQUAD_OVR_RANGE); },
   };
 }
 

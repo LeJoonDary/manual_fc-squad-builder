@@ -177,7 +177,7 @@ function updatePitchViewport() {
       document.querySelector('.chemistry-panel').offsetWidth,
       Number.parseFloat(getComputedStyle(squadWorkspace).columnGap),
       heading.offsetHeight + 8,
-      Number.parseFloat(getComputedStyle(squadWorkspace).getPropertyValue('--max-pitch-height')) || 840);
+      Number.parseFloat(getComputedStyle(squadWorkspace).getPropertyValue('--max-pitch-height')) || 1600);
     squadWorkspace.style.setProperty('--viewport-pitch-width', `${layout.pitchWidth}px`);
     squadWorkspace.style.setProperty('--viewport-pitch-height', `${layout.pitchHeight}px`);
     squadWorkspace.style.setProperty('--pitch-header-height', `${layout.headerHeight}px`);
@@ -208,7 +208,7 @@ let tacticalPlaystylesStatus = 'loading';
 let tacticalTab = 'roles';
 const updateAutoBuildFormation = mountAutoBuildSettings(
   document.querySelector('#auto-build-settings'), currentFormation, () => targetBudget,
-  { budgetSection: document.querySelector('.budget-summary'), supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad: () => structuredClone(squad), resetTargetBudget, openTacticalRoles, getRoleOptions },
+  { budgetSection: document.querySelector('.budget-summary'), supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad: () => structuredClone(squad), resetTargetBudget, openTacticalRoles, getRoleOptions, clearRolesAndPlaystyles },
 );
 function resetTargetBudget() {
   targetBudgetInput.value = '';
@@ -224,7 +224,7 @@ function applyAutoBuildResult(result, request) {
   }
   const slots = [...document.querySelectorAll('.pitch .slot')];
   // Validate and normalize every entry before changing the current squad.
-  if ((!result.success && result.status !== 'fallback') || result.squad.length !== 11 || new Set(result.squad.map(p => p.slotPosition)).size !== 11) {
+  if ((!result.success || result.totalChemistry < (result.minChemistryTarget ?? 33)) || result.squad.length !== 11 || new Set(result.squad.map(p => p.slotPosition)).size !== 11) {
     throw new Error('Unable to verify the completed 11-player squad. Please try again.');
   }
   const placements = result.squad.map(player => {
@@ -254,7 +254,7 @@ function applyAutoBuildResult(result, request) {
   managerState = nextManager;
   renderManagerSlot();
   updateSquadChemistry();
-  status.textContent = result.status === 'fallback' ? 'Added 11 budget players. Review the total cost and chemistry.' : 'Applied the auto-built squad of 11 players and manager settings.';
+  status.textContent = result.status === 'fallback' ? `Built the closest matching squad. Chemistry: ${result.totalChemistry}/33.` : 'Applied the auto-built squad of 11 players and manager settings.';
 }
 function applyFormation(formation, savedPlayers = null) {
   closeModal();
@@ -899,6 +899,13 @@ function renderAffiliationOptions() {
   renderClubOptions();
 }
 
+function clearRolesAndPlaystyles() {
+  filters.selectedRoles = [];
+  for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
+  for (const key of Object.keys(tacticalSlotPlaystyles)) delete tacticalSlotPlaystyles[key];
+  renderRoleFilterRows();
+  window.dispatchEvent(new Event('auto-build-context-change'));
+}
 function getRoleOptions() {
   const slots = FORMATIONS.find(item => item.name === currentFormation).slots;
   const slotRequirements = {};

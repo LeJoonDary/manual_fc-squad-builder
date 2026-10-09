@@ -25,23 +25,25 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 
 describe('Auto Build UI workflow', () => {
-  it('offers only chemistry, the existing max budget and focus in the build controls', async () => {
+  it('uses one engine without Squad Focus controls or options', async () => {
     await act(async () => container.querySelector('.auto-build-heading').click());
-    expect(container.textContent).not.toContain('Customize');
-    expect(container.textContent).not.toContain('Budget Allocation');
-    expect(container.querySelectorAll('#auto-build-details input')).toHaveLength(1);
-    const buttons = container.querySelectorAll('.auto-build-focus button');
-    expect(buttons).toHaveLength(3);
-    expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
-    for (const [index, focus] of ['attack', 'balanced', 'defense'].entries()) {
-      await act(async () => buttons[index].click());
-      await act(async () => button().click());
-      expect(generateOptimalSquad.mock.lastCall[5].focus).toBe(focus);
-      expect(fetchCandidatePlayers.mock.lastCall[4].focus).toBe(focus);
-      expect(Object.keys(generateOptimalSquad.mock.lastCall[5])).not.toContain('slotBudgetTargets');
-    }
-    await act(async () => container.querySelector('.auto-build-reset').click());
-    expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('.auto-build-focus')).toBeNull();
+    expect(container.textContent).not.toContain('Squad Focus');
+    await act(async () => button().click());
+    expect(generateOptimalSquad.mock.lastCall[5]).not.toHaveProperty('focus');
+    expect(fetchCandidatePlayers.mock.lastCall[4]).not.toHaveProperty('focus');
+  });
+
+  it('passes click-ordered priorities to fetching and generation', async () => {
+    await act(async () => container.querySelector('.priority-positions-trigger').click());
+    const chips = [...container.querySelectorAll('.priority-position-chips button')];
+    for (const pos of ['CB','ST','CM','GK']) await act(async () => chips.find(b => b.textContent === pos || b.textContent.startsWith(pos + ' (')).click());
+    await act(async () => button().click());
+    expect(fetchCandidatePlayers.mock.lastCall[4].keyPositions).toEqual(['CB','ST','CM','GK']);
+    expect(generateOptimalSquad.mock.lastCall[5].keyPositions).toEqual(['CB','ST','CM','GK']);
+    await act(async () => root.render(<AutoBuildSettings {...props} formation="4-2-3-1" />));
+    expect([...container.querySelectorAll('.priority-position-chips button[aria-pressed="true"]')].map(b=>b.textContent)).toEqual(expect.arrayContaining(['1CB','2ST (CF)','3CM (CDM)','4GK']));
+    expect(container.textContent).toContain('4 Selected');
   });
 
   it('passes locked owned cards unchanged and rejects an over-budget fallback', async () => {
@@ -134,11 +136,20 @@ describe('Auto Build UI workflow', () => {
     await act(async () => button().click());
     expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
     await act(async () => resolve([{ id: 1 }]));
-    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, '4-3-3', false, props.supabase, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, focus: 'attack' });
-    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 }, focus: 'attack' });
+    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, '4-3-3', false, props.supabase, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
+    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(result, { snapshot: 'snapshot', formation: '4-3-3', totalBudget: 1000000 });
     expect(button().disabled).toBe(false);
     expect(container.querySelector('[role="status"]').textContent).toContain('Squad built successfully!');
+  });
+
+  it('rejects even a success-flagged 32-chemistry result below target', async () => {
+    const fallback = { ...result, success: true, status: 'fallback', totalChemistry: 32 };
+    generateOptimalSquad.mockResolvedValue(fallback);
+    await act(async () => button().click());
+    expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('Your current squad was kept.');
+    expect(container.textContent).toContain('(32/33)');
   });
 
   it('uses unlimited mode at zero budget', async () => {
@@ -153,7 +164,7 @@ describe('Auto Build UI workflow', () => {
     generateOptimalSquad.mockResolvedValue({ success: false });
     await act(async () => button().click());
     expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="alert"]').textContent).toBe('No squad meets your requirements. Try increasing your budget, lowering the chemistry target, or reducing selected roles & playstyles.');
+    expect(container.querySelector('[role="alert"]').textContent).toBe('Could not fill all 11 slots within your budget and eligibility limits. Add candidates, increase your budget, or review exclusions and tactical requirements.');
     expect(button().disabled).toBe(false);
   });
 
@@ -206,11 +217,43 @@ it('places both working modal triggers in the two-column settings grid', async (
 it('refreshes the role badge when slot settings change', async () => {
   const state = { slotRequirements: {} };
   await act(async () => root.render(<AutoBuildSettings {...props} getRoleOptions={() => state} />));
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Tactical Roles (0개) / Playstyles (0개)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Roles (0) / Playstyles (0)');
   state.slotRequirements = { LCM: { role: { name: 'Holding', minLevel: 1 } }, RCM: { playstyle: { idOrName: 'Technical', isPlus: true } } };
   await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Tactical Roles (1개) / Playstyles (1개)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Roles (1) / Playstyles (1)');
   state.slotRequirements = {};
   await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Tactical Roles (0개) / Playstyles (0개)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Roles (0) / Playstyles (0)');
+});
+
+
+it('clears exclusions and tactical selections inline without opening dialogs, and resets all settings', async () => {
+  let options = { slotRequirements: { ST: { roles: [{ name: 'Poacher', minLevel: 1 }], playstyles: [{ id: 1 }] } } };
+  const clearRolesAndPlaystyles = vi.fn(() => { options = { slotRequirements: {} }; window.dispatchEvent(new Event('auto-build-context-change')); });
+  const openTacticalRoles = vi.fn();
+  const resetTargetBudget = vi.fn();
+  await act(async () => {
+    excludedCardVersionsStore.ban(99, 'Test');
+    root.render(<AutoBuildSettings {...props} getRoleOptions={() => options} clearRolesAndPlaystyles={clearRolesAndPlaystyles} openTacticalRoles={openTacticalRoles} resetTargetBudget={resetTargetBudget} />);
+  });
+  await act(async () => container.querySelector('[aria-label="Clear excluded cards"]').click());
+  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  await act(async () => container.querySelector('[aria-label="Clear Roles and Playstyles"]').click());
+  expect(openTacticalRoles).not.toHaveBeenCalled();
+  expect(container.querySelector('[aria-label="Clear Roles and Playstyles"]')).toBeNull();
+  await act(async () => {
+    excludedCardVersionsStore.ban(100, 'Other');
+    excludedCardVersionsStore.setSquadOvrRange({ min: 80, max: 90 });
+    options = { slotRequirements: { ST: { role: { name: 'Poacher', minLevel: 1 } } } };
+    window.dispatchEvent(new Event('auto-build-context-change'));
+    container.querySelector('.auto-build-heading').click();
+  });
+  await act(async () => container.querySelector('.auto-build-reset').click());
+  expect(resetTargetBudget).toHaveBeenCalledOnce();
+  expect(clearRolesAndPlaystyles).toHaveBeenCalledTimes(2);
+  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
+  expect(excludedCardVersionsStore.getState().squadOvrRange).toEqual({ min: 45, max: 99 });
+  expect(container.querySelector('.auto-build-focus')).toBeNull();
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Roles (0) / Playstyles (0)');
 });

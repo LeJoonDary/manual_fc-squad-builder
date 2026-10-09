@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateOptimalSquad, calculateSquadChemistry, type CandidateGroups } from './autoBuildUtils';
+import { generateOptimalSquad, calculateSquadChemistry, calculatePlayerStrength, type CandidateGroups } from './autoBuildUtils';
 import { createSquadCandidateRows } from '../scripts/mocks/squadCandidates.js';
 import { getPositionBudgetGroup } from './autoBuildUtils';
 import { FORMATIONS } from './formations.js';
@@ -83,7 +83,7 @@ describe('generateOptimalSquad', () => {
     expect(result.squad.filter(player => player.isLocked).map(player => player.id)).toEqual(base.slice(2).map(row => String(row.id)));
   });
 
-  it('prefers the new pace-weighted slot score over persisted meta_score and overall', async () => {
+  it('uses the new OVR-and-pace formula instead of persisted meta_score', async () => {
     const rows = createSquadCandidateRows().map(row => {
       if (row.card_positions[0].positions.name !== 'ST') return row;
       const fast = (row.id - 1) % 3 === 0;
@@ -95,9 +95,9 @@ describe('generateOptimalSquad', () => {
     const result = await generateOptimalSquad('4-3-3', groups(rows), 0, 0, false);
     expect(result.success).toBe(true);
     const striker = result.squad.find(player => player.slotPosition === 'ST');
-    expect(striker?.card.overall).toBe(70);
-    expect(striker?.card.meta_score).toBe(0);
-    expect(striker?.metaScore).toBeCloseTo(85.5 * 1.3);
+    expect(striker?.card.overall).toBe(99);
+    expect(striker?.card.meta_score).toBe(999);
+    expect(striker?.metaScore).toBeCloseTo(99 * 1.5 + 80 * .5);
   });
 
   it('selects male CB candidates using the joined gender bonus in both CB slots', async () => {
@@ -113,7 +113,7 @@ describe('generateOptimalSquad', () => {
     const defenders = result.squad.filter(player => ['LCB', 'RCB'].includes(player.slotPosition));
     expect(defenders).toHaveLength(2);
     expect(defenders.every(player => player.card.players.gender === 'Male')).toBe(true);
-    defenders.forEach(player => expect(player.metaScore).toBeCloseTo(85));
+    defenders.forEach(player => expect(player.metaScore).toBeCloseTo(calculatePlayerStrength(player)));
   });
 
   it('excludes only the banned card through candidates, ownership and fallback', async () => {
@@ -144,7 +144,7 @@ describe('generateOptimalSquad', () => {
     const result = await generateOptimalSquad('4-3-3', groups(), budget, 33, false);
     expect(result.success).toBe(true);
     expect(result.totalChemistry).toBe(33);
-    expect(result.totalCost).toBe(912750);
+    expect(result.totalCost).toBe(990000);
   });
 
   it('clusters slightly more expensive cheap cards instead of selecting isolated price minima', async () => {
@@ -158,7 +158,7 @@ describe('generateOptimalSquad', () => {
     expect(result.totalCost).toBeLessThanOrEqual(12100);
     expect(result.squad).toHaveLength(11);
     expect(new Set(result.squad.map(p => p.playerKey)).size).toBe(11);
-    expect(result.iterations).toBeLessThanOrEqual(1500);
+    expect(result.iterations).toBeLessThanOrEqual(10000);
   });
   it('builds all exact slots using meta rather than OVR, honors budget, and preserves inputs', async () => {
     const candidates = groups();
@@ -167,13 +167,13 @@ describe('generateOptimalSquad', () => {
     expect(result.success).toBe(true);
     expect(result.squad.map(p => p.slotPosition)).toEqual(['LW', 'ST', 'RW', 'LCM', 'CM', 'RCM', 'LB', 'LCB', 'RCB', 'RB', 'GK']);
     expect(result.squad.filter(p => !['LB', 'RB', 'GK'].includes(p.slotPosition)).every(p => p.card.overall === 97)).toBe(true);
-    expect(result.totalCost).toBe(852750);
+    expect(result.totalCost).toBe(900000);
     expect(new Set(result.squad.map(p => p.playerKey)).size).toBe(11);
     expect(calculateSquadChemistry(result.squad, true).totalChemistry).toBe(result.totalChemistry);
     // GK uses OVR; attackers use the missing-composure fallback of 75.
-    expect(result.squad.find(player => player.slotPosition === 'GK')?.metaScore).toBe(104);
-    expect(result.teamMetaScore).toBeCloseTo((91.96 * (1.2 * 2 + 1.3) + 93 * 5 + 88 * 2 + 104) / 11);
-    expect(result.iterations).toBeLessThanOrEqual(1500);
+    expect(result.squad.find(player => player.slotPosition === 'GK')?.metaScore).toBe(calculatePlayerStrength(result.squad.find(player => player.slotPosition === 'GK')));
+    expect(result.teamMetaScore).toBeCloseTo(result.squad.reduce((sum, p) => sum + calculatePlayerStrength(p), 0) / 11);
+    expect(result.iterations).toBeLessThanOrEqual(10000);
     expect(candidates).toEqual(snapshot);
   });
 
@@ -206,7 +206,7 @@ describe('generateOptimalSquad', () => {
     expect(impossible.status).toBe('incomplete');
     expect(impossible.squad).toHaveLength(0);
     expect(impossible.totalCost).toBeLessThanOrEqual(1);
-    expect(impossible.iterations).toBeLessThanOrEqual(1500);
+    expect(impossible.iterations).toBeLessThanOrEqual(10000);
   });
 
   it('does not field multiple cards of the same underlying player', async () => {

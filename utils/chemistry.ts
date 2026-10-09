@@ -1,4 +1,6 @@
+import { isCardIcon, isCardHero } from './specialCardIdentity.js';
 import type { ChemistryManager, ChemistryResult, PlayerCard, SquadSlot } from '../types/chemistry';
+import { sharedClubKey } from './clubIdentity';
 
 const CLUB_THRESHOLDS = [2, 4, 7] as const;
 const LEAGUE_THRESHOLDS = [3, 5, 8] as const;
@@ -101,9 +103,9 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
     altPositions,
     nationId: canonicalAffiliationKey(rawCard, 'nation', ['nation', 'nationName', 'nation_name', 'nationality'], ['nationId', 'nation_id']),
     leagueId: canonicalAffiliationKey(rawCard, 'league', ['league', 'leagueName', 'league_name'], ['leagueId', 'league_id']),
-    clubId: canonicalAffiliationKey(rawCard, 'club', ['club', 'clubName', 'club_name', 'team'], ['clubId', 'club_id']),
-    isIcon: cardType ? ['ICON', 'SPECIAL_ICON'].includes(cardType) : Boolean(firstValue(rawCard, ['isIcon', 'is_icon'])),
-    isHero: cardType ? ['HERO', 'SPECIAL_HERO'].includes(cardType) : Boolean(firstValue(rawCard, ['isHero', 'is_hero'])),
+    clubId: sharedClubKey(rawCard) || canonicalAffiliationKey(rawCard, 'club', ['club', 'clubName', 'club_name', 'team'], ['clubId', 'club_id']),
+    isIcon: isCardIcon(rawCard),
+    isHero: isCardHero(rawCard),
   };
 }
 
@@ -116,7 +118,8 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
  */
 export function calculateChemistry(squad: SquadSlot[], manager: ChemistryManager | null = null): ChemistryResult {
   const playerChemMap: Record<string, number> = {};
-  const validSlots = squad.filter(isPositionMatch);
+  const validSlots = squad.filter(isPositionMatch).map(slot => ({ ...slot, player: { ...slot.player,
+    isIcon: isCardIcon(slot.player), isHero: isCardHero(slot.player) } }));
   const clubCounts: CountMap = new Map();
   const leagueCounts: CountMap = new Map();
   const nationCounts: CountMap = new Map();

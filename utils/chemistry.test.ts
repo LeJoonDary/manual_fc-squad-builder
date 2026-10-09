@@ -24,7 +24,7 @@ describe('calculateChemistry', () => {
       const special = adaptChemistryPlayerCard({
         id: 'special', position: 'ST', card_type, club_id: 10, league_id: 20,
         nation_id: 999, players: { nation_id: 30, club_id: 999, league_id: 999 },
-        isIcon: true, isHero: true,
+        isIcon: card_type.includes('ICON'), isHero: card_type.includes('HERO'),
       });
       const normal = adaptChemistryPlayerCard({
         id: 'normal', position: 'ST', card_type: 'NORMAL', club_id: 11, league_id: 21,

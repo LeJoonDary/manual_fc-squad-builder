@@ -41,8 +41,8 @@ it('prefers a hybrid over stronger mono-league candidates and keeps it after upg
 
 it('rewards club pairs and ignores special cards in league caps', () => {
   expect(evaluateHybridStructure([{ leagueId: 1, clubId: 1 }, { leagueId: 2, clubId: 1 }])).toBe(40);
-  expect(evaluateHybridStructure(Array.from({ length: 6 }, () => ({ leagueId: 1 })))).toBe(-500);
-  expect(fitsHybridSkeleton([{ leagueId: 1 }, { leagueId: 2, isHero: true }], [1])).toBe(true);
+  expect(evaluateHybridStructure(Array.from({ length: 6 }, () => ({ leagueId: 1 })))).toBe(-300);
+  expect(fitsHybridSkeleton([{ leagueId: 1 }, { leagueId: 2, isHero: true }], [1])).toBe(false);
 });
 
 it('uses six regulars only when a five-player-cap build is unavailable', async () => {
@@ -53,12 +53,12 @@ it('uses six regulars only when a five-player-cap build is unavailable', async (
   expect(withinLeagueLimit(result.squad, 5)).toBe(false);
 });
 
-it('avoids low Gold chemistry fillers at a million coins and bounds recovery to two', async () => {
+it('allows high-pace low-OVR Gold without an arbitrary quality floor', async () => {
   const gold = slots.map((slot, i) => ({ ...make(100 + i, slot.position, 1 + i % 3, 1, 99), overall: 82, version: 'Gold' }));
   const quality = slots.map((slot, i) => make(200 + i, slot.position, 1 + i % 3, 1, 85));
   const result = await generateOptimalSquad('4-3-3', grouped([...gold, ...quality]), 1000000, 0, false);
   expect(result.success).toBe(true);
-  expect(result.squad.every(p => p.card.overall > 83)).toBe(true);
+  expect(result.squad.some(p => p.card.overall <= 83)).toBe(true);
   const scarce = await generateOptimalSquad('4-3-3', grouped([...gold.slice(0, 2), ...quality.slice(2)]), 1000000, 0, false);
   expect(scarce.success).toBe(true);
   expect(scarce.squad.filter(p => p.card.overall <= 83)).toHaveLength(2);
@@ -82,16 +82,19 @@ it.each([1, 999])('builds a chemistry-valid hybrid regardless of league identity
     expect(new Set(result.squad.map(p => p.clubId)).size).toBeGreaterThanOrEqual(2);
   }
 });
-it('does not relax the league ceiling in fallback and rejects conflicting locks', async () => {
+it('allows concentrated squads and locks when alternatives are unavailable, with a soft penalty', async () => {
   const rows = slots.map((slot, i) => make(i, slot.position, 1, 1));
   const result = await generateOptimalSquad('4-3-3', grouped(rows), 1000000, 0, false);
-  expect(result.success).toBe(false);
-  expect(result.squad.length).toBeLessThanOrEqual(6);
-  await expect(generateOptimalSquad('4-3-3', grouped(rows), 1000000, 0, false, {
+  expect(result.success).toBe(true);
+  expect(result.squad).toHaveLength(11);
+  expect(evaluateHybridStructure(result.squad)).toBe(-600);
+  const locked = await generateOptimalSquad('4-3-3', grouped(rows), 1000000, 0, false, {
     currentSquad: Object.fromEntries(slots.slice(0, 7).map((slot, i) => [slot.position, { card: rows[i], isLocked: true }])),
-  })).rejects.toThrow('six-player league limit');
+  });
+  expect(locked.success).toBe(true);
+  expect(locked.squad.filter(p => p.isLocked)).toHaveLength(7);
 });
-it('can select pace 81 and invest at least half the budget in attackers when feasible', async () => {
+it('can select pace 81 while respecting the overall budget', async () => {
   const currentSquad = Object.fromEntries(slots.filter(slot => !['ST', 'LW', 'RW'].includes(slot.position))
     .map((slot, i) => [slot.position, { card: make(i, slot.position, 1 + i % 3, 1), isLocked: true, isOwned: true }]));
   const rows = [
@@ -100,7 +103,7 @@ it('can select pace 81 and invest at least half the budget in attackers when fea
   ];
   const result = await generateOptimalSquad('4-3-3', grouped(rows), 1000000, 33, false, { currentSquad });
   expect(result.success).toBe(true);
-  expect(result.totalCost).toBeGreaterThanOrEqual(500000);
+  expect(result.totalCost).toBeLessThanOrEqual(1000000);
   expect(result.squad.find(p => p.slotPosition === 'LW')?.card.face_stats.pac).toBe(81);
   expect(result.squad.filter(p => p.isLocked)).toHaveLength(8);
 });

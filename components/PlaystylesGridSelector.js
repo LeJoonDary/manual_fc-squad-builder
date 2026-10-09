@@ -1,3 +1,33 @@
+// One active tooltip across all tactical grids; no per-icon CSS hover state.
+let activeTooltip = null;
+function clearActiveTooltip() {
+  if (!activeTooltip) return;
+  const { button, node, observer, controller } = activeTooltip;
+  activeTooltip = null;
+  observer.disconnect(); controller.abort();
+  button.removeAttribute('aria-describedby'); node.remove();
+}
+function showActiveTooltip(button, label, grid) {
+  clearActiveTooltip();
+  const node = document.createElement('div');
+  node.className = 'tactical-active-tooltip'; node.id = 'tactical-active-tooltip';
+  node.setAttribute('role', 'tooltip'); node.textContent = label;
+  const rect = button.getBoundingClientRect();
+  node.style.left = `${rect.left + rect.width / 2}px`; node.style.top = `${rect.top - 8}px`;
+  node.style.pointerEvents = 'none'; node.style.userSelect = 'none';
+  grid.append(node); button.setAttribute('aria-describedby', node.id);
+  const controller = new AbortController();
+  const observer = new MutationObserver(() => {
+    if (!button.isConnected || button.closest('[hidden], [aria-hidden="true"], .hidden')) clearActiveTooltip();
+  });
+  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden','aria-hidden','class'] });
+  activeTooltip = { button, node, observer, controller };
+  document.addEventListener('scroll', clearActiveTooltip, { capture: true, signal: controller.signal });
+  window.addEventListener('resize', clearActiveTooltip, { signal: controller.signal });
+  window.addEventListener('blur', clearActiveTooltip, { signal: controller.signal });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') clearActiveTooltip(); }, { signal: controller.signal });
+}
+
 export const CATEGORY_DISPLAY_ORDER = ['Shooting', 'Passing', 'Defending', 'Ball Control', 'Physical', 'Goalkeeper'];
 const EXCLUDED_PLAYSTYLE_NAMES = ['Power Header', 'Trivela', 'Flair', 'Aerial'];
 const EXCLUDED_PLAYSTYLE_IDS = [11, 13, 18, 22];
@@ -27,6 +57,7 @@ function appendPlaystyleImage(face, item, gold) {
 }
 
 export function createPlaystylesGridSelector({ selectedSlot, playstylesList, currentReqList = [], onChange }) {
+  clearActiveTooltip();
   const activePlaystyles = playstylesList.filter(item =>
     !EXCLUDED_PLAYSTYLE_IDS.includes(Number(item.id))
     && !EXCLUDED_PLAYSTYLE_NAMES.some(name => name.toLowerCase() === item.name?.trim().toLowerCase()));
@@ -64,22 +95,16 @@ export function createPlaystylesGridSelector({ selectedSlot, playstylesList, cur
       face.className = 'tactical-playstyle-face';
       appendPlaystyleImage(face, item, gold);
       button.append(face);
-      button.addEventListener('click', () => onChange(gold
+      button.addEventListener('click', () => { clearActiveTooltip(); onChange(gold
         ? currentReqList.filter(req => String(req.id) !== String(item.id))
         : selected ? currentReqList.map(req => req === currentReq ? { ...req, isPlus: true } : req)
-          : [...currentReqList, { id: Number(item.id), name: item.name, isPlus: false }]));
-      const tooltip = document.createElement('div');
-      tooltip.className = 'tactical-playstyle-tooltip';
-      tooltip.setAttribute('role', 'tooltip');
-      tooltip.id = `playstyle-tooltip-${selectedSlot}-${item.id}`;
-      tooltip.textContent = item.name;
-      if (selected) {
-        const tier = document.createElement('span');
-        tier.textContent = gold ? ' (Gold+)' : ' (Silver)';
-        tooltip.append(tier);
-      }
-      button.setAttribute('aria-describedby', tooltip.id);
-      wrapper.append(button, tooltip);
+          : [...currentReqList, { id: Number(item.id), name: item.name, isPlus: false }]); });
+      const labelText = `${item.name}${selected ? gold ? ' (Gold+)' : ' (Silver)' : ''}`;
+      button.addEventListener('mouseenter', () => showActiveTooltip(button, labelText, grid));
+      button.addEventListener('mouseleave', clearActiveTooltip);
+      button.addEventListener('focus', () => showActiveTooltip(button, labelText, grid));
+      button.addEventListener('blur', clearActiveTooltip);
+      wrapper.append(button);
       icons.append(wrapper);
     }
     row.append(label, icons);
