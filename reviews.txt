@@ -63,3 +63,10 @@
 #valverde, 87, gold, https://www.youtube.com/shorts/nlnaoCm_K5k
 #patati, 84, foundation, https://www.youtube.com/shorts/SUiXq1cJ4wI
 
+#joan garcia, 86, gold, https://www.youtube.com/shorts/QrCyj2E8Low
+#carlos espi, 85, future, https://www.youtube.com/shorts/x7bHYl5RcWM
+#hulk, 85, hall_of_fut, https://www.youtube.com/shorts/r2TWl8kdPRE
+#lewis-skelly, 88, future, https://www.youtube.com/shorts/rAiLAS-MPJw
+#brown, 85, future, https://www.youtube.com/shorts/TUvcy9b2EZI
+#vicky lopez, 90, future, https://www.youtube.com/shorts/gJLkfDqjWvc
+#jacobo ramon, 87, future, https://www.youtube.com/shorts/fbsY7YNKVIU

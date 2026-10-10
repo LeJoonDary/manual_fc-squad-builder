@@ -76,7 +76,17 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .browser-player-card.has-card-background .browser-player-stat-label { color: #cbd5e1; }
 .browser-player-card.has-card-background .browser-player-stat-value { color: #f8fafc; }
 .has-card-background .browser-player-affiliations > span:not(.browser-player-meta-score) { padding: 3px 5px; border-radius: 6px; background: rgba(0,0,0,.4); backdrop-filter: blur(4px); }
-.browser-player-positions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 10px; }
+.browser-player-position-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 6px; margin-top: 4px; }
+.browser-player-positions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.browser-player-version, .pitch-mini-position-row .pitch-mini-promo { min-width: 0; max-width: 125px; padding: 2px 10px; border: 1px solid #d4b247; border-radius: 999px; background: rgba(2,6,23,.9); color: #fcd34d; font-size: 10px; font-weight: 800; letter-spacing: .025em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 0 8px rgba(212,178,71,.25); backdrop-filter: blur(4px); }
+.pitch-mini-position-row .pitch-mini-promo { max-width: 90px; padding: 2px 8px; font-size: 9px; letter-spacing: -.025em; }
+.browser-player-position-row, .pitch-mini-position-row { flex-shrink: 0; padding: 0 6px; }
+.browser-player-affiliation-row, .pitch-mini-affiliation-row { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; width: 100%; min-width: 0; gap: 6px; margin-top: 6px; padding: 0 6px; }
+.browser-player-affiliation-row > .browser-player-affiliations, .pitch-mini-affiliation-row > .pitch-mini-affiliations { flex: 1; min-width: 0; width: auto; margin-top: 0; justify-content: flex-start; }
+.browser-player-content > .browser-player-meta-score { margin-top: 6px; width: fit-content; }
+.browser-player-price { width: 100%; margin-top: -4px; padding-top: 4px; border-top: 1px solid #47556980; display: flex; justify-content: center; color: #fbbf24; font-size: 11px; font-weight: 800; line-height: 1.2; letter-spacing: .025em; text-shadow: 0 1px 2px #0f172a; }
+.pitch-mini-position-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%; padding: 0 2px; }
+.pitch-mini-position { flex-shrink: 0; padding: 2px 6px; border: 1px solid #f59e0bcc; border-radius: 4px; color: #fcd34d; background: #0f172acc; font-size: 12px; }
 .browser-player-position { font-size: .75rem; line-height: 1.2; }
 .browser-player-meta-score { margin-left: auto; padding: 2px 8px; border: 1px solid rgba(16,185,129,.5); border-radius: 6px; background: rgba(2,6,23,.85); color: #34d399; font-size: .75rem; font-weight: 800; text-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .browser-player-card { transition: none; }.browser-player-card:hover, .browser-player-card:focus-visible { transform: none; } }
@@ -1534,3 +1544,62 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .priority-position-rank.rank-sky { --rank-color: #0ea5e9; }
 .priority-position-rank.rank-indigo { --rank-color: #4f46e5; }
 .priority-position-rank.rank-purple { --rank-color: #9333ea; }
+
+/* Keep dense card metadata in normal flow, above the reserved stats footer. */
+.browser-player-positions, .pitch-mini-position-group { display: flex; flex-wrap: nowrap; align-items: center; gap: 3px; flex: 0 0 auto; min-width: 0; }
+.browser-player-positions > *, .pitch-mini-position-group > .pitch-mini-position { flex-shrink: 0; }
+.browser-player-position, .pitch-mini-position { border-color: #d4b247; color: #fcd34d; background: rgba(2,6,23,.9); }
+.pitch-mini-position-group .pitch-mini-secondary { position: static; display: flex; flex-wrap: nowrap; gap: 2px; transform: none; max-height: none; overflow: hidden; }
+.pitch-mini-position-group .pitch-mini-secondary > span { padding: 2px; font-size: 8px; flex-shrink: 0; }
+.pitch-mini-position-row { justify-content: flex-start; gap: 6px; padding: 0 2px; overflow: hidden; }
+.pitch-mini-position-row .pitch-mini-position { padding: 2px 6px; font-size: 11px; font-weight: 900; }
+.pitch-mini-position-row .pitch-mini-promo { flex: 1 1 0; min-width: 0; }
+.browser-player-elite-roles, .pitch-mini-roles { display: flex; flex-wrap: nowrap; align-items: center; overflow: hidden; width: 100%; min-width: 0; gap: 6px; margin-top: 8px; padding: 0 4px; }
+.browser-player-elite-roles > span, .pitch-mini-roles > span { min-width: 0; max-width: 125px; padding: 2px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border: 1px solid #d4b247b3; border-radius: 4px; background: #0f172ae6; color: #fcd34d; font-size: 11px; font-weight: 700; line-height: 1.2; box-shadow: 0 1px 2px #0003; }
+.browser-player-roles-more, .pitch-mini-roles > .pitch-mini-roles-more { flex-shrink: 0; padding: 2px 6px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+.browser-player-card .browser-player-playstyles { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px; width: 100%; min-height: 32px; margin-top: 10px; padding: 0 4px; overflow: visible; }
+.browser-player-playstyles .playstyle-icon { position: relative; flex: 0 0 calc((100% - 36px) / 7); min-width: 0; max-width: none; width: auto; height: auto; aspect-ratio: 1; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; filter: drop-shadow(0 0 4px #ffffff40); opacity: .9; transition: transform .15s, opacity .15s; }
+.browser-player-playstyles .playstyle-icon img, .pitch-mini-plus .playstyle-icon img { width: 100%; height: 100%; object-fit: contain; }
+.browser-player-playstyles .playstyle-icon.is-plus, .pitch-mini-plus .playstyle-icon.is-plus { border: 0; background: transparent; box-shadow: none; filter: drop-shadow(0 0 8px #fcd34db3); opacity: 1; }
+.browser-player-playstyles .playstyle-icon:hover, .pitch-mini-plus .playstyle-icon:hover { transform: scale(1.15); opacity: 1; }
+.browser-player-footer { flex-shrink: 0; }
+.pitch-mini-content { gap: 3px; }
+.pitch-mini-header, .pitch-mini-badges { flex-shrink: 0; }
+.pitch-mini-badges { display: flex; flex-direction: column; gap: 0; min-height: 0; }
+.pitch-mini-plus { position: static; transform: none; flex-direction: row; }
+.pitch-mini-center { min-height: 0; padding: 0; }
+.pitch-mini-content > .pitch-mini-skills { margin: 0 4px 4px auto; align-self: flex-end; justify-content: flex-end; border-radius: 999px; }
+.pitch-mini-stats { margin-top: 0; }
+.browser-player-footer { gap: 8px; }
+.browser-player-content { flex: 0 0 auto; padding-bottom: 0; }
+.browser-player-elite-roles { margin-top: 14px; }
+.browser-player-affiliation-row { margin-bottom: 12px; }
+.browser-player-footer { padding-top: 12px; margin-top: auto; }
+.browser-player-card, .browser-player-card.has-card-background { height: auto; min-height: 340px; aspect-ratio: auto; }
+.slot.occupied > .slot-card-body { height: 190px; min-height: 190px; }
+.pitch-mini-content { height: 100%; min-height: 0; }
+.pitch-mini-position-row .pitch-mini-promo { max-width: 125px; padding: 2px 8px; font-size: 10px; font-weight: 800; letter-spacing: -.025em; background: #020617e6; box-shadow: 0 0 6px rgba(212,178,71,.25); }
+.pitch-mini-affiliation-row { justify-content: center; gap: 6px; margin-top: 4px; padding: 0 4px; }
+.pitch-mini-affiliation-row > .pitch-mini-affiliations { flex: 0 1 auto; justify-content: center; }
+.pitch-mini-affiliation-row > .card-review-button { margin-left: 0; }
+.pitch-mini-content { overflow: visible; }
+.pitch-mini-content > .pitch-mini-secondary { position: absolute; top: 8px; right: auto; bottom: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; transform: none; max-width: none; max-height: none; overflow: visible; z-index: 30; pointer-events: none; }
+.pitch-mini-content > .pitch-mini-secondary > span { display: flex; align-items: center; justify-content: center; min-width: 24px; height: 16px; padding: 0 6px; border: 1px solid #2dd4bf; border-radius: 4px; background: rgba(2,6,23,.95); color: #5eead4; font-size: 10px; font-weight: 900; line-height: 1.2; letter-spacing: -.025em; box-shadow: 0 4px 6px #0004; }
+
+/* Full-height artwork, a gentle overall tint, and a lower readability fade. */
+.browser-player-card, .browser-player-card.has-card-background { position: relative; isolation: isolate; min-height: 390px; border-radius: 16px; background: #020617; }
+.browser-player-background { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center top; z-index: 0; pointer-events: none; }
+.browser-player-tint { position: absolute; inset: 0; background: rgba(0,0,0,.25); z-index: 0; pointer-events: none; }
+.browser-player-gradient { position: absolute; inset: auto 0 0; height: 176px; max-height: 100%; background: linear-gradient(to top, rgba(2,6,23,.95), rgba(2,6,23,.5) 50%, transparent); z-index: 0; pointer-events: none; }
+.browser-player-card .browser-player-content, .browser-player-card .browser-player-footer { position: relative; z-index: 10; background: transparent; color: #e2e8f0; }
+.browser-player-card .browser-player-footer, .browser-player-card.has-card-background .browser-player-footer { background: transparent; padding-top: 12px; margin-top: auto; }
+.browser-player-card .browser-player-stats { padding: 6px 0; border: 1px solid #33415599; border-radius: 8px; background: #020617b3; backdrop-filter: blur(2px); }
+.browser-player-card, .browser-player-card * { filter: none; text-shadow: none; }
+.browser-player-card .browser-player-identity h3 { filter: drop-shadow(0 2px 4px rgba(0,0,0,.9)); }
+.browser-player-card .browser-player-rating { filter: drop-shadow(0 2px 4px rgba(0,0,0,.8)); }
+.browser-player-card .browser-player-foot-skills, .browser-player-card .browser-player-stat-value, .browser-player-card .browser-player-price { text-shadow: 0 1px 2px #0009; }
+.browser-player-card .browser-player-playstyles .playstyle-icon { filter: none; }
+.browser-player-card * { box-shadow: none !important; }
+.browser-player-card .browser-player-playstyles .playstyle-icon { opacity: 1; }
+.browser-player-card .browser-player-stat-label { color: #94a3b8; }
+.browser-player-card .browser-player-stat-value { color: #f8fafc; }

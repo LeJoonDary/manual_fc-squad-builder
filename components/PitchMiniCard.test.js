@@ -2,18 +2,21 @@
 import { test, expect } from 'vitest';
 import { createPitchMiniCard } from './PitchMiniCard.js';
 
-test('mini card shows compact badges, Plus only, six stats and formatted identity', () => {
+test('mini card keeps the center clear of roles and playstyles', () => {
   const node = createPitchMiniCard({ name: 'Test Player', overall: 91, primary_position: 'ST',
     secondary_positions: ['ST', 'LW', 'LW'], preferred_foot: 'Right', sm: 5, wf: 4,
     version: 'special_destined_for_glory', league: 'La Liga', club: 'Real Madrid',
     pac: 90, sho: 91, pas: 82, dri: 88, def: 40, phy: 80, meta_score: 999,
+    card_roles: [{ role_level: 2, roles: { role_name: 'Inside Forward', position: 'LW' } }],
   }, [{ name: 'Normal', isPlus: false, image_url: '/normal.png' },
     { name: 'Power Shot', isPlus: true, image_url_plus: '/plus.png' }]);
-  expect(node.querySelector('.pitch-mini-rating').textContent).toBe('91ST');
+  expect(node.querySelector('.pitch-mini-rating').textContent).toBe('91');
+  expect(node.querySelector('.pitch-mini-position').textContent).toBe('ST');
   expect(node.querySelector('.pitch-mini-secondary').textContent).toBe('LW');
-  expect(node.querySelector('.pitch-mini-skills').textContent).toBe('R5★4');
-  expect(node.querySelectorAll('.pitch-mini-plus img')).toHaveLength(1);
-  expect(node.querySelector('.pitch-mini-plus img').getAttribute('src')).toBe('/plus.png');
+  expect(node.querySelector('.pitch-mini-skills').textContent).toBe('R5★4★');
+  expect(node.querySelector('.pitch-mini-plus')).toBeNull();
+  expect(node.querySelector('.pitch-mini-roles')).toBeNull();
+  expect(node.querySelector('.playstyle-icon')).toBeNull();
   expect(node.querySelector('.pitch-mini-promo').textContent).toBe('Destined For Glory');
   expect(node.querySelectorAll('.pitch-mini-stats > span')).toHaveLength(6);
   expect(node.querySelector('.pitch-mini-affiliations').textContent).toBe('LALIGARMA');

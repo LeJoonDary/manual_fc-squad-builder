@@ -14,7 +14,7 @@ test('shared card renders the reference layout and selection works with keyboard
     getChemistryEntityLogo:()=>'',affiliationCatalog:{},unwrapRelation:v=>v,
     createPlaystyleBadges:()=>document.createElement('div')});
   expect(node.querySelector('.browser-player-rating').textContent).toBe('91');
-  expect(node.querySelector('.browser-player-content').style.backgroundImage).toContain('gold.png');
+  expect(node.querySelector('.browser-player-background').src).toContain('gold.png');
   expect(node.querySelector('.browser-player-flag').src).toContain('no.png');
   expect(node.querySelectorAll('.browser-player-stat')).toHaveLength(6);
   expect(node.querySelector('.browser-player-foot-skills').textContent).toContain('Foot: Left');

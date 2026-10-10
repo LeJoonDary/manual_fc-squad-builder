@@ -621,12 +621,15 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
   if (!card) return false;
   const pos = normalizeChemistryPosition(position);
   const sourceCard = card.card ?? card.raw ?? card;
+  const sources = [card, sourceCard, card.raw, sourceCard.raw].filter(Boolean);
+  if (sources.some(source => [source.version, source.card_type]
+    .some(value => /potm|sbc/i.test(String(value ?? ''))))) return false;
   const pace = calculatePlayerStrength(sourceCard, 'ST') / 1.2;
   const price = Number(sourceCard.price ?? 0);
   if (price > getPriorityPriceCap(pos, budget, keyPositions)) return false;
   if (budget >= 300000 && ['CM', 'CDM', 'CB'].includes(pos) && pace < 70) return false;
   if (budget >= 500000) {
-    if (pos === 'CAM' && pace < 80) return false;
+    if (pos === 'CAM' && pace < 79) return false;
     if (['ST','CF','LM','RM','LW','RW'].includes(pos) && pace < 85) return false;
   }
   if (!['CB', 'GK'].includes(pos)) return true;

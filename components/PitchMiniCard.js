@@ -1,6 +1,6 @@
 import { getCardFaceStats } from '../utils/cardFaceStats.js';
 import { formatCardVersion, pitchAffiliation } from '../utils/pitchCardLabels.js';
-import { createPlaystyleIcons } from './PlaystyleIcons.js';
+
 
 export function createPitchMiniCard(card, styles = [], catalog = {}, { createReviewButton } = {}) {
   const element = (tag, className, text) => {
@@ -10,30 +10,47 @@ export function createPitchMiniCard(card, styles = [], catalog = {}, { createRev
     return node;
   };
   const content = element('span', 'pitch-mini-content');
-  const badges = element('span', 'pitch-mini-badges');
+
   const primary = card.primary_position || card.position || '';
+  const secondary = [...new Set([
+    ...(card.alt_positions ?? []),
+    ...(card.alternative_positions ?? []),
+    ...(card.secondary_positions ?? []),
+  ])].filter(position => position && position !== primary && position !== card.assignedPosition);
+  if (secondary.length) {
+    const positions = element('span', 'pitch-mini-secondary');
+    positions.style.left = '100%';
+    positions.style.marginLeft = '-2px';
+    for (const position of secondary) {
+      const badge = element('span', '', position);
+      badge.title = `Alternate Position: ${position}`;
+      positions.append(badge);
+    }
+    content.append(positions);
+  }
   const rating = element('span', 'pitch-mini-rating');
-  rating.append(element('b', '', card.overall ?? card.rating ?? '–'), element('b', '', primary));
-  const secondary = [...new Set(card.secondary_positions ?? card.alt_positions ?? [])].filter(p => p && p !== primary);
-  const positions = element('span', 'pitch-mini-secondary');
-  for (const position of secondary) positions.append(element('span', '', position));
-  const plus = createPlaystyleIcons(styles.filter(style => style.isPlus && style.image_url_plus).slice(0, 2), 'pitch-mini-plus');
+  rating.append(element('b', '', card.overall ?? card.rating ?? '–'));
+  const positionRow = element('span', 'pitch-mini-position-row');
+  const positionGroup = element('span', 'pitch-mini-position-group');
+  positionGroup.append(element('b', 'pitch-mini-position', card.assignedPosition || primary));
+  positionRow.append(positionGroup);
   const skills = element('span', 'pitch-mini-skills');
   const foot = String(card.preferred_foot ?? '').trim();
   const footLabel = /^(right|r|오른발)$/i.test(foot) ? 'R' : /^(left|l|왼발)$/i.test(foot) ? 'L' : '';
   if (footLabel) skills.append(element('span', 'pitch-mini-foot', footLabel));
   if (card.sm != null || card.wf != null) {
     const stars = element('span', 'pitch-mini-skill-values');
-    stars.append(element('b', '', card.sm ?? '–'), element('span', 'pitch-mini-star', '★'), element('b', '', card.wf ?? '–'));
+    stars.append(element('b', '', card.sm ?? '–'), element('span', 'pitch-mini-star', '★'), element('b', '', card.wf ?? '–'), element('span', 'pitch-mini-star', '★'));
     stars.title = `Skill Moves ${card.sm ?? '–'} / Weak Foot ${card.wf ?? '–'}`;
     skills.append(stars);
   }
-  if (positions.childElementCount) badges.append(positions);
-  if (plus.childElementCount) badges.append(plus);
   const name = element('strong', 'pitch-mini-name', card.name ?? '');
   name.title = card.name ?? '';
-  const promo = element('span', 'pitch-mini-promo', formatCardVersion(card.version));
-  promo.title = promo.textContent;
+  if (card.version && card.version.toLowerCase() !== 'card') {
+    const promo = element('span', 'pitch-mini-promo', formatCardVersion(card.version));
+    promo.title = promo.textContent;
+    positionRow.append(promo);
+  }
   const stats = element('span', 'pitch-mini-stats');
   for (const [label, value] of getCardFaceStats(card)) {
     const stat = element('span', '');
@@ -58,14 +75,14 @@ export function createPitchMiniCard(card, styles = [], catalog = {}, { createRev
     affiliations.append(label);
   }
   const header = element('span', 'pitch-mini-header');
-  if (createReviewButton) affiliations.append(createReviewButton(card, { compact: true }));
+  const affiliationRow = element('span', 'pitch-mini-affiliation-row');
+  affiliationRow.append(affiliations);
+  if (createReviewButton) affiliationRow.append(createReviewButton(card, { compact: true }));
   const identity = element('span', 'pitch-mini-identity');
   identity.append(name);
   header.append(rating, identity);
-  content.classList.toggle('has-secondary', positions.childElementCount > 0);
   const center = element('span', 'pitch-mini-center');
-  center.append(promo);
-  content.append(header, affiliations, badges, center);
+  content.append(header, positionRow, affiliationRow, center);
   if (skills.childElementCount) content.append(skills);
   content.append(stats);
   return content;

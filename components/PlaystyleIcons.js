@@ -35,11 +35,12 @@ function showTooltip(button, label) {
   tooltip.style.top = `${rect.top >= size.height + 12 ? rect.top - size.height - 8 : rect.bottom + 8}px`;
 }
 
-export function createPlaystyleIcons(styles, className = '') {
+export function createPlaystyleIcons(styles, className = '', maxCount = Infinity) {
   const container = document.createElement('span');
   container.className = `${className} playstyle-icons`;
   const sorted = [...styles].sort((a, b) => Number(b.isPlus) - Number(a.isPlus));
   for (const style of sorted) {
+    if (container.childElementCount >= maxCount) break;
     const url = style.isPlus ? style.image_url_plus : style.image_url;
     if (!url) continue;
     const label = `${style.name}${style.isPlus ? '+' : ''}`;

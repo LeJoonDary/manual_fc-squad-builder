@@ -14,11 +14,11 @@ test.each([
  expect(getPlaystyleTier(card, 7)).toBe(tier);
 });
 const cases = [
- ['ST',38,20,10], ['CF',37,20,10], ['LW',7,20,10], ['CAM',2,14,0], ['ST',3,14,0],
- ['ST',1,16,8], ['RW',6,16,8], ['CAM',1,0,0],
- ['CM',17,18,8], ['CDM',4,18,8], ['CAM',12,18,8], ['CM',27,10,4],
- ['CM',3,10,0], ['CAM',3,14,0], ['CB',8,24,10], ['LCB',24,14,6], ['RCB',10,14,6],
- ['LB',10,12,6], ['RWB',1,12,6], ['GK',33,12,6], ['GK',31,12,6],
+ ['ST',38,32,16], ['CF',37,32,16], ['LW',7,32,16], ['CAM',2,24,0], ['ST',3,24,0],
+ ['ST',1,26,13], ['RW',6,26,13], ['CAM',1,0,0],
+ ['CM',17,30,14], ['CDM',4,30,14], ['CAM',12,30,14], ['CM',27,16,8],
+ ['CM',3,16,0], ['CAM',3,24,0], ['CB',8,40,18], ['LCB',24,22,10], ['RCB',10,22,10],
+ ['LB',10,20,10], ['RWB',1,20,10], ['GK',33,20,10], ['GK',31,20,10],
 ] as const;
 test.each(cases)('%s playstyle %s gold=%s silver=%s', (pos, id, gold, silver) => {
  expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [id] }, pos)).toBe(gold);
@@ -26,9 +26,9 @@ test.each(cases)('%s playstyle %s gold=%s silver=%s', (pos, id, gold, silver) =>
  expect(calculatePlaystyleAndSkillBonus({ playstyles: [id,id], playstylesPlus: [id,id], card_playstyles: [{ playstyle_id: id, is_plus: true }] }, pos)).toBe(gold);
 });
 test('stars use attacker-only weights, neutral missing data and normalized aliases', () => {
- expect(calculatePlaystyleAndSkillBonus({ wf: 5, sm: 5 }, 'LS')).toBe(28);
- expect(calculatePlaystyleAndSkillBonus({ wf: '4', sm: '4' }, 'CAM')).toBe(14);
- expect(calculatePlaystyleAndSkillBonus({ wf: 2, sm: 3 }, 'LW')).toBe(-12);
+ expect(calculatePlaystyleAndSkillBonus({ wf: 5, sm: 5 }, 'LS')).toBe(42);
+ expect(calculatePlaystyleAndSkillBonus({ wf: '4', sm: '4' }, 'CAM')).toBe(21);
+ expect(calculatePlaystyleAndSkillBonus({ wf: 2, sm: 3 }, 'LW')).toBe(-20);
  expect(calculatePlaystyleAndSkillBonus({ wf: 5, sm: 5 }, 'CM')).toBe(0);
  expect(calculatePlaystyleAndSkillBonus({}, 'ST')).toBe(0);
 });
@@ -38,20 +38,22 @@ test.each(['ST','CAM','CM','CDM','LW','GK'])('silver finesse and power shot add 
 
 const base = { overall: 90, pac: 90, sho: 90, pas: 90, dri: 90, def: 90, phy: 90, card_type: 'gold_rare' };
 test('meta score uses tier weights once and fully stacks bonuses beyond 135', () => {
- expect(calculateMetaScore({ ...base, playstyles: [7] }, 'ST')).toBe(100);
- expect(calculateMetaScore({ ...base, playstylesPlus: [7] }, 'ST')).toBe(110);
+ expect(calculateMetaScore({ ...base, playstyles: [7] }, 'ST')).toBe(106);
+ expect(calculateMetaScore({ ...base, playstylesPlus: [7] }, 'ST')).toBe(122);
  expect(calculateMetaScore({ ...base, playstyles: [2,3] }, 'ST')).toBe(calculateMetaScore(base, 'ST'));
  const overloaded = { ...base, sm: 5, wf: 5, playstylesPlus: [1,2,3,4,6,7,8,10,12,17,24,27,31,33,37,38], card_type: 'promo' };
  for (const pos of ['ST','CAM','CM','CDM','CB','LB','GK']) expect(calculateMetaScore(overloaded, pos)).toBeGreaterThan(135);
- expect(calculateMetaScore(overloaded, 'CAM')).toBe(300);
- expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [37,38,7] }, 'ST')).toBe(60);
- expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [17,4,12,27], playstyles: [17,4,12,27] }, 'CM')).toBe(64);
+ // Base 120 + stars 42 + attack traits 144 + passing traits 106.
+ expect(calculateMetaScore(overloaded, 'CAM')).toBe(412);
+ expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [37,38,7] }, 'ST')).toBe(96);
+ expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [17,4,12,27], playstyles: [17,4,12,27] }, 'CM')).toBe(106);
  expect(calculateMetaScore({ ...base, overall: 80, pac: 80, sho: 80, dri: 80, phy: 80, playstyles: [2,3] }, 'ST')).toBeLessThan(calculateMetaScore(base, 'ST'));
 });
-test('CAM pace cut starts at 500k and accepts 80 including formation aliases', () => {
+test('CAM pace cut starts at 500k and accepts 79 including formation aliases', () => {
  for (const pos of ['CAM','LAM','RAM']) {
-  expect(passesNewCandidateFilter({ pac: 79 }, pos, 499999)).toBe(true);
-  expect(passesNewCandidateFilter({ pac: 79 }, pos, 500000)).toBe(false);
+  expect(passesNewCandidateFilter({ pac: 78 }, pos, 499999)).toBe(true);
+  expect(passesNewCandidateFilter({ pac: 78 }, pos, 500000)).toBe(false);
+  expect(passesNewCandidateFilter({ pac: 79 }, pos, 500000)).toBe(true);
   expect(passesNewCandidateFilter({ pac: 80 }, pos, 500000)).toBe(true);
  }
 });

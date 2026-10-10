@@ -2232,7 +2232,7 @@ function createRoleBadges(card, maxCount = Infinity, className = 'role-badges') 
 
 function createPlaystyleBadges(card, maxCount = Infinity, className = 'playstyle-badges') {
   if (className.includes('browser-player-playstyles')) {
-    return createPlaystyleIcons(getPlayStyles(card), className);
+    return createPlaystyleIcons(getPlayStyles(card), className, maxCount);
   }
   const container = document.createElement('span');
   container.className = className;

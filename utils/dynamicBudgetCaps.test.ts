@@ -1,6 +1,17 @@
 import { expect, test } from 'vitest';
 import { passesNewCandidateFilter, generateOptimalSquad } from './autoBuildUtils';
 import { FORMATIONS } from './formations.js';
+
+test.each(['PoTm Bundesliga', 'special_SBC', 'SBC', 'special_potm'])('rejects untradeable %s in either identity field and wrapped cards', value => {
+ for (const field of ['version', 'card_type']) {
+  const card = { price: 20000, facePace: 90, [field]: value };
+  for (const candidate of [card, { card }, { raw: card }, { version: 'Gold', raw: card }]) {
+   expect(passesNewCandidateFilter(candidate, 'CAM', 100000)).toBe(false);
+   expect(passesNewCandidateFilter(candidate, 'CAM', 500000)).toBe(false);
+  }
+ }
+ expect(passesNewCandidateFilter({ price: 20000, facePace: 79, version: 'special_totw' }, 'CAM', 500000)).toBe(true);
+});
 test.each(['LB','RB','LWB','RWB'])('15 percent cap for %s is lifted only by FB priority', pos=>{
  expect(passesNewCandidateFilter({price:150000},pos,1000000,['ST'])).toBe(true);
  expect(passesNewCandidateFilter({price:150001},pos,1000000,['ST'])).toBe(false);

@@ -54,20 +54,20 @@ export function calculatePlaystyleAndSkillBonus(card: any, assignedPosition: str
   };
   if (attacker) {
     const wf = stars('wf'), sm = stars('sm');
-    bonus += wf === 5 ? 16 : wf === 4 ? 8 : wf <= 2 ? -12 : 0;
-    bonus += sm === 5 ? 12 : sm === 4 ? 6 : 0;
-    for (const id of [PS.GAMECHANGER, PS.LOW_DRIVEN, PS.TECHNICAL]) bonus += score(id, 20, 10);
-    bonus += score(PS.FINESSE, 14, 0) + score(PS.POWER_SHOT, 14, 0);
-    if (wingerOrST) bonus += score(PS.QUICK_STEP, 16, 8) + score(PS.RAPID, 16, 8);
+    bonus += wf === 5 ? 24 : wf === 4 ? 12 : wf <= 2 ? -20 : 0;
+    bonus += sm === 5 ? 18 : sm === 4 ? 9 : 0;
+    for (const id of [PS.GAMECHANGER, PS.LOW_DRIVEN, PS.TECHNICAL]) bonus += score(id, 32, 16);
+    bonus += score(PS.FINESSE, 24, 0) + score(PS.POWER_SHOT, 24, 0);
+    if (wingerOrST) bonus += score(PS.QUICK_STEP, 26, 13) + score(PS.RAPID, 26, 13);
   }
   if (mid) {
-    for (const id of [PS.PINGED, PS.INCISIVE, PS.LONG_BALL]) bonus += score(id, 18, 8);
-    bonus += score(PS.TIKI_TAKA, 10, 4);
+    for (const id of [PS.PINGED, PS.INCISIVE, PS.LONG_BALL]) bonus += score(id, 30, 14);
+    bonus += score(PS.TIKI_TAKA, 16, 8);
     // CAM already receives the attacking Power Shot weight; never count it twice.
-    if (!attacker) bonus += score(PS.POWER_SHOT, 10, 0);
+    if (!attacker) bonus += score(PS.POWER_SHOT, 16, 0);
   }
-  if (pos === 'CB') bonus += score(PS.ANTICIPATE, 24, 10) + score(PS.JOCKEY, 14, 6) + score(PS.BRUISER, 14, 6);
-  if (['LB', 'RB', 'LWB', 'RWB'].includes(pos)) bonus += score(PS.BRUISER, 12, 6) + score(PS.QUICK_STEP, 12, 6);
-  if (pos === 'GK') bonus += score(PS.FOOTWORK, 12, 6) + score(PS.RUSH_OUT, 12, 6);
+  if (pos === 'CB') bonus += score(PS.ANTICIPATE, 40, 18) + score(PS.JOCKEY, 22, 10) + score(PS.BRUISER, 22, 10);
+  if (['LB', 'RB', 'LWB', 'RWB'].includes(pos)) bonus += score(PS.BRUISER, 20, 10) + score(PS.QUICK_STEP, 20, 10);
+  if (pos === 'GK') bonus += score(PS.FOOTWORK, 20, 10) + score(PS.RUSH_OUT, 20, 10);
   return bonus;
 }

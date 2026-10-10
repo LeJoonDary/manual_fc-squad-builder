@@ -24,8 +24,23 @@ export function createPlayerCard(card, {
   content.className = 'browser-player-content w-full bg-cover bg-top bg-no-repeat relative p-3';
   const backgroundUrl = getCardBackground(card);
   article.classList.toggle('has-card-background', Boolean(backgroundUrl));
-  content.style.backgroundImage = backgroundUrl
-    ? `linear-gradient(to bottom, rgba(15,23,42,.2) 0%, rgba(15,23,42,.35) 45%, rgba(15,23,42,.75) 78%, #0f172a 100%), url(${JSON.stringify(backgroundUrl)})` : 'none';
+  if (backgroundUrl) {
+    const background = document.createElement('img');
+    background.className = 'browser-player-background';
+    background.src = backgroundUrl;
+    background.alt = '';
+    background.draggable = false;
+    background.addEventListener('error', () => background.remove());
+    article.append(background);
+  }
+  const tint = document.createElement('div');
+  tint.className = 'browser-player-tint';
+  tint.setAttribute('aria-hidden', 'true');
+  article.append(tint);
+  const gradient = document.createElement('div');
+  gradient.className = 'browser-player-gradient';
+  gradient.setAttribute('aria-hidden', 'true');
+  article.append(gradient);
   const identity = document.createElement('div');
   identity.className = 'browser-player-identity';
   const rating = document.createElement('span');
@@ -70,12 +85,7 @@ export function createPlayerCard(card, {
     affiliations.append(label);
   }
   const footer = document.createElement('div');
-  footer.className = `browser-player-footer w-full p-2.5 flex flex-col font-bold ${
-    /gold/i.test(card.version ?? '') ? 'bg-[#D4A83B] text-slate-900'
-      : /silver/i.test(card.version ?? '') ? 'bg-[#979A9A] text-slate-900'
-        : /bronze/i.test(card.version ?? '') ? 'bg-[#C2845C] text-slate-900'
-          : 'bg-slate-800 text-slate-100'
-  }`;
+  footer.className = 'browser-player-footer w-full p-2.5 flex flex-col font-bold';
   const positions = document.createElement('div');
   positions.className = 'browser-player-positions';
   const position = document.createElement('strong');
@@ -83,22 +93,45 @@ export function createPlayerCard(card, {
   position.textContent = card.primary_position || getCardPosition(card) || '-';
   position.title = 'Primary Position';
   positions.append(position);
-  for (const secondary of card.secondary_positions ?? []) {
+  const secondaryPositions = [...new Set(card.secondary_positions ?? card.alt_positions ?? [])]
+    .filter(value => value && value !== position.textContent);
+  for (const secondary of secondaryPositions.slice(0, 2)) {
     const badge = document.createElement('span');
     badge.className = 'browser-player-secondary-position bg-slate-900/60 text-slate-200 border border-slate-600/60';
     badge.textContent = secondary;
     badge.title = 'Alternate Position';
     positions.append(badge);
   }
+  if (secondaryPositions.length > 2) {
+    const more = document.createElement('span');
+    more.className = 'browser-player-secondary-position';
+    more.textContent = `+${secondaryPositions.length - 2}`;
+    more.title = secondaryPositions.slice(2).join(', ');
+    positions.append(more);
+  }
+  let score;
   if (!card.summary_only) {
-    const score = document.createElement('div');
+    score = document.createElement('div');
     score.className = 'browser-player-meta-score bg-slate-950/85 text-emerald-400 border border-emerald-500/50 font-extrabold px-2 py-0.5 rounded-md';
     score.textContent = card.meta_score == null ? '[Meta Score: N/A]' : `[Meta Score: ${card.meta_score.toFixed(1)}]`;
     score.title = card.score_position ? `${card.score_position} · Excludes 3-back adjustments` : 'Position weights are not available yet.';
-    affiliations.append(score);
   }
-  if (createReviewButton) positions.append(createReviewButton(card));
-  content.append(identity, positions, affiliations);
+  const affiliationRow = document.createElement('div');
+  affiliationRow.className = 'browser-player-affiliation-row';
+  affiliationRow.append(affiliations);
+  if (createReviewButton) affiliationRow.append(createReviewButton(card));
+  const positionRow = document.createElement('div');
+  positionRow.className = 'browser-player-position-row';
+  positionRow.append(positions);
+  if (card.version && card.version.toLowerCase() !== 'card') {
+    const version = document.createElement('span');
+    version.className = 'browser-player-version';
+    version.textContent = card.version.replace(/^special_/i, '').replace(/_/g, ' ');
+    version.title = version.textContent;
+    positionRow.append(version);
+  }
+  content.append(identity, positionRow, affiliationRow);
+  if (score) content.append(score);
   const player = unwrapRelation(card.raw?.players) ?? {};
   const height = card.height ?? player.height;
   const weight = card.weight ?? player.weight;
@@ -134,6 +167,7 @@ export function createPlayerCard(card, {
     for (const role of ranked.slice(0, 2)) {
       const badge = document.createElement('span');
       badge.textContent = `${role.position ? `${role.position} · ` : ''}${role.name}${role.level >= 2 ? '++' : role.level === 1 ? '+' : ''}`;
+      badge.title = badge.textContent;
       roles.append(badge);
     }
     if (ranked.length > 2) {
@@ -178,7 +212,10 @@ export function createPlayerCard(card, {
     item.append(title, detail);
     stats.append(item);
   }
-  footer.append(details, stats);
+  const priceBar = document.createElement('div');
+  priceBar.className = 'browser-player-price';
+  priceBar.textContent = `🪙 ${Number(card.price || 0).toLocaleString()} C`;
+  footer.append(details, stats, priceBar);
   article.append(content, footer);
   return article;
 }
