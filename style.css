@@ -1510,3 +1510,27 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .auto-build-settings .priority-positions-chevron { color: #94a3b8; font-size: 12px; }
 .auto-build-settings #priority-position-chips { margin-top: 10px; padding: 12px; background: #0f172a99; border: 1px solid #334155; border-radius: 8px; }
 .tactical-active-tooltip { position: fixed; transform: translate(-50%,-100%); z-index: 50; padding: 4px 10px; background: #020617f2; color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; box-shadow: 0 8px 20px #0008; border: 1px solid #334155; pointer-events: none; user-select: none; white-space: nowrap; }
+
+.auto-build-settings .settings-inline-control > button:first-child { padding-right: 48px; }
+.settings-inline-control > .settings-inline-clear:disabled,
+.settings-inline-control > .settings-inline-clear:disabled:hover { opacity: .25; color: #64748b; cursor: default; background: transparent; }
+.tactical-star-filter { border: 0; padding: 0; margin: 0 0 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+.tactical-star-filter legend { margin-bottom: 6px; }
+.tactical-star-filter button { padding: 6px 10px; border: 1px solid #475569; border-radius: 6px; background: #1e293b; color: #fff; cursor: pointer; }
+.tactical-star-filter button[aria-pressed="true"] { color: #34d399; border-color: #34d399; }
+
+/* Flat build panel: budget, chemistry, settings, then permanent actions. */
+.auto-build-settings { padding: 16px; background: rgb(15 23 42 / .9); border-color: #1e293b; }
+.auto-build-settings > .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.auto-build-settings .budget-summary { padding: 0; border: 0; background: transparent; }
+.auto-build-divider { width: 100%; border: 0; border-top: 1px solid #1e293b; margin: 4px 0; }
+.auto-build-settings .priority-positions { margin-top: 0; }
+.auto-build-settings .auto-build-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px; }
+.priority-position-rank { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: none; font-weight: 800; background: var(--rank-color); color: #fff; box-shadow: 0 1px 3px color-mix(in srgb, var(--rank-color) 30%, transparent); }
+.priority-position-rank.rank-rose { --rank-color: #f43f5e; }
+.priority-position-rank.rank-orange { --rank-color: #f97316; }
+.priority-position-rank.rank-amber { --rank-color: #fbbf24; color: #020617; }
+.priority-position-rank.rank-emerald { --rank-color: #10b981; }
+.priority-position-rank.rank-sky { --rank-color: #0ea5e9; }
+.priority-position-rank.rank-indigo { --rank-color: #4f46e5; }
+.priority-position-rank.rank-purple { --rank-color: #9333ea; }

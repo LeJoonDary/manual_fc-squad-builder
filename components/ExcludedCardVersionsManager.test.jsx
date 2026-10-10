@@ -108,7 +108,7 @@ test('loads saved details, supports partial/all selection, bulk unban and reset'
   await click($('.exclusion-clear'));
   expect($('#exclusion-tab-excluded').textContent).toContain('(0)');
   expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).excludedCardVersionIds).toEqual([]);
-  expect($('#excluded-card-versions-list').textContent).toContain('No excluded cards');
+  expect($('#excluded-card-versions-list').textContent).toContain('No cards currently excluded.');
 });
 
 test('database failures still allow removal and storage failures retain selected cards', async () => {
@@ -243,7 +243,7 @@ test('saved ranges initialize on reopen, external changes sync, and unrelated ba
 
 test('main button and modal count stay synchronized through range and individual card changes', async () => {
   const expectCounts = count => {
-    expect($('.excluded-card-versions-toggle .settings-trigger-label').textContent).toBe('Manage Excluded Cards (' + count + ')');
+    expect($('.excluded-card-versions-toggle .settings-trigger-label').textContent).toBe('Excluded Cards (' + excludedCardVersionsStore.getState().excludedCardVersionIds.length + ')');
     expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (' + count + ')');
   };
   expectCounts(0);
@@ -260,7 +260,24 @@ test('main button and modal count stay synchronized through range and individual
   expectCounts(0);
   await click($('.modal-close'));
   await act(async () => excludedCardVersionsStore.setSquadOvrRange({ min: 60, max: 80 }));
-  expect($('.excluded-card-versions-toggle .settings-trigger-label').textContent).toBe('Manage Excluded Cards (1)');
+  expect($('.excluded-card-versions-toggle .settings-trigger-label').textContent).toBe('Excluded Cards (0)');
   await click($('.excluded-card-versions-toggle'));
   expectCounts(1);
 });
+
+ test('removes individual cards and clears all from the header while preserving OVR rules', async () => {
+  await act(async () => {
+    excludedCardVersionsStore.ban('1', 'First');
+    excludedCardVersionsStore.ban('2', 'Second');
+    excludedCardVersionsStore.setSquadOvrRange({ min: 80, max: 99 });
+  });
+  await click($('#exclusion-tab-excluded'));
+  await click($('[aria-label="Remove exclusion for First"]'));
+  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual(['2']);
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (1)');
+  await click($('.modal-header .exclusion-clear'));
+  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
+  expect(excludedCardVersionsStore.getState().squadOvrRange.min).toBe(80);
+  expect($('#excluded-card-versions-list').textContent).toContain('No cards currently excluded.');
+  expect($('.settings-inline-clear').disabled).toBe(true);
+ });

@@ -2,7 +2,7 @@ import { normalizeExcludedCardVersionIds } from './excludedCardVersions.js';
 import { fetchNameFilteredPage } from './playerSearch.js';
 
 export const EXCLUSION_SEARCH_PAGE_SIZE = 30;
-export const EXCLUSION_CARD_SELECT = 'id,overall,version,image_url,background_url,players!inner(id,name,long_name)';
+export const EXCLUSION_CARD_SELECT = 'id,overall,version,image_url,background_url,clubs(name),card_positions(is_primary,positions(name)),players!inner(id,name,long_name)';
 
 export async function fetchExclusionCardIdsByOvr(db, { minOvr, maxOvr, signal }) {
   if (!Number.isInteger(minOvr) || !Number.isInteger(maxOvr) || minOvr < 45 || maxOvr > 99 || minOvr > maxOvr) {

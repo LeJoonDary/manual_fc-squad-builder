@@ -203,6 +203,7 @@ let tacticalRolesDialog = null;
 let selectedSlotPos = 'ST';
 const tacticalSlotRoles = {};
 const tacticalSlotPlaystyles = {};
+const tacticalSlotStars = {};
 let tacticalPlaystylesList = [];
 let tacticalPlaystylesStatus = 'loading';
 let tacticalTab = 'roles';
@@ -903,6 +904,7 @@ function clearRolesAndPlaystyles() {
   filters.selectedRoles = [];
   for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
   for (const key of Object.keys(tacticalSlotPlaystyles)) delete tacticalSlotPlaystyles[key];
+  for (const key of Object.keys(tacticalSlotStars)) delete tacticalSlotStars[key];
   renderRoleFilterRows();
   window.dispatchEvent(new Event('auto-build-context-change'));
 }
@@ -914,7 +916,9 @@ function getRoleOptions() {
       : filters.selectedRoles.filter(role => role.position === normalizeChemistryPosition(slot.position))
         .map(role => ({ name: role.name, minLevel: role.level }));
     const playstyles = tacticalSlotPlaystyles[slot.position];
-    if (roles.length || playstyles?.length) slotRequirements[slot.position] = {
+    const stars = tacticalSlotStars[slot.position] ?? {};
+    if (roles.length || playstyles?.length || stars.minSm || stars.minWf) slotRequirements[slot.position] = {
+      ...stars,
       ...(roles.length ? { roles } : {}),
       ...(playstyles?.length ? { playstyles } : {}),
     };
@@ -954,7 +958,7 @@ function openTacticalRoles() {
   tacticalRolesDialog = dialog;
   dialog.className = 'tactical-roles-dialog';
   dialog.setAttribute('aria-labelledby', 'tactical-roles-title');
-  dialog.innerHTML = '<header><h2 id="tactical-roles-title">Tactical Roles / Playstyles</h2><button type="button" aria-label="Close Tactical Roles">×</button></header>';
+  dialog.innerHTML = '<header><h2 id="tactical-roles-title">Advanced Settings</h2><button type="button" aria-label="Close Advanced Settings">×</button></header>';
   const map = document.createElement('div');
   map.innerHTML = '<p class="tactical-formation-name"></p><div class="tactical-mini-pitch" aria-label="Formation slots"></div>';
   const tabs = document.createElement('div');
@@ -969,6 +973,7 @@ function openTacticalRoles() {
     filters.selectedRoles = [];
     for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
     for (const key of Object.keys(tacticalSlotPlaystyles)) delete tacticalSlotPlaystyles[key];
+    for (const key of Object.keys(tacticalSlotStars)) delete tacticalSlotStars[key];
     renderRoleFilterRows();
   });
   tacticalTab = 'roles';
@@ -988,6 +993,25 @@ function openTacticalRoles() {
 }
 function renderRoleFilterRows() {
   roleFilterList.replaceChildren();
+  if (tacticalRolesDialog) {
+    for (const [key, label] of [['minSm', 'Skill Moves'], ['minWf', 'Weak Foot']]) {
+      const group = document.createElement('fieldset'); group.className = 'tactical-star-filter';
+      const legend = document.createElement('legend'); legend.textContent = label; group.append(legend);
+      for (const value of [0, 2, 3, 4, 5]) {
+        const button = document.createElement('button'); button.type = 'button';
+        button.textContent = value === 0 ? 'Any' : value === 5 ? '★5' : `★${value}+`;
+        button.setAttribute('aria-label', `${label} ${button.textContent}`);
+        button.setAttribute('aria-pressed', String((tacticalSlotStars[selectedSlotPos]?.[key] ?? 0) === value));
+        button.addEventListener('click', () => {
+          tacticalSlotStars[selectedSlotPos] = { ...tacticalSlotStars[selectedSlotPos], [key]: value };
+          renderRoleFilterRows();
+          roleFilterList.querySelector(`[aria-label="${label} ${button.textContent}"]`)?.focus();
+        });
+        group.append(button);
+      }
+      roleFilterList.append(group);
+    }
+  }
   if (tacticalRolesDialog) {
     tacticalRolesDialog.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tab === tacticalTab)));
   }
@@ -1113,6 +1137,7 @@ function clearAllFilters() {
   Object.assign(filters, createDefaultFilters());
   for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
   for (const key of Object.keys(tacticalSlotPlaystyles)) delete tacticalSlotPlaystyles[key];
+  for (const key of Object.keys(tacticalSlotStars)) delete tacticalSlotStars[key];
   resetStatInputs();
 
   playerNameSearch.value = '';

@@ -6,6 +6,8 @@ import { searchExclusionCards, fetchExcludedCardDetails, EXCLUSION_SEARCH_PAGE_S
   exclusionCardName, exclusionCardLabel } from '../utils/exclusionCardSearch.js';
 
 function CardSummary({ card, id, fallbackName }) {
+  const club = (Array.isArray(card?.clubs) ? card.clubs[0] : card?.clubs)?.name;
+  const positions = (card?.card_positions ?? []).map(row => (Array.isArray(row.positions) ? row.positions[0] : row.positions)?.name).filter(Boolean).join(' / ');
   return <>
     <div className="exclusion-card-art" style={card?.background_url ? { backgroundImage: `url(${JSON.stringify(card.background_url)})` } : undefined}>
       {card?.image_url && <img src={card.image_url} alt="" onError={event => { event.currentTarget.hidden = true; }} />}
@@ -13,6 +15,7 @@ function CardSummary({ card, id, fallbackName }) {
     </div>
     <div className="exclusion-card-info">
       <strong>{card ? exclusionCardName(card) : fallbackName}</strong>
+      <span>{positions || '—'} · {club || 'Unknown club'}</span>
       <span>{card?.version || (card ? 'Unknown version' : 'Card details unavailable')} · #{id}</span>
     </div>
   </>;
@@ -159,7 +162,10 @@ function ExclusionDialog({ supabase, onClose }) {
     <div className="modal-backdrop" onClick={onClose} />
     <section ref={panel} className="modal-panel exclusion-manager-panel" role="dialog" aria-modal="true" aria-labelledby="exclusion-manager-title">
       <header className="modal-header">
-        <div><p className="eyebrow">AUTO BUILD</p><h2 id="exclusion-manager-title">Excluded Cards</h2></div>
+        <div><p className="eyebrow">AUTO BUILD</p><h2 id="exclusion-manager-title">Excluded Cards ({ids.length})</h2></div>
+        <button type="button" className="exclusion-clear" disabled={!ids.length} onClick={() => change(() => {
+          excludedCardVersionsStore.clear(); setSelected([]);
+        }, 'Exclusions cleared.')}>Clear All</button>
         <button className="modal-close" type="button" aria-label="Close Excluded Cards" onClick={onClose}>×</button>
       </header>
       <p className="exclusion-manager-help">Only the selected card versions will be excluded. Other versions of the player remain available in the pool.</p>
@@ -238,11 +244,13 @@ function ExclusionDialog({ supabase, onClose }) {
         {detailLoading && <p role="status">Loading excluded cards…</p>}
         {detailError && <p role="alert">{detailError} <button type="button" onClick={() => setDetailRetry(value => value + 1)}>Try Again</button></p>}
         <div id="excluded-card-versions-list" className="exclusion-card-list">
-          {!ids.length && <p>{hasOvrRule ? 'No individual cards excluded.' : 'No excluded cards.'}</p>}
+          {!ids.length && <p>No cards currently excluded.</p>}
           {ids.map(id => <div className="exclusion-card-row" key={id}>
             <input type="checkbox" aria-label={`Select ${names[id]}`} checked={selectedIds.includes(id)} onChange={event =>
               setSelected(previous => event.target.checked ? [...previous, id] : previous.filter(value => value !== id))} />
             <CardSummary card={cache.current.get(id)} id={id} fallbackName={names[id]} />
+            <button type="button" className="exclusion-toggle" aria-label={`Remove exclusion for ${names[id] || id}`}
+              onClick={() => change(() => excludedCardVersionsStore.unban(id), 'Card exclusion removed.')}>Remove</button>
           </div>)}
         </div>
         <footer className="exclusion-bulk-actions">
@@ -271,8 +279,8 @@ export function ExcludedCardVersionsManager({ supabase }) {
   return <section className="excluded-card-versions-manager">
     <div className="settings-inline-control">
     <button type="button" className="excluded-card-versions-toggle" aria-haspopup="dialog" aria-expanded={open}
-      onClick={() => setOpen(true)}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🚫</span><span className="settings-trigger-label">Manage Excluded Cards ({totalCount})</span></span></button>
-    {exclusionState.excludedCardVersionIds.length > 0 && <button type="button" className="settings-inline-clear" aria-label="Clear excluded cards" title="Clear excluded cards" onClick={event => {
+      onClick={() => setOpen(true)}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🚫</span><span className="settings-trigger-label">Excluded Cards ({exclusionState.excludedCardVersionIds.length})</span></span></button>
+    {<button disabled={exclusionState.excludedCardVersionIds.length === 0} type="button" className="settings-inline-clear" aria-label="Clear excluded cards" title="Clear excluded cards" onClick={event => {
       event.stopPropagation();
       try { excludedCardVersionsStore.clear(); setClearError(''); }
       catch (error) { setClearError(error.message); }

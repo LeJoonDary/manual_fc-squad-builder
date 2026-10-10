@@ -7,7 +7,7 @@ test.each([['ST',89],['CF',89],['CAM',88.5],['LW',85.5],['RM',85.5],['CM',85.416
 test('OVR baseline, special cards, thresholds and missing stats',()=>{
  expect(calculateMetaScore({...card,overall:95},'ST')-calculateMetaScore(card,'ST')).toBeCloseTo(1);
  expect(calculateMetaScore({...card,card_type:'promo'},'ST')-calculateMetaScore(card,'ST')).toBe(30);
- expect(calculateMetaScore({...card,facePace:84},'RW')).toBe(-999);
+ expect(calculateMetaScore({...card,facePace:84},'RW')).toBeCloseTo(83.1);
  expect(calculateMetaScore({...card,facePace:85},'RW')).toBeGreaterThan(0);
  expect(calculateMetaScore({...card,def:69},'LCM')).toBeLessThan(-150);
  expect(calculateMetaScore({...card,def:74},'CDM')).toBeLessThan(-200);

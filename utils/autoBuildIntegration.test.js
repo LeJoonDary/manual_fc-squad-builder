@@ -146,6 +146,13 @@ it('opens Tactical Roles independently of catalog position filters and restores 
   expect(bridge.services.getRoleOptions().slotRequirements.RCM.playstyles).toBeUndefined();
   expect(dialog.querySelector('[data-playstyle-id="7"] img').getAttribute('src')).toBe('/silver.png');
   expect(Object.keys(bridge.services.getRoleOptions().slotRequirements)).toHaveLength(2);
+  dialog.querySelector('[aria-label="Skill Moves ★4+"]').click();
+  dialog.querySelector('[aria-label="Weak Foot ★5"]').click();
+  expect(bridge.services.getRoleOptions().slotRequirements.RCM).toMatchObject({ minSm: 4, minWf: 5 });
+  dialog.querySelector('[data-slot="LCM"]').click();
+  expect(dialog.querySelector('[aria-label="Skill Moves Any"]').getAttribute('aria-pressed')).toBe('true');
+  dialog.querySelector('[data-slot="RCM"]').click();
+  expect(dialog.querySelector('[aria-label="Skill Moves ★4+"]').getAttribute('aria-pressed')).toBe('true');
   dialog.querySelector('.tactical-clear-all').click();
   expect(bridge.services.getRoleOptions()).toEqual({ slotRequirements: {} });
   expect(dialog.querySelectorAll('.tactical-role-dot')).toHaveLength(0);

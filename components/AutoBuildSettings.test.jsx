@@ -26,7 +26,6 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 
 describe('Auto Build UI workflow', () => {
   it('uses one engine without Squad Focus controls or options', async () => {
-    await act(async () => container.querySelector('.auto-build-heading').click());
     expect(container.querySelector('.auto-build-focus')).toBeNull();
     expect(container.textContent).not.toContain('Squad Focus');
     await act(async () => button().click());
@@ -70,7 +69,7 @@ describe('Auto Build UI workflow', () => {
     await act(async () => list.querySelector('input[type="checkbox"]').click());
     await act(async () => document.querySelector('.exclusion-bulk-actions button').click());
     expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
-    expect(list.textContent).toContain('No excluded cards');
+    expect(list.textContent).toContain('No cards currently excluded.');
     await act(async () => button().click());
     expect(fetchCandidatePlayers.mock.calls[1][4].excludedCardVersionIds).toEqual([]);
   });
@@ -85,45 +84,42 @@ describe('Auto Build UI workflow', () => {
     expect(container.querySelector('[role="alert"]').textContent).toContain('Exclusions changed');
     expect(button().disabled).toBe(false);
   });
-  it('keeps the budget input and its listeners inside the accordion across toggles', async () => {
+  it('keeps the budget input live in the flat panel and follows the wireframe order', async () => {
     const budgetSection = document.createElement('section');
     budgetSection.innerHTML = '<input aria-label="Max Budget" />';
     const input = budgetSection.querySelector('input');
-    const onInput = vi.fn();
-    input.addEventListener('input', onInput);
-    await act(async () => root.render(<AutoBuildSettings {...props} budgetSection={budgetSection} getTargetBudget={() => null} />));
-    const details = container.querySelector('#auto-build-details');
-    expect(details.hidden).toBe(true);
-    await act(async () => container.querySelector('.auto-build-heading').click());
-    expect(details.hidden).toBe(false);
-    expect(details.firstElementChild.contains(input)).toBe(true);
-    expect(container.querySelector('.auto-build-total').textContent).toContain('Unlimited budget');
-    expect(container.querySelector('.auto-build-ratios')).toBeNull();
-    input.value = '123';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const onInput = vi.fn(); input.addEventListener('input', onInput);
+    await act(async () => root.render(<AutoBuildSettings {...props} budgetSection={budgetSection} />));
+    expect(container.querySelector('.auto-build-heading')).toBeNull();
+    expect(container.querySelector('#auto-build-details')).toBeNull();
+    const ordered = ['.auto-build-budget', '.auto-build-range', '.excluded-card-versions-manager', '.tactical-roles-trigger', '.priority-positions', '.auto-build-actions'].map(selector => container.querySelector(selector));
+    for (let i = 1; i < ordered.length; i++) expect(ordered[i - 1].compareDocumentPosition(ordered[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(ordered[0].contains(input)).toBe(true);
+    expect(budgetSection.hidden).toBe(false);
+    expect(container.querySelector('.auto-build-reset').disabled).toBe(false);
+    expect(container.querySelector('#min-chemistry').min).toBe('20');
+    input.value = '123'; input.dispatchEvent(new Event('input', { bubbles: true }));
     expect(onInput).toHaveBeenCalledOnce();
-    await act(async () => container.querySelector('.auto-build-heading').click());
-    await act(async () => container.querySelector('.auto-build-heading').click());
-    expect(details.querySelector('input')).toBe(input);
+    await act(async () => container.querySelector('.priority-positions-trigger').click());
+    expect(container.querySelector('.auto-build-budget input')).toBe(input);
     expect(input.value).toBe('123');
   });
   it('updates the remaining budget when locks or ownership change without remounting', async () => {
     const currentSquad = { LCB: { card: { id: 1, price: 3000000 }, isLocked: true } };
     await act(async () => root.render(<AutoBuildSettings {...props} getTargetBudget={() => 10000000}
       getCurrentSquad={() => currentSquad} />));
-    await act(async () => container.querySelector('.auto-build-heading').click());
-    expect(container.querySelector('.auto-build-total').textContent).toContain('Remaining Budget 7,000,000 C');
+    expect(container.querySelector('.auto-build-total').textContent).toContain('Available for new selections 7,000,000 C');
     await act(async () => {
       currentSquad.LCB.isOwned = true;
       window.dispatchEvent(new Event('auto-build-context-change'));
     });
-    expect(container.querySelector('.auto-build-total').textContent).toContain('Remaining Budget 10,000,000 C');
+    expect(container.querySelector('.auto-build-total')).toBeNull();
     await act(async () => {
       currentSquad.LCB.isOwned = false;
       currentSquad.LCB.isLocked = false;
       window.dispatchEvent(new Event('auto-build-context-change'));
     });
-    expect(container.querySelector('.auto-build-total').textContent).toContain('Locked Player Cost 0 C');
+    expect(container.querySelector('.auto-build-total')).toBeNull();
   });
 
   it('shows loading, prevents duplicate clicks, applies success and resets loading', async () => {
@@ -202,14 +198,14 @@ it('does not apply a result after role requirements change during generation', a
   });
   await act(async () => button().click());
   expect(props.applyAutoBuildResult).not.toHaveBeenCalled();
-  expect(container.querySelector('[role="alert"]').textContent).toContain('Role settings changed');
+  expect(container.querySelector('[role="alert"]').textContent).toContain('Advanced settings changed');
 });
 
 it('places both working modal triggers in the two-column settings grid', async () => {
   const openTacticalRoles = vi.fn();
   await act(async () => root.render(<AutoBuildSettings {...props} openTacticalRoles={openTacticalRoles} />));
   const grid = container.querySelector('.auto-build-modal-grid');
-  expect(grid.querySelector('.excluded-card-versions-toggle').textContent).toContain('Manage Excluded Cards (');
+  expect(grid.querySelector('.excluded-card-versions-toggle').textContent).toContain('Excluded Cards (');
   await act(async () => grid.querySelector('.tactical-roles-trigger').click());
   expect(openTacticalRoles).toHaveBeenCalledOnce();
 });
@@ -217,13 +213,13 @@ it('places both working modal triggers in the two-column settings grid', async (
 it('refreshes the role badge when slot settings change', async () => {
   const state = { slotRequirements: {} };
   await act(async () => root.render(<AutoBuildSettings {...props} getRoleOptions={() => state} />));
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Roles (0) / Playstyles (0)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Advanced Settings (0)');
   state.slotRequirements = { LCM: { role: { name: 'Holding', minLevel: 1 } }, RCM: { playstyle: { idOrName: 'Technical', isPlus: true } } };
   await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Roles (1) / Playstyles (1)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Advanced Settings (2)');
   state.slotRequirements = {};
   await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Roles (0) / Playstyles (0)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Advanced Settings (0)');
 });
 
 
@@ -239,15 +235,14 @@ it('clears exclusions and tactical selections inline without opening dialogs, an
   await act(async () => container.querySelector('[aria-label="Clear excluded cards"]').click());
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
   expect(document.querySelector('[role="dialog"]')).toBeNull();
-  await act(async () => container.querySelector('[aria-label="Clear Roles and Playstyles"]').click());
+  await act(async () => container.querySelector('[aria-label="Reset All Preferences"]').click());
   expect(openTacticalRoles).not.toHaveBeenCalled();
-  expect(container.querySelector('[aria-label="Clear Roles and Playstyles"]')).toBeNull();
+  expect(container.querySelector('[aria-label="Reset All Preferences"]').disabled).toBe(true);
   await act(async () => {
     excludedCardVersionsStore.ban(100, 'Other');
     excludedCardVersionsStore.setSquadOvrRange({ min: 80, max: 90 });
     options = { slotRequirements: { ST: { role: { name: 'Poacher', minLevel: 1 } } } };
     window.dispatchEvent(new Event('auto-build-context-change'));
-    container.querySelector('.auto-build-heading').click();
   });
   await act(async () => container.querySelector('.auto-build-reset').click());
   expect(resetTargetBudget).toHaveBeenCalledOnce();
@@ -255,5 +250,5 @@ it('clears exclusions and tactical selections inline without opening dialogs, an
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
   expect(excludedCardVersionsStore.getState().squadOvrRange).toEqual({ min: 45, max: 99 });
   expect(container.querySelector('.auto-build-focus')).toBeNull();
-  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Roles (0) / Playstyles (0)');
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Advanced Settings (0)');
 });

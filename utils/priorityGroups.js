@@ -8,6 +8,13 @@ export const PRIORITY_GROUPS = [
  { id: 'GK', label: 'GK', positions: ['GK'] },
 ];
 export function priorityGroup(position) {
- const value = String(position ?? '').toUpperCase();
+ const input = String(position ?? '').toUpperCase();
+ const value = ({ WING: 'WIDE', MID: 'CM' })[input] ?? input;
  return PRIORITY_GROUPS.find(g => g.id === value || g.positions.includes(value))?.id ?? value;
+}
+
+export const DEFAULT_PRIORITY_GROUPS = ['ST', 'CAM', 'WIDE', 'CB', 'CM', 'FB', 'GK'];
+export function effectivePriorityGroups(selected = []) {
+ const normalized = [...new Set(selected.map(priorityGroup))].filter(group => DEFAULT_PRIORITY_GROUPS.includes(group));
+ return normalized.length ? normalized : [...DEFAULT_PRIORITY_GROUPS];
 }

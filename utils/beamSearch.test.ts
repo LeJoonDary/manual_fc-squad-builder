@@ -119,15 +119,15 @@ test('6-5 leagues, six nations and a five-player club are legal, seventh/sixth a
   expect(isRelaxedSelectionValid([...squad, { clubId: 1 }])).toBe(false);
 });
 
-test('GK priority permits spending above the standard keeper cap', async () => {
+test('GK priority permits spending up to the first-priority 35 percent cap', async () => {
   const currentSquad = Object.fromEntries(slots.filter(s => s.position !== 'GK').map((slot, i) => [slot.position,
     { card: make(i, slot.position, 1), isLocked: true, isOwned: true }]));
   const cheap = { ...make(100, 'GK', 2), overall: 85, price: 1000 };
-  const keeper = { ...make(101, 'GK', 1), overall: 90, price: 400000 };
+  const keeper = { ...make(101, 'GK', 1), overall: 90, price: 175000 };
   const result = await generateOptimalSquad('4-3-3', { FW: [], MF: [], DF: [cheap, keeper] }, 500000, 33, false, { currentSquad, keyPositions: ['GK'] });
   expect(result.success).toBe(true);
   expect(result.squad.find(p => p.slotPosition === 'GK')?.id).toBe('101');
-  expect(result.totalCost).toBe(400000);
+  expect(result.totalCost).toBe(175000);
   expect(result.squad.filter(p => p.isLocked)).toHaveLength(10);
 });
 
@@ -210,7 +210,7 @@ test('dynamic synergy promotes a partner beyond the old static top thirty', () =
   const pool = Array.from({ length: 60 }, (_, i) => prepared(100 + i, 200, 99));
   const partner = { ...prepared(200, 100, 80), clubId: anchor.clubId };
   expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)[0].id).toBe('200');
-  expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)).toHaveLength(45);
+  expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)).toHaveLength(50);
 });
 
 
