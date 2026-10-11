@@ -1,9 +1,7 @@
 import { normalizeChemistryPosition } from './chemistry';
 
 export type PlaystyleTier = 'gold' | 'silver' | null;
-const PS = { QUICK_STEP: 1, FINESSE: 2, POWER_SHOT: 3, INCISIVE: 4, RAPID: 6,
-  TECHNICAL: 7, ANTICIPATE: 8, BRUISER: 10, LONG_BALL: 12, PINGED: 17,
-  JOCKEY: 24, TIKI_TAKA: 27, RUSH_OUT: 31, FOOTWORK: 33, LOW_DRIVEN: 37, GAMECHANGER: 38 };
+
 
 function sources(card: any): any[] {
   const result: any[] = [];
@@ -17,7 +15,10 @@ function sources(card: any): any[] {
 function matches(item: any, id: number): boolean {
   if (item == null) return false;
   const join = Array.isArray(item.playstyles) ? item.playstyles[0] : item.playstyles;
-  return String(item.playstyle_id ?? item.id ?? join?.id ?? item) === String(id);
+  if (String(item.playstyle_id ?? item.id ?? join?.id ?? item) === String(id)) return true;
+  const names: Record<number, string> = { 1:'quickstep', 2:'finesse', 4:'incisive', 6:'rapid', 7:'technical', 8:'anticipate', 9:'intercept', 10:'bruiser', 17:'pingedpass', 24:'jockey', 27:'tikitaka', 31:'rushout', 33:'footwork', 37:'lowdriven', 38:'gamechanger' };
+  const name = String(item.name ?? join?.name ?? (typeof item === 'string' ? item : '')).toLowerCase().replace(/[^a-z]/g, '');
+  return Boolean(names[id] && name.includes(names[id]));
 }
 /** Gold wins across all input representations; duplicate rows never multiply a bonus. */
 export function getPlaystyleTier(card: any, psId: number): PlaystyleTier {
@@ -41,33 +42,26 @@ export function getPsScore(card: any, psId: number, goldPts: number, silverPts: 
   const tier = getPlaystyleTier(card, psId);
   return tier === 'gold' ? goldPts : tier === 'silver' ? silverPts : 0;
 }
+// [playstyle ID, gold points, silver points]. Unlisted traits award no points.
+const TABLES: Record<string, number[][]> = {
+  ST: [[7,4,2],[38,4,2],[37,4,2],[2,3.5,0],[1,3.5,1.8],[6,3.5,1.8],[27,3,1.5],[4,3,1.5],[17,3,1.5]],
+  CAM: [[4,4,2],[17,4,2],[7,3.5,1.8],[27,3.5,1.8],[2,3.5,1.8]],
+  CM: [[4,4,2],[17,4,2],[7,3.5,1.8],[27,3.5,1.8],[9,2,1],[8,2,1]],
+  CB: [[8,4,2],[10,3.5,1.8],[24,3.5,1.8],[9,3,1.5]],
+  LB: [[1,3.5,1.8],[6,3.5,1.8],[10,3,1.5],[9,3,1.5],[8,3,1.5]],
+  GK: [[33,3,1.5],[31,3,1.5]],
+};
 export function calculatePlaystyleAndSkillBonus(card: any, assignedPosition: string): number {
   const pos = normalizeChemistryPosition(assignedPosition);
-  const attacker = ['ST', 'CF', 'LM', 'RM', 'LW', 'RW', 'CAM'].includes(pos);
-  const wingerOrST = attacker && pos !== 'CAM';
-  const mid = ['CM', 'CDM', 'CAM'].includes(pos);
-  let bonus = 0;
-  const score = (id: number, gold: number, silver: number) => getPsScore(card, id, gold, silver);
-  const stars = (key: string) => {
-    const value = sources(card).map(source => source[key]).find(value => value != null && value !== '' && Number.isFinite(Number(value)));
-    return value == null ? 3 : Number(value);
+  const stars = (...keys: string[]) => {
+    for (const key of keys) for (const source of sources(card)) {
+      const value = source[key];
+      if (value != null && value !== '' && Number.isFinite(Number(value))) return Number(value);
+    }
+    return 3;
   };
-  if (attacker) {
-    const wf = stars('wf'), sm = stars('sm');
-    bonus += wf === 5 ? 14 : wf === 4 ? 7 : wf <= 2 ? -10 : 0;
-    bonus += sm === 5 ? 10 : sm === 4 ? 5 : 0;
-    for (const id of [PS.GAMECHANGER, PS.LOW_DRIVEN, PS.TECHNICAL]) bonus += score(id, 30, 15);
-    bonus += score(PS.FINESSE, 24, 0) + score(PS.POWER_SHOT, 24, 0);
-    if (wingerOrST) bonus += score(PS.QUICK_STEP, 25, 12) + score(PS.RAPID, 25, 12);
-  }
-  if (mid) {
-    for (const id of [PS.PINGED, PS.INCISIVE, PS.LONG_BALL]) bonus += score(id, 28, 14);
-    bonus += score(PS.TIKI_TAKA, 16, 8);
-    // CAM receives both attacking and midfield weights.
-    bonus += score(PS.POWER_SHOT, 16, 8);
-  }
-  if (pos === 'CB') bonus += score(PS.ANTICIPATE, 38, 18) + score(PS.JOCKEY, 20, 10) + score(PS.BRUISER, 20, 10);
-  if (['LB', 'RB', 'LWB', 'RWB'].includes(pos)) bonus += score(PS.BRUISER, 20, 10) + score(PS.QUICK_STEP, 20, 10);
-  if (pos === 'GK') bonus += score(PS.FOOTWORK, 20, 10) + score(PS.RUSH_OUT, 20, 10);
-  return bonus;
+  const wf = stars('weak_foot', 'wf'), sm = stars('skill_moves', 'sm');
+  const bonus = (wf === 5 ? 5 : wf === 4 ? 2.5 : 0) + (sm === 5 ? 3.5 : sm === 4 ? 1.8 : 0);
+  const group = pos === 'CF' ? 'ST' : pos === 'CDM' ? 'CM' : ['RB','LWB','RWB'].includes(pos) ? 'LB' : pos;
+  return bonus + (TABLES[group] ?? []).reduce((sum, [id, gold, silver]) => sum + getPsScore(card, id, gold, silver), 0);
 }

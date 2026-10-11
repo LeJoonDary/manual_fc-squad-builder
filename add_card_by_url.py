@@ -107,17 +107,30 @@ DETAIL_KEYS = {
 }
 
 LEAGUE_ALIAS_MAP = {
+    # 기존 항목들...
     "major league soccer": 7, "mls": 7, "premier league": 3,
     "laliga ea sports": 2, "laliga": 2, "la liga": 2, "bundesliga": 4,
     "ligue 1 mcdonald's": 5, "ligue 1": 5, "serie a enilive": 12, "serie a": 12,
     "liga portugal": 13, "eredivisie": 21, "bundesliga 2": 22,
     "liga bbva mx": 23, "liga mx": 23, "roshn saudi league": 14,
-    "scottish premiership": 27, "trendyol süper lig": 11, "barclays wsl": 1,
-    "liga f moeve": 6, "liga f": 6, "national women's soccer league": 8, "nwsl": 8,
-    "google pixel frauen-bundesliga": 9, "gpfbl": 9, "arkema première ligue": 10,
+    "scottish premiership": 27, "trendyol süper lig": 11,
+    
+    # ★ WSL 관련 모든 변형 명칭을 1번(Barclays WSL)으로 통합
+    "barclays wsl": 1,
+    "wsl": 1,
+    "barclays-womens-super-league": 1,
+    "barclays womens super league": 1,
+    "barclays women's super league": 1,
+    "barclays women’s super league": 1,
+    "women's super league": 1,
+
+    # 기타 주요 여성 리그 변형 보강
+    "national women's soccer league": 8, "national-womens-soccer-league": 8, "nwsl": 8,
+    "google pixel frauen-bundesliga": 9, "google-pixel-frauen-bundesliga": 9, "gpfbl": 9,
+    "arkema première ligue": 10, "arkema-premiere-ligue": 10, "arkema pl": 10,
+    "liga f moeve": 6, "liga-f-moeve": 6, "liga f": 6,
     "efl championship": 19, "k league 1": 48
 }
-
 CLUB_ALIAS_MAP = {
     "ss lazio": "latium", "lazio": "latium", "inter": "lombardia fc",
     "inter milan": "lombardia fc", "ac milan": "milano fc", "milan": "milano fc",

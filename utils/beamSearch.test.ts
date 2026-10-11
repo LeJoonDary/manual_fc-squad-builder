@@ -23,7 +23,7 @@ test('CB/GK eligibility uses women leagues and flags, never height or missing da
     expect(passesNewCandidateFilter({ raw: { league_id: 6 } }, position, 0)).toBe(false);
     expect(passesNewCandidateFilter({ isWomen: true }, position, 0)).toBe(false);
   }
-  expect(passesNewCandidateFilter({ league_id: 1, isWomen: true, phy: 66 }, 'ST', 0)).toBe(true);
+  expect(passesNewCandidateFilter({ league_id: 1, isWomen: true, phy: 66, pac: 82 }, 'ST', 0)).toBe(true);
   expect(passesNewCandidateFilter({}, 'GK', 500000)).toBe(true);
 });
 
@@ -66,9 +66,9 @@ test('infeasible mono-nation pool never relaxes quotas', async () => {
   expect(isNewSelectionValid(result.squad)).toBe(true);
 });
 
-test('final score uses balanced OVR/pace and constant GK pace', () => {
+test('final score uses position meta formulas and goalkeeper overall', () => {
   const squad = slots.map((slot, i) => make(i, slot.position, i));
-  expect(calculateFinalSquadScore(squad, 33)).toBeCloseTo(11081.5);
+  expect(calculateFinalSquadScore(squad, 33)).toBeCloseTo(10890.25);
   expect(calculateFinalSquadScore(squad, 32)).toBe(-16800);
   expect(calculateFinalSquadScore(squad.map(p => ({ ...p, price: 2000 })), 33)).toBe(calculateFinalSquadScore(squad, 33));
 });
@@ -90,24 +90,24 @@ test('synergy adds 18/12/8 only once and supports locks and numeric/string IDs',
   expect(selectionSynergyBonus({} as any, [{} as any])).toBe(0);
 });
 
-test('lower OVR defensive CM wins over fast high OVR winger assigned to CM', async () => {
+test('passing and dribbling let a lower OVR midfielder beat a fast winger assigned to CM', async () => {
   const currentSquad = Object.fromEntries(slots.filter(s => s.position !== 'LCM').map((slot, i) => [slot.position,
     { card: { ...make(i, slot.position, 1), isIcon: true }, isLocked: true, isOwned: true }]));
   const winger = { ...make(100, 'LW', 1), altPositions: ['CM'], overall: 99, facePace: 99, def: 60 };
-  const midfielder = { ...make(101, 'CM', 1), overall: 82, facePace: 80, def: 70 };
+  const midfielder = { ...make(101, 'CM', 1), overall: 82, facePace: 80, def: 70, pas: 90, dri: 90 };
   const result = await generateOptimalSquad('4-3-3', { FW: [], MF: [winger, midfielder], DF: [] }, 500000, 33, false, { currentSquad });
   expect(result.success).toBe(true);
   expect(result.squad.find(p => p.slotPosition === 'LCM')?.id).toBe('101');
 });
 
-test('chemistry partner below the old top ten remains selectable', async () => {
+test('first anchor keeps meta rank one even when a lower-ranked card has better chemistry', async () => {
   const currentSquad = Object.fromEntries(slots.filter(s => s.position !== 'ST').map((slot, i) => [slot.position,
     { card: make(i, slot.position, 1), isLocked: true, isOwned: true }]));
   const isolated = Array.from({ length: 24 }, (_, i) => ({ ...make(100 + i, 'ST', 2), facePace: 99 }));
   const partner = { ...make(200, 'ST', 1), facePace: 85 };
   const result = await generateOptimalSquad('4-3-3', { FW: [...isolated, partner], MF: [], DF: [] }, 500000, 33, false, { currentSquad });
-  expect(result.success).toBe(true);
-  expect(result.squad.find(p => p.slotPosition === 'ST')?.id).toBe('200');
+  expect(result.success).toBe(false);
+  expect(result.squad.find(p => p.slotPosition === 'ST')?.id).toBe('100');
 });
 
 
@@ -220,13 +220,13 @@ test.each([[0,0],[1,38],[2,38],[3,20],[4,12],[5,0]])('diminishing synergy with %
 });
 
 test.each([[2999,0],[3000,0],[14999,0],[15000,0],[250000,0],[250001,0]])('price-neutral score at %s', (price, bonus) => {
-  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price }, 'ST', [], 1000000)).toBe(79 + bonus);
+  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price }, 'ST', [], 1000000)).toBe(81 + bonus);
 });
 
-test('budget bonus excludes Icons and low budgets; GK pace is fixed', () => {
-  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price: 700, isIcon: true }, 'ST', [], 1000000)).toBe(79);
-  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price: 700 }, 'ST', [], 499999)).toBe(74.5);
-  expect(evaluateCandidateScore({ overall: 90, facePace: 99, price: 20000 }, 'GK', [], 1000000)).toBe(135);
+test('budget and Icon status do not affect base scores; GK uses overall', () => {
+  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price: 700, isIcon: true }, 'ST', [], 1000000)).toBe(81);
+  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price: 700 }, 'ST', [], 499999)).toBe(81);
+  expect(evaluateCandidateScore({ overall: 90, facePace: 99, price: 20000 }, 'GK', [], 1000000)).toBe(90);
 });
 
 test.each([[.7499,0],[.75,0],[.95,0],[.9501,0]])('no spending bonus at %s utilization', (ratio, bonus) => {

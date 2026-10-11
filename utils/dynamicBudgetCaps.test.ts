@@ -39,7 +39,7 @@ test('keeper cap and striker pace have inclusive boundaries and normalized alias
  expect(passesNewCandidateFilter({phy:70,facePace:84},pos,500000)).toBe(true);
  expect(passesNewCandidateFilter({phy:80,attributeSprintSpeed:85},pos,500000)).toBe(true);
  expect(passesNewCandidateFilter({player_stats:[{pac:84,phy:70}]},pos,500000)).toBe(true);
- expect(passesNewCandidateFilter({phy:66,facePace:75},pos,499999)).toBe(true);
+ expect(passesNewCandidateFilter({phy:66,facePace:75},pos,499999)).toBe(false);
  }
  expect(passesNewCandidateFilter({facePace:84},'LW',100000)).toBe(true);
 });

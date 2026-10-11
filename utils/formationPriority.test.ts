@@ -14,8 +14,8 @@ test('wingless formation compresses priorities and expands the first three open 
   for (const [slot, ratio] of Object.entries(caps)) {
     const cap = getPriorityPriceCap(slot, 1000000, [], positions);
     expect(cap).toBeCloseTo(ratio * 1000000);
-    expect(passesNewCandidateFilter({ price: cap, pac: 90, phy: 70 }, slot, 1000000, [], positions)).toBe(true);
-    expect(passesNewCandidateFilter({ price: cap + 1, pac: 90, phy: 70 }, slot, 1000000, [], positions)).toBe(false);
+    expect(passesNewCandidateFilter({ price: cap, pac: 90, phy: 70, def: 70 }, slot, 1000000, [], positions)).toBe(true);
+    expect(passesNewCandidateFilter({ price: cap + 1, pac: 90, phy: 70, def: 70 }, slot, 1000000, [], positions)).toBe(false);
   }
   expect(effectivePriorityGroups(['WING','MID','ST','CB'], positions)).toEqual(['CM','ST','CB']);
   expect(getPriorityPriceCap('LCM', 1000000, ['WING','MID','ST','CB'], positions)).toBe(525000);
@@ -34,11 +34,11 @@ test.each(['ST','CF','LS','RS'])('striker %s needs physicality 70 from 500k', po
   expect(passesNewCandidateFilter({ price: 1000, pac: 90 }, pos, 500000)).toBe(false);
 });
 
-test('primary bonus uses primary DB join and assigned formation alias, never alternate positions', () => {
+test('primary and alternate positions receive identical scores in the assigned slot', () => {
   const base = { pac: 90, phy: 80, position: 'CAM', altPositions: ['ST'] };
-  expect(calculateMetaScore({ ...base, position: 'ST' }, 'LS') - calculateMetaScore(base, 'LS')).toBe(15);
+  expect(calculateMetaScore({ ...base, position: 'ST' }, 'LS') - calculateMetaScore(base, 'LS')).toBe(0);
   const joined = { ...base, card_positions: [{ is_primary: true, positions: { name: 'ST' } }] };
-  expect(calculateMetaScore({ card: joined }, 'RS') - calculateMetaScore(base, 'RS')).toBe(15);
+  expect(calculateMetaScore({ card: joined }, 'RS') - calculateMetaScore(base, 'RS')).toBe(0);
 });
 
 test('candidate query uses compressed caps and the largest open repeated-slot cap', async () => {
@@ -77,7 +77,7 @@ test('wingless 4-3-1-2 builds 33 chemistry with physical strikers and all per-sl
 
 test('second striker becomes the first open anchor with locked teammates', async () => {
   const make = (id: number, position: string, overall: number, price: number) => ({ id, player_id: id,
-    position: normalizeChemistryPosition(position), overall, price, pac: 90, phy: 70,
+    position: normalizeChemistryPosition(position), overall, price, pac: 90, phy: 70, def: 70,
     nationId: 1, leagueId: 100, clubId: 1 });
   const currentSquad = Object.fromEntries(positions.filter(p => p !== 'RS').map((pos, i) => [pos,
     { card: { ...make(i, pos, 85, 1000), isIcon: true, pac: 60, phy: 60 }, isLocked: true, isOwned: true }]));

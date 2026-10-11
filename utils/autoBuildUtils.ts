@@ -544,21 +544,12 @@ export function selectDynamicAnchor(squad: readonly GeneratedPlayer[], considerM
 }
 
 /** Null-safe in-game scoring, using the assigned slot and object/array DB joins. */
-export function calculateMetaScore(input: any, assignedPosition: string, budget = 0): number {
+export function calculateMetaScore(input: any, assignedPosition: string, _budget = 0): number {
   if (!input) return 0;
-  return calculateBaseMetaScore(input, assignedPosition, budget)
-    + calculatePlaystyleAndSkillBonus(input, assignedPosition) + primaryPositionBonus(input, assignedPosition);
+  return calculateBaseMetaScore(input, assignedPosition)
+    + calculatePlaystyleAndSkillBonus(input, assignedPosition);
 }
-function primaryPositionBonus(input: any, assignedPosition: string): number {
-  const pos = normalizeChemistryPosition(assignedPosition);
-  if (pos === 'GK') return 0;
-  const card = input.card ?? input.raw ?? input;
-  const primaryRow = (card.card_positions ?? card.positions ?? []).find((row: any) => row?.is_primary);
-  const primary = relation(primaryRow?.positions).name ?? relation(primaryRow?.position).name
-    ?? card.primary_position_str ?? card.primary_position ?? card.position;
-  return typeof primary === 'string' && normalizeChemistryPosition(primary) === pos ? 15 : 0;
-}
-function calculateBaseMetaScore(input: any, assignedPosition: string, budget: number): number {
+function calculateBaseMetaScore(input: any, assignedPosition: string): number {
   if (!input) return 0;
   const card = input.card ?? input.raw ?? input;
   const stats = relation(card.player_stats ?? card.raw?.player_stats);
@@ -571,22 +562,16 @@ function calculateBaseMetaScore(input: any, assignedPosition: string, budget: nu
     return fallback;
   };
   const ovr = read(['overall'], 80), pac = read(['facePace','pac','pace','attributeSprintSpeed'], 70);
-  const sho = read(['faceShooting','sho','shooting'],60), pas = read(['facePassing','pas','passing'],60), dri = read(['faceDribbling','dri','dribbling'],70);
-  const def = read(['def','faceDefending','defending'],60), phy = read(['facePhysicality','phy','physicality'],60);
-  const fin = read(['finishing'], sho), comp = read(['composure'], sho);
-  const agil = read(['agility','movement_agility'],dri), bal = read(['balance','movement_balance'],dri);
-  const type = String(card.card_type ?? card.cardType ?? card.raw?.card_type ?? '').toLowerCase();
-  const special = type && type !== 'gold_rare' ? 30 : 0;
+  const sho = read(['faceShooting','sho','shooting'],70), pas = read(['facePassing','pas','passing'],70), dri = read(['faceDribbling','dri','dribbling'],70);
+  const def = read(['faceDefending','def','defending'],70), phy = read(['facePhysicality','phy','physicality'],70);
   const pos = normalizeChemistryPosition(assignedPosition);
-  if (pos === 'GK') return ovr * 1.5 + special;
-  if (['ST','CF'].includes(pos)) return ovr*(budget >= 500000 ? .25 : .15) + pac*(budget >= 500000 ? .35 : .40) + sho*.25 + dri*.10 + phy*.05 + special;
-  if (pos === 'CAM') return ovr*.20 + pac*.30 + (agil+bal)/2*.20 + pas*.15 + (fin+comp)/2*.15 + special;
-  if (['LM','RM','LW','RW'].includes(pos)) return ovr*.15 + pac*.40 + dri*.20 + sho*.15 + pas*.10 + special;
-  if (['CM','CDM'].includes(pos)) return ovr*.15 + pac*.35 + (pac+sho+pas+dri+def+phy)/6*.25 + pas*.15 + phy*.10 + special
-    - (pos === 'CM' && def < 70 ? 250 : pos === 'CDM' && def < 75 ? 300 : 0);
-  if (pos === 'CB') return ovr*.15 + def*.40 + phy*.25 + pac*.20 + special;
-  if (['LB','RB','LWB','RWB'].includes(pos)) return ovr*.15 + pac*.40 + def*.25 + phy*.20 + special;
-  return ovr;
+  if (pos === 'GK') return ovr;
+  if (['ST','CF'].includes(pos)) return ovr*.20 + pac*.35 + sho*.25 + dri*.15 + pas*.05;
+  if (['LB','RB','LWB','RWB'].includes(pos)) return ovr*.15 + pac*.40 + def*.25 + phy*.20;
+  if (['CM','CDM'].includes(pos)) return ovr*.15 + pas*.25 + dri*.25 + def*.15 + pac*.10 + phy*.10;
+  if (pos === 'CB') return ovr*.10 + def*.35 + pac*.25 + phy*.25 + pas*.05;
+  if (pos === 'CAM') return ovr*.15 + pas*.25 + dri*.25 + sho*.20 + pac*.15;
+  return ovr*.15 + pac*.40 + dri*.25 + sho*.10 + pas*.10;
 }
 
 /** Price affects affordability only, never a candidate's performance score. */
@@ -681,8 +666,14 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
   const pace = calculatePlayerStrength(sourceCard, 'ST') / 1.2;
   const price = Number(sourceCard.price ?? 0);
   if (price > getPriorityPriceCap(position, budget, keyPositions, formationPositions, context)) return false;
-  if (['LB', 'RB', 'LWB', 'RWB'].includes(pos) && pace < 82) return false;
-  if (budget >= 300000 && ['CM', 'CDM', 'CB'].includes(pos) && pace < 70) return false;
+  if (['ST', 'CF', 'LB', 'RB', 'LWB', 'RWB'].includes(pos) && pace < 82) return false;
+  if (pos === 'CB' && pace < 70) return false;
+  if (['CM', 'CDM'].includes(pos)) {
+    const stats = relation(sourceCard.player_stats);
+    const defending = [sourceCard.faceDefending, sourceCard.def, sourceCard.stats?.def, sourceCard.face_stats?.def, stats.def]
+      .find(value => value != null && value !== '' && Number.isFinite(Number(value)));
+    if (Number(defending ?? 60) < 70 || (budget >= 300000 && pace < 70)) return false;
+  }
   if (['ST', 'CF', 'LB', 'RB', 'LWB', 'RWB'].includes(pos)) {
     const stats = relation(sourceCard.player_stats);
     const physicality = [sourceCard.facePhysicality, sourceCard.phy, sourceCard.face_stats?.phy, stats.phy]
@@ -899,8 +890,7 @@ export async function generateOptimalSquad(
       }
     }
     const sorted = [...unique.values()].sort((a, b) =>
-      (normalizeChemistryPosition(position) === 'GK' ? Number(b.card.overall) - Number(a.card.overall)
-        : b.metaScore - a.metaScore)
+      b.metaScore - a.metaScore
       || a.price - b.price || a.id.localeCompare(b.id));
     const filtered = sorted.filter(p => passesNewCandidateFilter(p.card, position, totalBudget, options.keyPositions, formationPositions,
       { anchorStepIndex: selectionOrder.indexOf(position) }));
@@ -965,6 +955,8 @@ export async function generateOptimalSquad(
           { anchorStepIndex: depth, remainingBudget: spendingLimit - state.cost, remainingSlotsCount: order.length - depth });
         const eligible = getDynamicCandidatesForSlot(layout.slots[index].position, occupied, pools[index], Math.min(slotCap, spendingLimit - state.cost),
           anchor, stage.limit, stageIndex === 1 ? coreLeagueFor(occupied) : null);
+        // The first open priority slot chooses pure meta rank, independent of links.
+        if (depth === 0) eligible.sort((a, b) => b.metaScore - a.metaScore || a.price - b.price || a.id.localeCompare(b.id));
         for (const candidate of eligible) {
           if (performance.now() >= searchDeadline - 50) { pruned = true; break search; }
           iterations++;
@@ -992,6 +984,7 @@ export async function generateOptimalSquad(
             const result = evaluate(trial);
             if (!bestComplete || choose(result, bestComplete)) bestComplete = result;
           } else next.push(trial);
+          if (depth === 0) break; // Commit the highest-ranked feasible anchor.
         }
 
       }
@@ -1015,7 +1008,7 @@ export async function generateOptimalSquad(
     if (bestComplete && [31, 32].includes(bestComplete.totalChemistry)) {
       const baseline = bestComplete;
       const chemistry = calculateSquadChemistry(baseline.squad, considerManager);
-      repair: for (const index of order) {
+      repair: for (const index of order.slice(1)) {
         const position = layout.slots[index].position;
         const incumbent = baseline.squad.find(p => p.slotPosition === position)!;
         if ((chemistry.playerChemMap[incumbent.id] ?? 0) >= 3) continue;

@@ -14,41 +14,40 @@ test.each([
  expect(getPlaystyleTier(card, 7)).toBe(tier);
 });
 const cases = [
- ['ST',38,30,15], ['CF',37,30,15], ['LW',7,30,15], ['CAM',2,24,0], ['ST',3,24,0],
- ['ST',1,25,12], ['RW',6,25,12], ['CAM',1,0,0],
- ['CM',17,28,14], ['CDM',4,28,14], ['CAM',12,28,14], ['CM',27,16,8],
- ['CM',3,16,8], ['CAM',3,40,8], ['CB',8,38,18], ['LCB',24,20,10], ['RCB',10,20,10],
- ['LB',10,20,10], ['RWB',1,20,10], ['GK',33,20,10], ['GK',31,20,10],
+ ['ST',38,4,2], ['CF',37,4,2], ['ST',7,4,2], ['ST',2,3.5,0], ['ST',3,0,0],
+ ['ST',1,3.5,1.8], ['ST',6,3.5,1.8], ['ST',27,3,1.5], ['ST',4,3,1.5], ['ST',17,3,1.5],
+ ['CAM',4,4,2], ['CAM',17,4,2], ['CAM',7,3.5,1.8], ['CAM',27,3.5,1.8], ['CAM',2,3.5,1.8],
+ ['CM',17,4,2], ['CDM',4,4,2], ['CM',7,3.5,1.8], ['CM',27,3.5,1.8], ['CM',9,2,1], ['CDM',8,2,1],
+ ['CB',8,4,2], ['LCB',24,3.5,1.8], ['RCB',10,3.5,1.8], ['CB',9,3,1.5],
+ ['LB',10,3,1.5], ['RWB',1,3.5,1.8], ['RB',6,3.5,1.8], ['LWB',9,3,1.5], ['LB',8,3,1.5], ['GK',33,3,1.5], ['GK',31,3,1.5],
+ ['ST',5,0,0], ['CM',12,0,0], ['CM',3,0,0], ['CB',11,0,0], ['CAM',1,0,0],
 ] as const;
 test.each(cases)('%s playstyle %s gold=%s silver=%s', (pos, id, gold, silver) => {
  expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [id] }, pos)).toBe(gold);
  expect(calculatePlaystyleAndSkillBonus({ playstyles: [id] }, pos)).toBe(silver);
  expect(calculatePlaystyleAndSkillBonus({ playstyles: [id,id], playstylesPlus: [id,id], card_playstyles: [{ playstyle_id: id, is_plus: true }] }, pos)).toBe(gold);
 });
-test('stars use attacker-only weights, neutral missing data and normalized aliases', () => {
- expect(calculatePlaystyleAndSkillBonus({ wf: 5, sm: 5 }, 'LS')).toBe(24);
- expect(calculatePlaystyleAndSkillBonus({ wf: '4', sm: '4' }, 'CAM')).toBe(12);
- expect(calculatePlaystyleAndSkillBonus({ wf: 2, sm: 3 }, 'LW')).toBe(-10);
- expect(calculatePlaystyleAndSkillBonus({ wf: 5, sm: 5 }, 'CM')).toBe(0);
+test('stars use precise weights, neutral missing data and normalized aliases', () => {
+ expect(calculatePlaystyleAndSkillBonus({ wf: 5, sm: 5 }, 'LS')).toBe(8.5);
+ expect(calculatePlaystyleAndSkillBonus({ wf: '4', sm: '4' }, 'CAM')).toBe(4.3);
+ expect(calculatePlaystyleAndSkillBonus({ wf: 2, sm: 3 }, 'LW')).toBe(0);
+ expect(calculatePlaystyleAndSkillBonus({ wf: 5, sm: 5 }, 'CM')).toBe(8.5);
  expect(calculatePlaystyleAndSkillBonus({}, 'ST')).toBe(0);
 });
-test.each(['ST','CAM','CM','CDM','LW','GK'])('silver power shot receives midfield weight at %s', pos => {
- expect(calculatePlaystyleAndSkillBonus({ playstyles: [2,3] }, pos)).toBe(['CAM','CM','CDM'].includes(pos) ? 8 : 0);
+test.each(['ST','CAM','CM','CDM','LW','GK'])('only CAM receives silver finesse weight at %s', pos => {
+ expect(calculatePlaystyleAndSkillBonus({ playstyles: [2,3] }, pos)).toBe(pos === 'CAM' ? 1.8 : 0);
 });
 
 const base = { overall: 90, pac: 90, sho: 90, pas: 90, dri: 90, def: 90, phy: 90, card_type: 'gold_rare' };
-test('meta score uses tier weights once and fully stacks bonuses beyond 135', () => {
- expect(calculateMetaScore({ ...base, playstyles: [7] }, 'ST')).toBe(100.5);
- expect(calculateMetaScore({ ...base, playstylesPlus: [7] }, 'ST')).toBe(115.5);
- expect(calculateMetaScore({ ...base, playstyles: [2,3] }, 'ST')).toBe(calculateMetaScore(base, 'ST'));
- const overloaded = { ...base, sm: 5, wf: 5, playstylesPlus: [1,2,3,4,6,7,8,10,12,17,24,27,31,33,37,38], card_type: 'promo' };
- for (const pos of ['ST','CAM','CM','CDM','CB','LB','GK']) expect(calculateMetaScore(overloaded, pos)).toBeGreaterThan(135);
- // Base 120 + stars 24 + attack traits 138 + midfield traits 116.
- expect(calculateMetaScore(overloaded, 'CAM')).toBe(398);
- expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [37,38,7] }, 'ST')).toBe(90);
- expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [17,4,12,27], playstyles: [17,4,12,27] }, 'CM')).toBe(100);
- expect(calculateMetaScore({ ...base, overall: 80, pac: 80, sho: 80, dri: 80, phy: 80, playstyles: [2,3] }, 'ST')).toBeLessThan(calculateMetaScore(base, 'ST'));
+test('meta scores stack the exact bonuses once, including goalkeeper traits', () => {
+ expect(calculateMetaScore({ ...base, playstyles: [7] }, 'ST')).toBe(92);
+ expect(calculateMetaScore({ ...base, playstylesPlus: [7] }, 'ST')).toBe(94);
+ expect(calculateMetaScore({ ...base, playstylesPlus: [33,31] }, 'GK')).toBe(96);
+ expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [37,38,7] }, 'ST')).toBe(12);
+ expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [17,4,12,27], playstyles: [17,4,12,27] }, 'CM')).toBe(11.5);
+ expect(calculatePlaystyleAndSkillBonus({ weak_foot: 5, skill_moves: 4, playstyles: [{ name: 'Tiki-Taka', isPlus: true }] }, 'CM')).toBe(10.3);
 });
+
 test('CAM pace cut starts at 300k and accepts 79 including formation aliases', () => {
  for (const pos of ['CAM','LAM','RAM']) {
   expect(passesNewCandidateFilter({ pac: 78 }, pos, 299999)).toBe(true);

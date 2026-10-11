@@ -30,12 +30,12 @@ test.each(['LB','RB','LWB','RWB'])('%s uses physicality 20%, no passing, and PHY
   }
 });
 
-test('striker budget weights reach the solver and score both raw and normalized face stats', () => {
-  const card = { overall: 90, pac: 90, sho: 90, dri: 90, phy: 90 };
-  expect(calculateMetaScore(card, 'ST', 499999)).toBeCloseTo(85.5);
+test('striker weights are budget independent and support raw and normalized face stats', () => {
+  const card = { overall: 90, pac: 90, sho: 90, pas: 90, dri: 90, phy: 90 };
+  expect(calculateMetaScore(card, 'ST', 499999)).toBeCloseTo(90);
   expect(calculateMetaScore(card, 'CF', 500000)).toBeCloseTo(90);
   expect(evaluateCandidateScore(card, 'ST', [], 500000)).toBeCloseTo(90);
-  expect(calculateMetaScore({ overall: 90, facePace: 90, faceShooting: 90, faceDribbling: 90, facePhysicality: 90 }, 'ST', 500000)).toBeCloseTo(90);
+  expect(calculateMetaScore({ overall: 90, facePace: 90, faceShooting: 90, facePassing: 90, faceDribbling: 90, facePhysicality: 90 }, 'ST', 500000)).toBeCloseTo(90);
   expect(passesNewCandidateFilter({ pac: 70, price: 1000 }, 'CB', 1000000)).toBe(true);
 });
 
@@ -54,7 +54,7 @@ test('high-performance 500k striker is eligible as the first open anchor, withou
     pac: 90, sho: overall, dri: overall, phy: 80, def: 80, nationId: 1, leagueId: 100, clubId: 1 });
   const currentSquad = Object.fromEntries(slots.filter(s => s.position !== 'ST').map((s, i) =>
     [s.position, { card: { ...make(i, s.position, 85, 1000), isIcon: true }, isLocked: true, isOwned: true }]));
-  const result = await generateOptimalSquad('4-3-3', { FW: [make(100, 'ST', 85, 750), make(101, 'ST', 95, 500000)], MF: [], DF: [] },
+  const result = await generateOptimalSquad('4-3-3', { FW: [{ ...make(102, 'ST', 99, 750), pac: 62 }, make(100, 'ST', 85, 750), make(101, 'ST', 95, 500000)], MF: [], DF: [] },
     1000000, 33, false, { currentSquad });
   expect(result.success).toBe(true);
   expect(result.squad.find(p => p.slotPosition === 'ST')?.id).toBe('101');
@@ -70,4 +70,18 @@ test('full-squad cap recheck catches a late slot exceeding its remaining-budget 
   expect(fitsAnchorBudgetCaps(squad as any, 1000000)).toBe(false);
   squad[3].price = 30000;
   expect(fitsAnchorBudgetCaps(squad as any, 1000000)).toBe(true);
+});
+
+// All acquisition paths use this filter, including replacements and fallback passes.
+test.each(['ST', 'CF', 'LS', 'RS'])('%s enforces pace 82 at every budget and retains physicality cutoffs', pos => {
+  for (const budget of [0, 200000, 300000, 499999, 500000, 1000000]) {
+    for (const pace of [62, 81, 82]) for (const phy of [65, 66, 69, 70]) {
+      for (const stats of [{ pace }, { pac: pace }, { facePace: pace, pac: 99 }, { player_stats: [{ pac: pace }] }]) {
+        const card = { price: 1000, phy, ...stats };
+        for (const input of [card, { card }, { raw: card }]) {
+          expect(passesNewCandidateFilter(input, pos, budget)).toBe(pace >= 82 && phy >= (budget >= 500000 ? 70 : 66));
+        }
+      }
+    }
+  }
 });
