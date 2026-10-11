@@ -23,13 +23,13 @@ test('CB/GK eligibility uses women leagues and flags, never height or missing da
     expect(passesNewCandidateFilter({ raw: { league_id: 6 } }, position, 0)).toBe(false);
     expect(passesNewCandidateFilter({ isWomen: true }, position, 0)).toBe(false);
   }
-  expect(passesNewCandidateFilter({ league_id: 1, isWomen: true }, 'ST', 0)).toBe(true);
+  expect(passesNewCandidateFilter({ league_id: 1, isWomen: true, phy: 66 }, 'ST', 0)).toBe(true);
   expect(passesNewCandidateFilter({}, 'GK', 500000)).toBe(true);
 });
 
 const slots = FORMATIONS.find(f => f.name === '4-3-3')!.slots;
 const make = (id: number, position: string, i: number) => ({ id, player_id: id, position,
-  overall: 85, def: 80, facePace: 90, height: 190, price: 1000,
+  overall: 85, def: 80, phy: 80, facePace: 90, height: 190, price: 1000,
   nationId: i % 3, leagueId: 100 + i % 3, clubId: i % 3 });
 
 test('bounded search builds 33 chemistry under 500ms from 1320 candidates', async () => {
@@ -68,7 +68,7 @@ test('infeasible mono-nation pool never relaxes quotas', async () => {
 
 test('final score uses balanced OVR/pace and constant GK pace', () => {
   const squad = slots.map((slot, i) => make(i, slot.position, i));
-  expect(calculateFinalSquadScore(squad, 33)).toBe(10912.75);
+  expect(calculateFinalSquadScore(squad, 33)).toBeCloseTo(11081.5);
   expect(calculateFinalSquadScore(squad, 32)).toBe(-16800);
   expect(calculateFinalSquadScore(squad.map(p => ({ ...p, price: 2000 })), 33)).toBe(calculateFinalSquadScore(squad, 33));
 });
@@ -85,8 +85,8 @@ test('OVR never increases strength; joined defending and pace aliases work', () 
   expect(calculatePlayerStrength({ attributeSprintSpeed: 80, faceDefending: 70 }, 'CM')).toBe(96);
 });
 
-test('synergy adds 40 only once and supports locks and numeric/string IDs', () => {
-  expect(selectionSynergyBonus({ nationId: 1, leagueId: 2, clubId: 3 } as any, [{ nationId: '1', leagueId: 2, clubId: 3 } as any])).toBe(40);
+test('synergy adds 18/12/8 only once and supports locks and numeric/string IDs', () => {
+  expect(selectionSynergyBonus({ nationId: 1, leagueId: 2, clubId: 3 } as any, [{ nationId: '1', leagueId: 2, clubId: 3 } as any])).toBe(38);
   expect(selectionSynergyBonus({} as any, [{} as any])).toBe(0);
 });
 
@@ -190,7 +190,7 @@ test('anchor order preserves every formation slot, with attackers first and GK l
 
 test('anchor synergy rewards thresholds rather than each teammate', () => {
   const card = { clubId: 1, leagueId: 100, nationId: 2 } as any;
-  expect(anchorSynergyScore(card, [card, { clubId: 3, leagueId: '100', nationId: '2' } as any])).toBe(145);
+  expect(anchorSynergyScore(card, [card, { clubId: 3, leagueId: '100', nationId: '2' } as any])).toBe(38);
   expect(anchorSynergyScore({} as any, [{} as any])).toBe(0);
 });
 
@@ -207,35 +207,35 @@ test('dynamic synergy promotes a partner beyond the old static top thirty', () =
   const prepared = (id, leagueId, metaScore) => ({ id: String(id), playerKey: String(id), leagueId,
     nationId: id, clubId: id, price: 1000, metaScore, card: { overall: 85 } });
   const anchor = prepared(1, 100, 90);
-  const pool = Array.from({ length: 60 }, (_, i) => prepared(100 + i, 200, 99));
-  const partner = { ...prepared(200, 100, 80), clubId: anchor.clubId };
-  expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)[0].id).toBe('200');
-  expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)).toHaveLength(50);
+  const pool = Array.from({ length: 110 }, (_, i) => prepared(100 + i, 200, 99));
+  const partner = { ...prepared(300, 100, 80), clubId: anchor.clubId };
+  expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)[0].id).toBe('300');
+  expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)).toHaveLength(100);
 });
 
 
-test.each([[0,0],[1,140],[2,25],[3,60],[4,15],[5,0]])('diminishing synergy with %s existing identical affiliations', (count, expected) => {
+test.each([[0,0],[1,38],[2,38],[3,20],[4,12],[5,0]])('diminishing synergy with %s existing identical affiliations', (count, expected) => {
   const card = { clubId: 1, leagueId: 100, nationId: 1 } as any;
   expect(anchorSynergyScore(card, Array.from({ length: count }, () => card))).toBe(expected);
 });
 
-test.each([[2999,-40],[3000,0],[14999,0],[15000,50],[250000,50],[250001,50]])('million-coin card bonus boundary %s', (price, bonus) => {
-  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price }, 'ST', [], 1000000)).toBe(78 + bonus);
+test.each([[2999,0],[3000,0],[14999,0],[15000,0],[250000,0],[250001,0]])('price-neutral score at %s', (price, bonus) => {
+  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price }, 'ST', [], 1000000)).toBe(79 + bonus);
 });
 
 test('budget bonus excludes Icons and low budgets; GK pace is fixed', () => {
-  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price: 700, isIcon: true }, 'ST', [], 1000000)).toBe(78);
-  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price: 700 }, 'ST', [], 499999)).toBe(78);
-  expect(evaluateCandidateScore({ overall: 90, facePace: 99, price: 20000 }, 'GK', [], 1000000)).toBe(185);
+  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price: 700, isIcon: true }, 'ST', [], 1000000)).toBe(79);
+  expect(evaluateCandidateScore({ overall: 90, facePace: 90, price: 700 }, 'ST', [], 499999)).toBe(74.5);
+  expect(evaluateCandidateScore({ overall: 90, facePace: 99, price: 20000 }, 'GK', [], 1000000)).toBe(135);
 });
 
-test.each([[.7499,0],[.75,250],[.95,250],[.9501,250]])('spending bonus at %s utilization', (ratio, bonus) => {
+test.each([[.7499,0],[.75,0],[.95,0],[.9501,0]])('no spending bonus at %s utilization', (ratio, bonus) => {
   const squad = slots.map((slot, i) => ({ ...make(i, slot.position, i), price: Math.floor(1000000 * ratio / 11) + (i === 0 ? Math.round(1000000 * ratio) % 11 : 0) }));
   const base = squad.reduce((sum, p) => sum + evaluateCandidateScore(p, p.position, [], 1000000), 10000);
   expect(calculateFinalSquadScore(squad, 33, 1000000)).toBeCloseTo(base + bonus);
 });
 
-test('premium candidates beat equivalent 750-coin cards at high budget', async () => {
+test('equivalent 750-coin cards remain selected at high budget', async () => {
   const groups = { FW: [], MF: [], DF: [] } as Record<string, any[]>;
   slots.forEach((slot, i) => groups[getPositionBudgetGroup(slot.position, false)].push(
     { ...make(i, slot.position, i), price: 750 }, { ...make(100+i, slot.position, i), price: 70000 }));
@@ -243,7 +243,7 @@ test('premium candidates beat equivalent 750-coin cards at high budget', async (
   expect(result.success).toBe(true);
   expect(result.totalChemistry).toBe(33);
   expect(isStrictSelectionValid(result.squad)).toBe(true);
-  expect(result.totalCost).toBe(770000);
+  expect(result.totalCost).toBe(8250);
 });
 
 
@@ -258,6 +258,11 @@ test('only a strict 32-chemistry baseline can use a one-slot relaxed rescue', as
   };
   const original = await generateOptimalSquad('4-3-3', group(rows), 1000000, 33, true);
   expect(original.totalChemistry).toBe(32);
+  expect(original.success).toBe(false);
+  expect(original.status).toBe('chemistry_unmet');
+  const explicit32 = await generateOptimalSquad('4-3-3', group(rows), 1000000, 32, true);
+  expect(explicit32.success).toBe(true);
+  expect(explicit32.minChemistryTarget).toBe(32);
   expect(isStrictSelectionValid(original.squad)).toBe(true);
   const rescue = { ...rows[2], id: 100, player_id: 100, leagueId: 100, clubId: 0 };
   const result = await generateOptimalSquad('4-3-3', group([...rows, rescue]), 1000000, 33, true);

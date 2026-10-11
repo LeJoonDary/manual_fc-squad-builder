@@ -7,7 +7,7 @@ test('priorities group canonical slots, deduplicate choices and preserve input',
  expect(slots[0].position).toBe('GK');
 });
 const slots=FORMATIONS.find(f=>f.name==='4-3-3')!.slots;
-const card=(id,position,overall=90,price=1000)=>({id,player_id:id,position,overall,price,facePace:99,def:80,nationId:1,leagueId:100,clubId:1});
+const card=(id,position,overall=90,price=1000)=>({id,player_id:id,position,overall,price,phy:80,facePace:99,def:80,nationId:1,leagueId:100,clubId:1});
 test('higher OVR but worse meta cards do not replace stronger incumbents',async()=>{
  const locked=Object.fromEntries(slots.filter(s=>!['LW','ST','RW'].includes(s.position)).map((s,i)=>[s.position,{card:{...card(i,s.position),isIcon:true},isLocked:true,isOwned:true}]));
  const rows=['LW','ST','RW'].flatMap((pos,i)=>[card(100+i,pos,82,1000),{...card(200+i,pos,85,20000),facePace:70}]);
@@ -29,8 +29,8 @@ test('upgrade cannot exceed budget or replace locked low-tier cards',async()=>{
 
 test('post-pass replaces a higher OVR incumbent only when in-game meta improves', async()=>{
  const locked=Object.fromEntries(slots.filter(s=>s.position!=='ST').map((s,i)=>[s.position,{card:{...card(i,s.position),isIcon:i!==0},isLocked:true,isOwned:true}]));
- const incumbent={...card(100,'ST',90,1000),finishing:60,composure:60};
- const upgrade={...card(200,'ST',85,20000),clubId:9,finishing:99,composure:99};
+ const incumbent={...card(100,'ST',90,1000),sho:60,dri:60};
+ const upgrade={...card(200,'ST',85,20000),clubId:9,sho:99,dri:99};
  const result=await generateOptimalSquad('4-3-3',{FW:[incumbent,upgrade],MF:[],DF:[]},100000,33,false,{currentSquad:locked});
  expect(result.success).toBe(true);
  expect(result.squad.find(p=>p.slotPosition==='ST')?.id).toBe('200');

@@ -14,7 +14,10 @@ export function priorityGroup(position) {
 }
 
 export const DEFAULT_PRIORITY_GROUPS = ['ST', 'CAM', 'WIDE', 'CB', 'CM', 'FB', 'GK'];
-export function effectivePriorityGroups(selected = []) {
+export function effectivePriorityGroups(selected = [], positions) {
  const normalized = [...new Set(selected.map(priorityGroup))].filter(group => DEFAULT_PRIORITY_GROUPS.includes(group));
- return normalized.length ? normalized : [...DEFAULT_PRIORITY_GROUPS];
+ if (!positions) return normalized.length ? normalized : [...DEFAULT_PRIORITY_GROUPS];
+ const present = new Set(positions.map(priorityGroup));
+ const defaults = present.has('WIDE') ? DEFAULT_PRIORITY_GROUPS : ['ST', 'CAM', 'CM', 'CB', 'FB', 'GK'];
+ return (normalized.length ? normalized : defaults).filter(group => present.has(group));
 }

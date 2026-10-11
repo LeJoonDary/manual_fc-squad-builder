@@ -39,7 +39,7 @@ HEADERS = {
 }
 
 # -------------------------------------------------------------
-# EA 고유 ID -> 우리 DB ID 1:1 직결 매핑 사전
+# EA 고유 ID -> 우리 DB ID 1:1 직결 매핑 사전 (보존)
 # -------------------------------------------------------------
 EA_POS_MAP = {
     0: ("GK", 10), 2: ("RWB", 15), 3: ("RB", 9), 5: ("CB", 8),
@@ -101,6 +101,12 @@ DETAIL_KEYS = {
     "stamina": "attributeStamina",
     "strength": "attributeStrength",
     "aggression": "attributeAggression",
+    # ★ 골키퍼 5대 서브 스탯 추가
+    "gk_diving": "attributeGkDiving",
+    "gk_handling": "attributeGkHandling",
+    "gk_kicking": "attributeGkKicking",
+    "gk_reflexes": "attributeGkReflexes",
+    "gk_positioning": "attributeGkPositioning",
 }
 
 LEAGUE_ALIAS_MAP = {
@@ -195,7 +201,6 @@ def get_or_create_club(name, league_id=None):
         return None
 
 def extract_player_urls_from_squad(squad_url):
-    """스쿼드/프로모 페이지에서 15개 이상의 선수 카드 URL 추출"""
     clean_url = squad_url.strip()
     print(f"▶ 프로모 스쿼드 페이지 로드 중: {clean_url}")
     resp = requests.get(clean_url, headers=HEADERS, timeout=15)
@@ -205,8 +210,6 @@ def extract_player_urls_from_squad(squad_url):
 
     soup = BeautifulSoup(resp.text, "html.parser")
     found_urls = []
-    
-    # 카드 링크 패턴 탐색 (/players/{id}-{slug}/27-{api_id}/)
     for a in soup.find_all("a", href=True):
         m = re.search(r"/players/(\d+-[^/]+/27-\d+)/?", a["href"])
         if m:
@@ -349,7 +352,6 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
     league_name = card.get("league", {}).get("name") if isinstance(card.get("league"), dict) else get_info("League")
     club_name = card.get("club", {}).get("name") if isinstance(card.get("club"), dict) else get_info("Club")
 
-    # 1. Body Type 정밀 추출 (고유 체형 Erling Haaland 등 유지)
     body_type = None
     m_body = re.search(r"Body\s*Type\s*\n+\s*([^\n]+)", info_text, re.IGNORECASE)
     if m_body:
@@ -359,7 +361,6 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
     if not body_type:
         body_type = get_info("Body Type") or "Average Medium"
 
-    # 2. AcceleRATE 7대 공식 유형 정밀 추출
     accele_patterns = (
         r"AcceleRATE\s*[:\n\s]*"
         r"(Mostly\s+Explosive|Controlled\s+Explosive|Explosive|"
@@ -372,7 +373,6 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
         m_acc_info = re.search(r"AcceleRATE\s*\n+\s*([^\n]+)", info_text, re.IGNORECASE)
         accele_type = m_acc_info.group(1).strip() if m_acc_info else "Controlled"
 
-    # 키 & 몸무게
     height = 180
     m_h = re.search(r"(\d{3})\s*cm", info_text)
     if m_h: height = int(m_h.group(1))
@@ -391,7 +391,6 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
 
     version, background_url, card_type = detect_version_info(soup, card, custom_version, custom_bg, custom_type)
 
-    # 포지션 매핑
     if "position" in card and card["position"] in EA_POS_MAP:
         primary_pos_str, primary_pid = EA_POS_MAP[card["position"]]
     else:
@@ -409,7 +408,6 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
             if pid != primary_pid and pid not in sec_pos_ids:
                 sec_pos_ids.append(pid)
 
-    # 롤스 매핑
     role_values = {}
     for field, level in (("rolesPlus", 1), ("rolesPlusPlus", 2)):
         for raw in owned_ids(card, field):
@@ -419,7 +417,6 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
                 role_values[rid] = max(level, role_values.get(rid, 0))
     roles_list = [{"role_id": rid, "level": level} for rid, level in role_values.items()]
 
-    # 특성 매핑
     style_values = {}
     for fields, plus in ((("playStyleEaIds", "playstyles"), False), (("playStylePlusEaIds", "playstylesPlus"), True)):
         for raw in owned_ids(card, *fields):
@@ -428,21 +425,47 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
                 style_values[sid] = plus or style_values.get(sid, False)
     playstyles_list = [{"playstyle_id": sid, "is_plus": plus} for sid, plus in style_values.items()]
 
-    # 6대 페이스 스탯
-    face_stats = {
-        "pac": int(card.get("facePace") or card.get("gkFaceDiving") or 0),
-        "sho": int(card.get("faceShooting") or card.get("gkFaceHandling") or 0),
-        "pas": int(card.get("facePassing") or card.get("gkFaceKicking") or 0),
-        "dri": int(card.get("faceDribbling") or card.get("gkFaceReflexes") or 0),
-        "def": int(card.get("faceDefending") or card.get("gkFaceSpeed") or 0),
-        "phy": int(card.get("facePhysicality") or card.get("gkFacePositioning") or 0),
-    }
+    # ★ 4. 페이스 6대 스탯 (골키퍼 공식 gkFaceSpeed 자동 감지)
+    is_gk = primary_pos_str == "GK"
+    if is_gk:
+        raw_spd = card.get("gkFaceSpeed")
+        if raw_spd is not None and int(raw_spd) > 0:
+            final_spd = int(raw_spd)
+        else:
+            final_spd = int(card.get("faceDefending") or card.get("attributeSprintSpeed") or 0)
 
-    # 29대 세부 스탯
+        face_stats = {
+            "pac": int(card.get("gkFaceDiving") or card.get("attributeGkDiving") or 0),
+            "sho": int(card.get("gkFaceHandling") or card.get("attributeGkHandling") or 0),
+            "pas": int(card.get("gkFaceKicking") or card.get("attributeGkKicking") or 0),
+            "dri": int(card.get("gkFaceReflexes") or card.get("attributeGkReflexes") or 0),
+            "def": final_spd,
+            "phy": int(card.get("gkFacePositioning") or card.get("attributeGkPositioning") or 0),
+        }
+    else:
+        face_stats = {
+            "pac": int(card.get("facePace") or 0),
+            "sho": int(card.get("faceShooting") or 0),
+            "pas": int(card.get("facePassing") or 0),
+            "dri": int(card.get("faceDribbling") or 0),
+            "def": int(card.get("faceDefending") or 0),
+            "phy": int(card.get("facePhysicality") or 0),
+        }
+
+    # ★ 5. 세부 스탯 파싱 및 골키퍼 동기화
     detail_stats = {}
     for db_k, pdef_k in DETAIL_KEYS.items():
         if pdef_k in card and card[pdef_k] is not None:
             detail_stats[db_k] = int(card[pdef_k])
+
+    if is_gk:
+        detail_stats["sprint_speed"] = face_stats["def"]
+        detail_stats["acceleration"] = face_stats["def"]
+        detail_stats["gk_diving"] = face_stats["pac"]
+        detail_stats["gk_handling"] = face_stats["sho"]
+        detail_stats["gk_kicking"] = face_stats["pas"]
+        detail_stats["gk_reflexes"] = face_stats["dri"]
+        detail_stats["gk_positioning"] = face_stats["phy"]
 
     if "def_awareness" in detail_stats: detail_stats["defensive_awareness"] = detail_stats["def_awareness"]
     if "fk_accuracy" in detail_stats: detail_stats["free_kick_accuracy"] = detail_stats["fk_accuracy"]
@@ -483,12 +506,10 @@ def save_to_supabase(data):
     card_api_id = data["api_id"]
     name = data["name"]
 
-    # 1. 소속 엔티티 연동
     league_id = get_or_create_league(data.get("league_name"))
     nation_id = get_or_create_nation(data.get("nation_name"))
     club_id = get_or_create_club(data.get("club_name"), league_id=league_id)
 
-    # 2. players 마스터 갱신
     player_cols = get_table_columns("players")
     player_payload = {"id": p_id, "name": name}
     if nation_id and "nation_id" in player_cols: player_payload["nation_id"] = nation_id
@@ -503,7 +524,6 @@ def save_to_supabase(data):
     else:
         supabase.table("players").insert(player_payload).execute()
 
-    # 3. card_versions 메인 적재 (Body Type & AcceleRATE 온전 반영)
     cv_cols = get_table_columns("card_versions")
     cv_payload = {
         "player_id": p_id,
@@ -538,7 +558,6 @@ def save_to_supabase(data):
     if not card_id:
         return
 
-    # 4. 포지션 적재
     cp_cols = get_table_columns("card_positions")
     cp_fk = "card_id" if "card_id" in cp_cols else "card_version_id"
     supabase.table("card_positions").delete().eq(cp_fk, card_id).execute()
@@ -547,7 +566,6 @@ def save_to_supabase(data):
         pos_batch.append({cp_fk: card_id, "position_id": sec_pid, "is_primary": False})
     supabase.table("card_positions").insert(pos_batch).execute()
 
-    # 5. 롤스 적재
     cr_cols = get_table_columns("card_roles")
     cr_fk = "card_id" if "card_id" in cr_cols else "card_version_id"
     supabase.table("card_roles").delete().eq(cr_fk, card_id).execute()
@@ -560,7 +578,6 @@ def save_to_supabase(data):
             role_batch.append(row)
         supabase.table("card_roles").insert(role_batch).execute()
 
-    # 6. 특성 적재
     cpl_cols = get_table_columns("card_playstyles")
     cpl_fk = "card_id" if "card_id" in cpl_cols else "card_version_id"
     supabase.table("card_playstyles").delete().eq(cpl_fk, card_id).execute()
@@ -572,7 +589,7 @@ def save_to_supabase(data):
             ps_batch.append(row)
         supabase.table("card_playstyles").insert(ps_batch).execute()
 
-    # 7. 세부 스탯 적재
+    # ★ 7. player_stats 적재 (GK 5대 서브 스탯 및 페이스 스피드 안전 적재)
     ps_cols = get_table_columns("player_stats")
     ps_fk = "card_version_id" if "card_version_id" in ps_cols else "card_id"
     ps_payload = {ps_fk: card_id}
@@ -581,6 +598,16 @@ def save_to_supabase(data):
         if k in ps_cols and val is not None: ps_payload[k] = val
     for k, v in data["detail_stats"].items():
         if k in ps_cols and v is not None: ps_payload[k] = v
+
+    if data["primary_position_str"] == "GK":
+        ps_payload["def"] = data["face_stats"]["def"]
+        ps_payload["sprint_speed"] = data["face_stats"]["def"]
+        ps_payload["acceleration"] = data["face_stats"]["def"]
+        ps_payload["gk_diving"] = data["face_stats"]["pac"]
+        ps_payload["gk_handling"] = data["face_stats"]["sho"]
+        ps_payload["gk_kicking"] = data["face_stats"]["pas"]
+        ps_payload["gk_reflexes"] = data["face_stats"]["dri"]
+        ps_payload["gk_positioning"] = data["face_stats"]["phy"]
 
     exist_ps = supabase.table("player_stats").select("id").eq(ps_fk, card_id).limit(1).execute()
     if exist_ps.data:
@@ -596,7 +623,6 @@ def run_promo_pipeline(target_url, override_version=None, override_bg=None):
     print(f"   • 대상 URL: {target_url}")
     print("=" * 70)
 
-    # 1. 단일 카드인지 스쿼드 페이지인지 판별
     if re.search(r"/players/\d+-[^/]+/27-\d+/?", target_url):
         card_urls = [target_url]
     else:
@@ -615,7 +641,6 @@ def run_promo_pipeline(target_url, override_version=None, override_bg=None):
             save_to_supabase(parsed)
             success += 1
 
-        # 봇 차단 방지: 3.5초 ~ 5.0초 대기
         if idx < total:
             delay = random.uniform(3.5, 5.0)
             print(f"  ⏳ 봇 차단 방지 대기 중: {delay:.2f}초...")
@@ -632,7 +657,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FUT.GG 프로모 스쿼드 일괄 자동 적재기")
     parser.add_argument("url", nargs="?", help="FUT.GG 스쿼드 또는 프로모 페이지 URL")
     parser.add_argument("--version", help="카드 버전 명칭 수동 지정 (기본값: 자동 판별)")
-    parser.add_argument("--bg", help="카드 배경 이미지 URL 수동 지정 (기본값: 자동 생성)")
+    parser.add_argument("--bg", help="배경 템플릿 이미지 URL 수동 지정 (기본값: 자동 생성)")
     args = parser.parse_args()
 
     input_url = args.url if args.url else input("FUT.GG 프로모 스쿼드 URL을 입력하세요: ").strip()

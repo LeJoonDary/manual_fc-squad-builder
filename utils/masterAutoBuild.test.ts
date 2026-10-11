@@ -38,7 +38,7 @@ test('Icon and Hero contribute real chemistry and do not invent an Icon league',
 
 const slots = FORMATIONS.find(f => f.name === '4-3-3')!.slots;
 const make = (id, position, icon = false) => ({ id, player_id: id, position, nationId: id % 3, leagueId: icon ? 2118 : 100,
- clubId: icon ? 112658 : 5, overall: icon ? 95 : 85, facePace: 90, def: 80, price: 20000, version: icon ? 'ICON' : 'Gold' });
+ clubId: icon ? 112658 : 5, overall: icon ? 95 : 85, phy: 80, facePace: 90, def: 80, price: 20000, version: icon ? 'ICON' : 'Gold' });
 
 test('locked Icons bypass both automatic Icon cap and user special-card limit', async () => {
  const currentSquad = Object.fromEntries(slots.map((s,i) => [s.position, { card: make(i,s.position,true), isLocked: true, isOwned: true }]));

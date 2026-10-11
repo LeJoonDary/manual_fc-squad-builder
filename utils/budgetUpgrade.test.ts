@@ -32,7 +32,7 @@ test('no valid upgrade terminates without spending on weaker, duplicate, exclude
  const duplicate = { ...make(101,'ST',300000,99), playerKey: squad.find(p => p.slotPosition === 'LW')!.playerKey };
  const tooCostly = make(102,'ST',890000,99);
  const excluded = make(103,'ST',300000,99);
- const slow = make(104,'ST',300000,99); slow.card.pac = 84;
+ const slow = make(104,'ST',300000,99); slow.card.phy = 69;
  const wrongPosition = make(105,'CB',300000,99); wrongPosition.slotPosition = 'ST';
  const result = upgradeSquadToTargetBudgetRatio(squad,1000000,{ST:[weak,duplicate,tooCostly,excluded,slow,wrongPosition]},false,{excludedCardVersionIds:[103]});
  expect(result).toBe(squad);

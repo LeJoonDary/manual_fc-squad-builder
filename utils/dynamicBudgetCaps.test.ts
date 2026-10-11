@@ -2,9 +2,21 @@ import { expect, test } from 'vitest';
 import { passesNewCandidateFilter, generateOptimalSquad } from './autoBuildUtils';
 import { FORMATIONS } from './formations.js';
 
+test.each(['LB', 'RB', 'LWB', 'RWB'])('fullback %s requires pace at least 82 at every budget, including alternate positions', pos => {
+ for (const pace of [80, 82, 83]) {
+  for (const stats of [{ facePace: pace }, { pac: pace }, { pace }, { player_stats: [{ pac: pace }] }]) {
+   const card = { position: 'CB', price: 1000, phy: 65, ...stats };
+   for (const input of [card, { card }, { raw: card }]) {
+    expect(passesNewCandidateFilter(input, pos, 300000)).toBe(pace >= 82);
+    expect(passesNewCandidateFilter(input, pos, 299999)).toBe(pace >= 82);
+   }
+  }
+ }
+});
+
 test.each(['PoTm Bundesliga', 'special_SBC', 'SBC', 'special_potm'])('rejects untradeable %s in either identity field and wrapped cards', value => {
  for (const field of ['version', 'card_type']) {
-  const card = { price: 20000, facePace: 90, [field]: value };
+  const card = { price: 20000, phy: 80, facePace: 90, [field]: value };
   for (const candidate of [card, { card }, { raw: card }, { version: 'Gold', raw: card }]) {
    expect(passesNewCandidateFilter(candidate, 'CAM', 100000)).toBe(false);
    expect(passesNewCandidateFilter(candidate, 'CAM', 500000)).toBe(false);
@@ -12,28 +24,28 @@ test.each(['PoTm Bundesliga', 'special_SBC', 'SBC', 'special_potm'])('rejects un
  }
  expect(passesNewCandidateFilter({ price: 20000, facePace: 79, version: 'special_totw' }, 'CAM', 500000)).toBe(true);
 });
-test.each(['LB','RB','LWB','RWB'])('15 percent cap for %s is lifted only by FB priority', pos=>{
- expect(passesNewCandidateFilter({price:150000},pos,1000000,['ST'])).toBe(true);
- expect(passesNewCandidateFilter({price:150001},pos,1000000,['ST'])).toBe(false);
- expect(passesNewCandidateFilter({price:300000},pos,1000000,['FB'])).toBe(true);
- expect(passesNewCandidateFilter({price:300000},pos,1000000,['ST'])).toBe(false);
- expect(passesNewCandidateFilter({price:300000},pos,499999,['ST'])).toBe(false);
+test.each(['LB','RB','LWB','RWB'])('18 percent fallback cap for %s is lifted only by FB priority', pos=>{
+ expect(passesNewCandidateFilter({phy:80, facePace:90,price:180000},pos,1000000,['ST'])).toBe(true);
+ expect(passesNewCandidateFilter({phy:80, facePace:90,price:180001},pos,1000000,['ST'])).toBe(false);
+ expect(passesNewCandidateFilter({phy:80, facePace:90,price:300000},pos,1000000,['FB'])).toBe(true);
+ expect(passesNewCandidateFilter({phy:80, facePace:90,price:300000},pos,1000000,['ST'])).toBe(false);
+ expect(passesNewCandidateFilter({phy:80, facePace:90,price:300000},pos,499999,['ST'])).toBe(false);
 });
 test('keeper cap and striker pace have inclusive boundaries and normalized aliases',()=>{
- expect(passesNewCandidateFilter({price:100000},'GK',1000000,['ST'])).toBe(true);
- expect(passesNewCandidateFilter({price:100001},'GK',1000000,['ST'])).toBe(false);
+ expect(passesNewCandidateFilter({price:180000},'GK',1000000,['ST'])).toBe(true);
+ expect(passesNewCandidateFilter({price:180001},'GK',1000000,['ST'])).toBe(false);
  expect(passesNewCandidateFilter({price:300000},'GK',1000000,['GK'])).toBe(true);
  for(const pos of ['ST','CF','LS','RS']) {
- expect(passesNewCandidateFilter({facePace:84},pos,500000)).toBe(false);
- expect(passesNewCandidateFilter({attributeSprintSpeed:85},pos,500000)).toBe(true);
- expect(passesNewCandidateFilter({player_stats:[{pac:84}]},pos,500000)).toBe(false);
- expect(passesNewCandidateFilter({facePace:75},pos,499999)).toBe(true);
+ expect(passesNewCandidateFilter({phy:70,facePace:84},pos,500000)).toBe(true);
+ expect(passesNewCandidateFilter({phy:80,attributeSprintSpeed:85},pos,500000)).toBe(true);
+ expect(passesNewCandidateFilter({player_stats:[{pac:84,phy:70}]},pos,500000)).toBe(true);
+ expect(passesNewCandidateFilter({phy:66,facePace:75},pos,499999)).toBe(true);
  }
  expect(passesNewCandidateFilter({facePace:84},'LW',100000)).toBe(true);
 });
 test.each([['LB','FB'],['GK','GK']])('beam and upgrade obey %s cap and its priority override',async (pos,group)=>{
  const slots=FORMATIONS.find(f=>f.name==='4-3-3')!.slots;
- const make=(id,position,overall,price)=>({id,player_id:id,position,overall,price,facePace:90,def:80,leagueId:100,nationId:1,clubId:1});
+ const make=(id,position,overall,price)=>({id,player_id:id,position,overall,price,phy:80, facePace:90,def:80,leagueId:100,nationId:1,clubId:1});
  const currentSquad=Object.fromEntries(slots.filter(s=>s.position!==pos).map((s,i)=>[s.position,{card:{...make(i,s.position,90,1000),isIcon:true},isLocked:true,isOwned:true}]));
  const groups={FW:[],MF:[],DF:[make(100,pos,82,40000),make(101,pos,95,200000)]};
  const capped=await generateOptimalSquad('4-3-3',groups,1000000,33,false,{currentSquad});

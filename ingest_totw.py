@@ -45,9 +45,8 @@ HEADERS = {
 }
 
 # -------------------------------------------------------------
-# EA 고유 ID -> 우리 DB ID 1:1 직결 매핑 사전
+# EA 고유 ID -> 우리 DB ID 1:1 직결 매핑 사전 (보존)
 # -------------------------------------------------------------
-# 1. EA Position ID -> (포지션 약칭, 우리 DB position_id)
 EA_POS_MAP = {
     0: ("GK", 10),
     2: ("RWB", 15),
@@ -67,7 +66,6 @@ EA_POS_MAP = {
     27: ("LW", 2),
 }
 
-# 2. EA Role ID -> 우리 DB role_id (1~49)
 EA_ROLE_TO_DB = {
     1: 48,
     2: 49,
@@ -120,48 +118,11 @@ EA_ROLE_TO_DB = {
     44: 4,  # ST
 }
 
-# 3. EA Playstyle ID -> 우리 DB playstyle_id (1~40)
 EA_PLAYSTYLE_TO_DB = {
-    0: 2,  # Finesse Shot
-    1: 25,  # Chip Shot
-    2: 3,  # Power Shot
-    3: 16,  # Dead Ball
-    4: 22,  # Power Header
-    5: 4,  # Incisive Pass
-    6: 17,  # Pinged Pass
-    7: 12,  # Long Ball Pass
-    8: 27,  # Tiki Taka
-    9: 5,  # Whipped Pass
-    10: 24,  # Jockey
-    11: 14,  # Block
-    12: 9,  # Intercept
-    13: 8,  # Anticipate
-    14: 29,  # Slide Tackle
-    15: 10,  # Bruiser
-    16: 7,  # Technical
-    17: 6,  # Rapid
-    18: 18,  # Flair
-    19: 19,  # First Touch
-    20: 28,  # Trickster
-    21: 23,  # Press Proven
-    22: 1,  # Quick Step
-    23: 20,  # Relentless
-    24: 13,  # Trivela
-    25: 21,  # Acrobatic
-    26: 30,  # Long Throw
-    27: 11,  # Aerial
-    28: 15,  # Far Throw
-    29: 33,  # Footwork
-    30: 26,  # Cross Claimer
-    31: 31,  # Rush Out
-    32: 34,  # Far Reach
-    33: 32,  # Deflector
-    34: 37,  # Low Driven Shot
-    35: 39,  # Aerial Fortress
-    36: 35,  # Enforcer
-    37: 38,  # Gamechanger
-    38: 40,  # Inventive
-    39: 36,  # Precision Header
+    0: 2,   1: 25,  2: 3,   3: 16,  4: 22,  5: 4,   6: 17,  7: 12,  8: 27,  9: 5,
+    10: 24, 11: 14, 12: 9,  13: 8,  14: 29, 15: 10, 16: 7,  17: 6,  18: 18, 19: 19,
+    20: 28, 21: 23, 22: 1,  23: 20, 24: 13, 25: 21, 26: 30, 27: 11, 28: 15, 29: 33,
+    30: 26, 31: 31, 32: 34, 33: 32, 34: 37, 35: 39, 36: 35, 37: 38, 38: 40, 39: 36,
 }
 
 DETAIL_KEYS = {
@@ -194,6 +155,12 @@ DETAIL_KEYS = {
     "stamina": "attributeStamina",
     "strength": "attributeStrength",
     "aggression": "attributeAggression",
+    # ★ 골키퍼 5대 서브 스탯 추가
+    "gk_diving": "attributeGkDiving",
+    "gk_handling": "attributeGkHandling",
+    "gk_kicking": "attributeGkKicking",
+    "gk_reflexes": "attributeGkReflexes",
+    "gk_positioning": "attributeGkPositioning",
 }
 
 LEAGUE_ALIAS_MAP = {
@@ -249,11 +216,9 @@ CLUB_ALIAS_MAP = {
     "as roma": "roma",
 }
 
-
 def get_table_columns(table_name):
   res = supabase.table(table_name).select("*").limit(1).execute()
   return set(res.data[0].keys()) if res.data else set()
-
 
 def get_or_create_league(name):
   if not name:
@@ -281,7 +246,6 @@ def get_or_create_league(name):
   except Exception:
     return None
 
-
 def get_or_create_nation(name):
   if not name:
     return None
@@ -304,7 +268,6 @@ def get_or_create_nation(name):
     return next_id
   except Exception:
     return None
-
 
 def get_or_create_club(name, league_id=None):
   if not name:
@@ -333,11 +296,8 @@ def get_or_create_club(name, league_id=None):
   except Exception:
     return None
 
-
 def get_totw_urls(limit=23, stop_at="tzolakis"):
-  target_url = (
-      f"{BASE_URL}/players/?page=1&rarity_id=%5B3%5D&sorts=-created_at"
-  )
+  target_url = f"{BASE_URL}/players/?page=1&rarity_id=%5B3%5D&sorts=-created_at"
   print(f"▶ TOTW 최신 목록 조회 중: {target_url}")
   resp = requests.get(target_url, headers=HEADERS, timeout=12)
   if resp.status_code != 200:
@@ -358,10 +318,6 @@ def get_totw_urls(limit=23, stop_at="tzolakis"):
   print(f"✔ 총 {len(urls)}개 대상 카드 링크 확보 완료")
   return urls
 
-
-# -------------------------------------------------------------
-# 코덱스 검증 완료된 playerDef 추출기
-# -------------------------------------------------------------
 def player_def_fields(text, api_id):
   for match in re.finditer(r"\bplayerDef\s*:\s*(?:\$R\[\d+\]\s*=\s*)?\{", text):
     depth, quote, escaped = 1, None, False
@@ -370,19 +326,13 @@ def player_def_fields(text, api_id):
     for index in range(begin, len(text)):
       ch = text[index]
       if quote:
-        if escaped:
-          escaped = False
-        elif ch == "\\":
-          escaped = True
-        elif ch == quote:
-          quote = None
+        if escaped: escaped = False
+        elif ch == "\\": escaped = True
+        elif ch == quote: quote = None
         continue
-      if ch in ('"', "'"):
-        quote = ch
-      elif ch in "{[":
-        depth += 1
-      elif ch in "}]":
-        depth -= 1
+      if ch in ('"', "'"): quote = ch
+      elif ch in "{[": depth += 1
+      elif ch in "}]": depth -= 1
       if (ch == "," and depth == 1) or depth == 0:
         key, sep, value = text[begin:index].partition(":")
         if sep:
@@ -402,7 +352,6 @@ def player_def_fields(text, api_id):
       return fields
   raise ValueError(f"No matching playerDef for eaId={api_id}")
 
-
 def owned_ids(card, *keys):
   for key in keys:
     if key in card:
@@ -416,7 +365,6 @@ def owned_ids(card, *keys):
             if isinstance(v, (int, str)) and str(v).isdigit()
         ]
   return []
-
 
 def parse_card_page(url):
   resp = requests.get(url, headers=HEADERS, timeout=12)
@@ -467,7 +415,6 @@ def parse_card_page(url):
     m_ovr = re.search(rf"(\d{{2}})\s+{re.escape(name)}", clean_full)
     overall = int(m_ovr.group(1)) if m_ovr else 80
 
-  # 1. 포지션 & 부 포지션 (코덱스 검증 로직)
   if "position" in card and card["position"] in EA_POS_MAP:
     primary_pos_str, primary_pid = EA_POS_MAP[card["position"]]
   else:
@@ -484,7 +431,6 @@ def parse_card_page(url):
       if pid != primary_pid and pid not in sec_pos_ids:
         sec_pos_ids.append(pid)
 
-  # 2. 롤스 (rolesPlus=1, rolesPlusPlus=2)
   role_values = {}
   for field, level in (("rolesPlus", 1), ("rolesPlusPlus", 2)):
     for raw in owned_ids(card, field):
@@ -496,7 +442,6 @@ def parse_card_page(url):
       {"role_id": rid, "level": level} for rid, level in role_values.items()
   ]
 
-  # 3. 플레이스타일
   style_values = {}
   for fields, plus in (
       (("playStyleEaIds", "playstyles"), False),
@@ -511,85 +456,47 @@ def parse_card_page(url):
       for sid, plus in style_values.items()
   ]
 
-  # 4. 페이스 6대 스탯
-  face_stats = {}
+  # ★ 4. 페이스 6대 스탯 (골키퍼 공식 gkFaceSpeed 자동 감지)
   is_gk = primary_pos_str == "GK"
   if is_gk:
-    gk_labels = {
-        "pac": r"(?:DIV|DIVING)",
-        "sho": r"(?:HAN|HANDLING)",
-        "pas": r"(?:KIC|KICKING)",
-        "dri": r"(?:REF|REFLEXES)",
-        "def": r"(?:SPD|SPEED)",
-        "phy": r"(?:POS|POSITIONING)",
-    }
-    for k, reg in gk_labels.items():
-      m = re.search(rf"{reg}\s+(\d{{2}})", clean_full, re.IGNORECASE)
-      if m:
-        face_stats[k] = int(m.group(1))
-  else:
-    field_labels = {
-        "pac": "PACE",
-        "sho": "SHOOTING",
-        "pas": "PASSING",
-        "dri": "DRIBBLING",
-        "def": "DEFENDING",
-        "phy": "PHYSICAL",
-    }
-    for k, lbl in field_labels.items():
-      m = re.search(rf"{lbl}\s+(\d{{2}})", clean_full, re.IGNORECASE)
-      if m:
-        face_stats[k] = int(m.group(1))
+    raw_spd = card.get("gkFaceSpeed")
+    if raw_spd is not None and int(raw_spd) > 0:
+      final_spd = int(raw_spd)
+    else:
+      final_spd = int(card.get("faceDefending") or card.get("attributeSprintSpeed") or 0)
 
-  # 5. 세부 29개 스탯
-  detail_patterns = {
-      "acceleration": r"(?:Acceleration|ACC)\s+(\d{2})",
-      "sprint_speed": r"(?:Sprint Speed|Sprint|SPD)\s+(\d{2})",
-      "positioning": (
-          r"(?:Att\.?\s*Pos\.?(?:itioning)?|Positioning)\s+(\d{2})"
-      ),
-      "finishing": r"(?:Finishing|FIN)\s+(\d{2})",
-      "shot_power": r"(?:Shot Power|Shot Pwr|POW)\s+(\d{2})",
-      "long_shots": r"(?:Long Shots?|L\.?\s*Shots?)\s+(\d{2})",
-      "volleys": r"(?:Volleys?|VOL)\s+(\d{2})",
-      "penalties": r"(?:Penalties|PEN)\s+(\d{2})",
-      "vision": r"(?:Vision|VIS)\s+(\d{2})",
-      "crossing": r"(?:Crossing|CRO)\s+(\d{2})",
-      "fk_accuracy": (
-          r"(?:Free Kick Accuracy|FK\.?\s*Acc\.?(?:uracy)?|FK Accuracy|Fk"
-          r" Acc\.)\s+(\d{2})"
-      ),
-      "short_passing": r"(?:Short Passing|Short Pass|S\.?\s*Pass)\s+(\d{2})",
-      "long_passing": r"(?:Long Passing|Long Pass|L\.?\s*Pass)\s+(\d{2})",
-      "curve": r"(?:Curve|CUR)\s+(\d{2})",
-      "agility": r"(?:Agility|AGI)\s+(\d{2})",
-      "balance": r"(?:Balance|BAL)\s+(\d{2})",
-      "reactions": r"(?:Reactions|REA)\s+(\d{2})",
-      "ball_control": (
-          r"(?:Ball Control|Ball Cntrl|B\.?\s*Control)\s+(\d{2})"
-      ),
-      "dribbling_sub": r"(?:Ball Control\s+\d{2}\s+)?Dribbling\s+(\d{2})",
-      "composure": r"(?:Composure|COM)\s+(\d{2})",
-      "interceptions": r"(?:Interceptions|INT)\s+(\d{2})",
-      "heading_accuracy": (
-          r"(?:Heading Accuracy|Heading Acc\.?|HEA)\s+(\d{2})"
-      ),
-      "def_awareness": (
-          r"(?:Defensive Awareness|Def\.?\s*Aware\.?(?:ness)?|Def Awareness|Def\."
-          r" Aware\.)\s+(\d{2})"
-      ),
-      "standing_tackle": r"(?:Standing Tackle|Stand Tackle|Stand Tkl)\s+(\d{2})",
-      "sliding_tackle": r"(?:Sliding Tackle|Slide Tackle|Slide Tkl)\s+(\d{2})",
-      "jumping": r"(?:Jumping|JUM)\s+(\d{2})",
-      "stamina": r"(?:Stamina|STA)\s+(\d{2})",
-      "strength": r"(?:Strength|STR)\s+(\d{2})",
-      "aggression": r"(?:Aggression|AGG)\s+(\d{2})",
-  }
+    face_stats = {
+        "pac": int(card.get("gkFaceDiving") or card.get("attributeGkDiving") or 0),
+        "sho": int(card.get("gkFaceHandling") or card.get("attributeGkHandling") or 0),
+        "pas": int(card.get("gkFaceKicking") or card.get("attributeGkKicking") or 0),
+        "dri": int(card.get("gkFaceReflexes") or card.get("attributeGkReflexes") or 0),
+        "def": final_spd,
+        "phy": int(card.get("gkFacePositioning") or card.get("attributeGkPositioning") or 0),
+    }
+  else:
+    face_stats = {
+        "pac": int(card.get("facePace") or 0),
+        "sho": int(card.get("faceShooting") or 0),
+        "pas": int(card.get("facePassing") or 0),
+        "dri": int(card.get("faceDribbling") or 0),
+        "def": int(card.get("faceDefending") or 0),
+        "phy": int(card.get("facePhysicality") or 0),
+    }
+
+  # ★ 5. 세부 스탯 파싱 및 골키퍼 동기화
   detail_stats = {}
-  for col_k, regex_p in detail_patterns.items():
-    m_stat = re.search(regex_p, clean_full, re.IGNORECASE)
-    if m_stat:
-      detail_stats[col_k] = int(m_stat.group(1))
+  for db_k, pdef_k in DETAIL_KEYS.items():
+    if pdef_k in card and card[pdef_k] is not None:
+      detail_stats[db_k] = int(card[pdef_k])
+
+  if is_gk:
+    detail_stats["sprint_speed"] = face_stats["def"]
+    detail_stats["acceleration"] = face_stats["def"]
+    detail_stats["gk_diving"] = face_stats["pac"]
+    detail_stats["gk_handling"] = face_stats["sho"]
+    detail_stats["gk_kicking"] = face_stats["pas"]
+    detail_stats["gk_reflexes"] = face_stats["dri"]
+    detail_stats["gk_positioning"] = face_stats["phy"]
 
   if "def_awareness" in detail_stats:
     detail_stats["defensive_awareness"] = detail_stats["def_awareness"]
@@ -620,10 +527,6 @@ def parse_card_page(url):
       "detail_stats": detail_stats,
   }
 
-
-# -------------------------------------------------------------
-# DB 정규화 적재 함수
-# -------------------------------------------------------------
 def insert_totw_card(data):
   global supabase
   if supabase is None:
@@ -635,12 +538,10 @@ def insert_totw_card(data):
   card_api_id = data["api_id"]
   name = data["name"]
 
-  # 1. nations, leagues, clubs
   league_id = get_or_create_league(data.get("league_name"))
   nation_id = get_or_create_nation(data.get("nation_name"))
   club_id = get_or_create_club(data.get("club_name"), league_id=league_id)
 
-  # 2. players
   player_cols = get_table_columns("players")
   player_payload = {"id": p_id, "name": name}
   if nation_id and "nation_id" in player_cols:
@@ -656,7 +557,6 @@ def insert_totw_card(data):
   else:
     supabase.table("players").insert(player_payload).execute()
 
-  # 3. card_versions
   cv_cols = get_table_columns("card_versions")
   cv_payload = {
       "player_id": p_id,
@@ -714,7 +614,6 @@ def insert_totw_card(data):
   if not card_id:
     return
 
-  # 4-1. card_positions
   cp_cols = get_table_columns("card_positions")
   cp_fk = "card_id" if "card_id" in cp_cols else "card_version_id"
   supabase.table("card_positions").delete().eq(cp_fk, card_id).execute()
@@ -730,7 +629,6 @@ def insert_totw_card(data):
     )
   supabase.table("card_positions").insert(pos_batch).execute()
 
-  # 4-2. card_roles
   cr_cols = get_table_columns("card_roles")
   cr_fk = "card_id" if "card_id" in cr_cols else "card_version_id"
   supabase.table("card_roles").delete().eq(cr_fk, card_id).execute()
@@ -746,7 +644,6 @@ def insert_totw_card(data):
       role_batch.append(row)
     supabase.table("card_roles").insert(role_batch).execute()
 
-  # 4-3. card_playstyles
   cpl_cols = get_table_columns("card_playstyles")
   cpl_fk = "card_id" if "card_id" in cpl_cols else "card_version_id"
   supabase.table("card_playstyles").delete().eq(cpl_fk, card_id).execute()
@@ -760,7 +657,7 @@ def insert_totw_card(data):
       ps_batch.append(row)
     supabase.table("card_playstyles").insert(ps_batch).execute()
 
-  # 4-4. player_stats
+  # ★ 7. player_stats 적재 (GK 5대 서브 스탯 및 페이스 스피드 안전 적재)
   ps_cols = get_table_columns("player_stats")
   ps_fk = "card_version_id" if "card_version_id" in ps_cols else "card_id"
   ps_payload = {ps_fk: card_id}
@@ -773,6 +670,16 @@ def insert_totw_card(data):
   for k, v in data["detail_stats"].items():
     if k in ps_cols and v is not None:
       ps_payload[k] = v
+
+  if data["primary_position_str"] == "GK":
+    ps_payload["def"] = data["face_stats"]["def"]
+    ps_payload["sprint_speed"] = data["face_stats"]["def"]
+    ps_payload["acceleration"] = data["face_stats"]["def"]
+    ps_payload["gk_diving"] = data["face_stats"]["pac"]
+    ps_payload["gk_handling"] = data["face_stats"]["sho"]
+    ps_payload["gk_kicking"] = data["face_stats"]["pas"]
+    ps_payload["gk_reflexes"] = data["face_stats"]["dri"]
+    ps_payload["gk_positioning"] = data["face_stats"]["phy"]
 
   exist_ps = (
       supabase.table("player_stats")
@@ -795,10 +702,6 @@ def insert_totw_card(data):
       f" {len(data.get('playstyles', []))}개) ➔ {status_label}"
   )
 
-
-# -------------------------------------------------------------
-# 메인 파이프라인
-# -------------------------------------------------------------
 def run_pipeline(limit=23, stop_at="tzolakis"):
   print("=" * 65)
   print(f"🚀 TOTW 일괄 파이프라인 시작 (버전: {TOTW_VERSION}, 최대 {limit}명)")
@@ -825,7 +728,6 @@ def run_pipeline(limit=23, stop_at="tzolakis"):
   print("\n" + "=" * 65)
   print(f"🎉 TOTW 총 {success}/{len(urls)}명 무오류 일괄 적재 완료!")
   print("=" * 65)
-
 
 if __name__ == "__main__":
   if hasattr(sys.stdout, "reconfigure"):

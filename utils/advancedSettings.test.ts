@@ -11,25 +11,25 @@ test('slot stars require both minima, including missing values and wrapped cards
   }
   expect(matchesSlotRequirements({}, { minSm: 0, minWf: 0 }, 'ST')).toBe(true);
 });
-test.each(['ST', 'CF', 'LM', 'RM', 'LW', 'RW'])('pace floor for %s starts at 500k', position => {
-  expect(passesNewCandidateFilter({ pac: 84 }, position, 499999)).toBe(true);
-  expect(passesNewCandidateFilter({ pac: 84 }, position, 500000)).toBe(false);
-  expect(passesNewCandidateFilter({ pac: 85 }, position, 500000)).toBe(true);
+test.each(['LM', 'RM', 'LW', 'RW'])('pace floor for %s starts at 300k', position => {
+  expect(passesNewCandidateFilter({ pac: 84 }, position, 299999)).toBe(true);
+  expect(passesNewCandidateFilter({ pac: 84 }, position, 300000)).toBe(false);
+  expect(passesNewCandidateFilter({ phy: 80, pac: 85 }, position, 300000)).toBe(true);
   expect(calculateMetaScore({ pac: 84 }, position)).toBeGreaterThan(0);
 });
 test.each(['LB', 'RB'])('fullback cap for %s applies from 300k and increases for first priority', position => {
   for (const budget of [300000, 500000]) {
-    expect(passesNewCandidateFilter({ price: budget * .15 }, position, budget, ['ST'])).toBe(true);
-    expect(passesNewCandidateFilter({ price: budget * .15 + 1 }, position, budget, ['ST'])).toBe(false);
-    expect(passesNewCandidateFilter({ price: budget * .35 }, position, budget, ['FB'])).toBe(true);
+    expect(passesNewCandidateFilter({ phy:65, pac: 83, price: budget * .18 }, position, budget, ['ST'])).toBe(true);
+    expect(passesNewCandidateFilter({ phy:65, pac: 83, price: budget * .18 + 1 }, position, budget, ['ST'])).toBe(false);
+    expect(passesNewCandidateFilter({ phy:65, pac: 83, price: budget * .35 }, position, budget, ['FB'])).toBe(true);
   }
-  expect(passesNewCandidateFilter({ price: 999999 }, position, 0)).toBe(true);
+  expect(passesNewCandidateFilter({ pac: 82, price: 999999 }, position, 0)).toBe(true);
 });
 
 test('build and upgrade retain slot star requirements even for a higher rated alternative', async () => {
   const slots = FORMATIONS.find(f => f.name === '4-3-3')!.slots;
   const make = (id, position, overall, sm, wf) => ({ id, player_id: id, position, overall, sm, wf,
-    price: 20000, facePace: 90, def: 80, leagueId: 100, nationId: 1, clubId: 1 });
+    price: 20000, phy: 80, facePace: 90, def: 80, leagueId: 100, nationId: 1, clubId: 1 });
   const currentSquad = Object.fromEntries(slots.filter(s => s.position !== 'ST').map((s, i) =>
     [s.position, { card: { ...make(i, s.position, 90, 5, 5), isIcon: true }, isLocked: true, isOwned: true }]));
   const result = await generateOptimalSquad('4-3-3', { FW: [make(100, 'ST', 85, 4, 5), make(101, 'ST', 99, 3, 5), make(102, 'ST', 98, 5, 4)], MF: [], DF: [] },

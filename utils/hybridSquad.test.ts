@@ -63,8 +63,8 @@ it('allows high-pace low-OVR Gold without an arbitrary quality floor', async () 
   expect(scarce.success).toBe(true);
   expect(scarce.squad.filter(p => p.card.overall <= 83)).toHaveLength(2);
 });
-it.each([0, 1, 2, 3, 4])('awards club synergy only for resulting clusters of 2–4 (%s existing)', count => {
-  expect(clubSynergyBonus({ clubId: '7' }, Array.from({ length: count }, () => ({ clubId: 7 })))).toBe(count >= 1 && count <= 3 ? 4 : 0);
+it.each([0, 1, 2, 3, 4])('awards club synergy only below three existing club players (%s existing)', count => {
+  expect(clubSynergyBonus({ clubId: '7' }, Array.from({ length: count }, () => ({ clubId: 7 })))).toBe(count >= 1 && count < 3 ? 18 : 0);
   expect(clubSynergyBonus({}, [{}])).toBe(0);
 });
 it.each([1, 999])('builds a chemistry-valid hybrid regardless of league identity %s', async league => {
