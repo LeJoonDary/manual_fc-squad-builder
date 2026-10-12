@@ -170,3 +170,17 @@ it('opens Tactical Roles independently of catalog position filters and restores 
   expect(document.querySelector('.tactical-roles-dialog')).toBeNull();
   delete HTMLDialogElement.prototype.showModal;
 });
+it('keeps the real budget input and progress finite while deleting and pasting overflowing numbers',()=>{
+ const input=document.querySelector('#target-budget');
+ for(const value of ['300,000','','200,000','9'.repeat(400),'NaN','Infinity']) {
+  input.value=value;
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  const snapshot=JSON.parse(bridge.services.getSquadSnapshot());
+  expect(Number.isFinite(snapshot.budget)).toBe(true);
+  expect(input.value).not.toMatch(/NaN|Infinity|∞/);
+  expect(document.querySelector('#budget-percentage').textContent).not.toMatch(/NaN|Infinity/);
+  expect(document.querySelector('#budget-remaining').textContent).not.toMatch(/NaN|Infinity/);
+  expect(document.querySelector('#budget-progress-fill').style.width).toMatch(/^\d+(\.\d+)?%$/);
+ }
+ input.value='1000000';input.dispatchEvent(new Event('input',{bubbles:true}));
+});

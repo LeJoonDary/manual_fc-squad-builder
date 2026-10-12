@@ -12,10 +12,10 @@ function fixture() {
   [s.position, { card: card(i, s.position), isLocked: true, isOwned: true }]));
  return { open, currentSquad };
 }
-test.each([151, 201])('expands the wingless search to reach candidate %i without changing the anchor', async rank => {
+test.each([151, 201, 251, 300])('expands the wingless search to reach candidate %i without changing the anchor', async rank => {
  const { open, currentSquad } = fixture();
  const keepers = Array.from({ length: rank - 1 }, (_, i) => card(1000+i, 'GK', { nationId: 'x', leagueId: 'y', clubId: 'z' }));
- keepers.push(card(5000, 'GK', { overall: 80 }));
+ keepers.push(card(5000, 'GK', { overall: 85 }));
  const result = await generateOptimalSquad('4-3-1-2', { FW: [card(100, 'ST')], MF: [], DF: keepers }, 0, 33, false, { currentSquad });
  expect(result.success).toBe(true);
  expect(result.totalChemistry).toBe(33);
@@ -33,7 +33,7 @@ test('rejects chemistry below the target and preserves input', async () => {
  expect(result.success).toBe(false);
  expect(result.status).toBe('chemistry_unmet');
  expect(result.totalChemistry).toBe(32);
- expect(result.searchStage).toBe(3);
+ expect(result.searchStage).toBe(4);
  expect(currentSquad).toEqual(before);
 });
 test('CB cuts and primary-only bonus cover raw database cards and secondary CBs', () => {
@@ -65,7 +65,7 @@ test('all stages share a five-second deadline', async () => {
    DF: Array.from({ length: 250 }, (_, i) => card(1000+i, 'GK', { nationId: 'x', leagueId: 'y', clubId: 'z' })),
   }, 0, 33, false, { currentSquad });
   expect(result.success).toBe(false);
-  expect(result.searchStage).toBe(3);
+  expect(result.searchStage).toBe(4);
   expect(result.searchLimitReached).toBe(true);
   // The synthetic clock advances 100ms on each observation, including unwinding.
   expect(now).toBeLessThanOrEqual(5100);
@@ -100,18 +100,19 @@ test.each([['ST','FW',2],['CM','MF',3],['CB','DF',2]] as const)('%s repeated slo
  expect(result.squad.filter(p=>!p.isLocked).map(p=>p.id).sort()).toEqual(candidates.slice(0,count).map(p=>String(p.id)).sort());
  expect(new Set(result.squad.map(p=>p.playerKey)).size).toBe(11);
 });
-test('anchor search never drops below the top ten eligible aces', async () => {
+test('free backtracking can reach an ace beyond the top five sets', async () => {
  const { currentSquad } = fixture();
  const isolated = Array.from({length:10},(_,i)=>card(100+i,'ST',{overall:99-i/10,nationId:'x',leagueId:'y',clubId:'z'}));
  const result = await generateOptimalSquad('4-3-1-2',{FW:[...isolated,card(500,'ST')],MF:[],DF:[card(600,'GK')]},0,33,false,{currentSquad});
- expect(result.success).toBe(false);
- expect(result.squad.some(p=>p.id==='500')).toBe(false);
- expect(result.stageAttempts.every(n=>n>=10)).toBe(true);
+ expect(result.success).toBe(true);
+ expect(result.searchStage).toBe(4);
+ expect(result.squad.some(p=>p.id==='500')).toBe(true);
+ expect(result.stageAttempts.every(n=>n>=5)).toBe(true);
 });
-test.each([0,4999999,5000000,60000000])('OVR floor at budget %i applies to field players, not GK', budget => {
+test.each([0,4999999,5000000,60000000])('OVR floor at budget %i applies to every position including GK', budget => {
  expect(passesNewCandidateFilter(card(1,'CB',{overall:84}),'CB',budget)).toBe(budget===4999999);
  expect(passesNewCandidateFilter(card(1,'CB',{overall:85}),'CB',budget)).toBe(true);
- expect(passesNewCandidateFilter(card(1,'GK',{overall:83}),'GK',budget)).toBe(true);
+ expect(passesNewCandidateFilter(card(1,'GK',{overall:83}),'GK',budget)).toBe(budget===4999999);
 });
 test('Icon CB receives no extra scoring bonus beyond the primary CB bonus', () => {
  expect(calculateMetaScore(card(1,'CB',{isIcon:true,card_type:'ICON'}),'CB')).toBe(calculateMetaScore(card(2,'CB'),'CB'));

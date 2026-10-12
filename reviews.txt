@@ -72,3 +72,9 @@
 #jacobo ramon, 87, future, https://www.youtube.com/shorts/fbsY7YNKVIU
 
 #anyomi, 85, watch, https://www.youtube.com/shorts/ir02FXY0C6U
+
+#richards, 85, hall, https://www.youtube.com/shorts/hbgYHZhQNyI
+#bischof, 86, future, https://www.youtube.com/shorts/2Z5wx8xSObg
+#sneijder, 88, hero, https://www.youtube.com/shorts/iPYYoPXzBcM
+
+

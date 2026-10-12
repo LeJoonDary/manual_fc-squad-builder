@@ -252,3 +252,35 @@ it('clears exclusions and tactical selections inline without opening dialogs, an
   expect(container.querySelector('.auto-build-focus')).toBeNull();
   expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Advanced Settings (0)');
 });
+
+it('keeps the same settings and budget nodes across over-budget locks, empty and invalid budgets', async () => {
+ let budget=300000;
+ const budgetSection=document.createElement('section');
+ budgetSection.innerHTML='<input aria-label="Target Budget" />';
+ const input=budgetSection.querySelector('input');
+ const currentSquad={ST:{card:{id:999,price:279000},isLocked:true}};
+ await act(async()=>root.render(<AutoBuildSettings {...props} budgetSection={budgetSection} getTargetBudget={()=>budget} getCurrentSquad={()=>currentSquad} />));
+ const panel=container.querySelector('.auto-build-settings');
+ const slider=container.querySelector('#min-chemistry');
+ const advanced=container.querySelector('.tactical-roles-trigger');
+ const excluded=container.querySelector('.excluded-card-versions-toggle');
+ for (const value of [200000,0,NaN,Infinity,undefined,300000]) {
+  budget=value;
+  await act(async()=>window.dispatchEvent(new Event('auto-build-context-change')));
+  expect(container.querySelector('.auto-build-settings')).toBe(panel);
+  expect(container.querySelector('#min-chemistry')).toBe(slider);
+  expect(container.querySelector('.tactical-roles-trigger')).toBe(advanced);
+  expect(container.querySelector('.excluded-card-versions-toggle')).toBe(excluded);
+  expect(container.contains(input)).toBe(true);
+  expect(button().disabled).toBe(value===200000);
+  expect(container.textContent).not.toMatch(/NaN|Infinity/);
+  if (value===200000) {
+   expect(container.querySelector('[role="alert"]').textContent).toContain('279,000 C');
+   expect(container.querySelector('[role="alert"]').textContent).toContain('200,000 C');
+   await act(async()=>button().click());
+   expect(fetchCandidatePlayers).not.toHaveBeenCalled();
+  }
+ }
+ await act(async()=>button().click());
+ expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
+});

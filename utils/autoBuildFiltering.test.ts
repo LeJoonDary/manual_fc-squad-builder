@@ -46,7 +46,7 @@ test('advanced requirements accept raw and wrapped star aliases', () => {
  expect(matchesSlotRequirements({raw:{sm:3,wf:5}},{minSkillMoves:4,minWeakFoot:5})).toBe(false);
  expect(matchesSlotRequirements({sm:5,wf:3},{minSm:4,minWf:4})).toBe(false);
 });
-test('database star and exclusion filters are issued before the 250-card limit', async () => {
+test('database star and exclusion filters are issued before the 300-card limit', async () => {
  const calls: Array<[string,...any[]]> = [];
  const query: any = {};
  for (const method of ['select','in','gte','lte','gt','not','order','or','eq']) {
@@ -59,7 +59,7 @@ test('database star and exclusion filters are issued before the 250-card limit',
   currentSquad,excludedCardVersionIds:['999'],slotRequirements:{ST:{minSkillMoves:4,minWeakFoot:5}},
  });
  const limitIndex = calls.findIndex(c=>c[0]==='limit');
- expect(calls[limitIndex]).toEqual(['limit',250]);
+ expect(calls[limitIndex]).toEqual(['limit',300]);
  expect(calls.slice(0,limitIndex)).toContainEqual(['gte','sm',4]);
  expect(calls.slice(0,limitIndex)).toContainEqual(['gte','wf',5]);
  expect(calls.slice(0,limitIndex)).toContainEqual(['not','id','in','(999)']);

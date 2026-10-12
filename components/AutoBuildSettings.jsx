@@ -1,3 +1,4 @@
+import { safeBudgetNumber, formatBudgetNumber } from '../utils/budget.ts';
 import { PriorityPositionsSelector } from './PriorityPositionsSelector.jsx';
 import { TrashIcon } from './TrashIcon.jsx';
 import React, { useEffect, useRef, useState } from 'react';
@@ -25,8 +26,11 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
     window.addEventListener('auto-build-context-change', refresh);
     return () => window.removeEventListener('auto-build-context-change', refresh);
   }, []);
+  const safeTargetBudget = safeBudgetNumber(getTargetBudget());
   const { lockedCost, distributableBudget, unlimited } = getRemainingAutoBuildBudget(
-    Math.max(0, Number(getTargetBudget()) || 0), formation, { currentSquad: getCurrentSquad() });
+    safeTargetBudget, formation, { currentSquad: getCurrentSquad() }, false);
+  const isLockedOverBudget = safeTargetBudget > 0 && lockedCost > safeTargetBudget;
+  const lockedWarning = `⚠️ 잠긴 선수 금액(${formatBudgetNumber(lockedCost)} C)이 목표 예산(${formatBudgetNumber(safeTargetBudget)} C)을 초과했습니다. 선수의 잠금을 해제하거나 예산을 올려주세요.`;
   const [minChemistry, setMinChemistry] = useState(33);
   const requirements = Object.values(getRoleOptions().slotRequirements ?? {});
   const activeRolesCount = requirements.reduce((count, req) => count + (req?.roles?.length ?? (req?.role ? 1 : 0)), 0);
@@ -36,11 +40,12 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
 
   async function handleAutoBuild() {
     if (buildingRef.current) return;
+    if (isLockedOverBudget) { setFeedback({ type: 'error', text: lockedWarning }); return; }
     buildingRef.current = true;
     setIsAutoBuilding(true);
     setFeedback(null);
     try {
-      const totalBudget = Number(getTargetBudget() ?? 0);
+      const totalBudget = safeBudgetNumber(getTargetBudget());
       const currentSquad = getCurrentSquad();
       if (!Number.isFinite(totalBudget) || totalBudget < 0) {
         throw new Error('Enter a total budget of 0 or more to auto build your squad.');
@@ -84,6 +89,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
     <section className="auto-build-settings" aria-labelledby="auto-build-title">
       <h2 id="auto-build-title" className="sr-only">Auto Build Settings</h2>
       <div className="auto-build-budget" ref={budgetHost} />
+      {isLockedOverBudget && <p className="auto-build-feedback is-error" role="alert">{lockedWarning}</p>}
       {lockedCost > 0 && <p className="auto-build-total">Locked Player Cost {lockedCost.toLocaleString('en-US')} C · {unlimited ? 'Unlimited budget' : `Available for new selections ${distributableBudget.toLocaleString('en-US')} C`}</p>}
       <hr className="auto-build-divider" />
       <div className="auto-build-range">
@@ -98,7 +104,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       <hr className="auto-build-divider" />
       <div className="auto-build-actions">
         <button type="button" className="auto-build-reset" disabled={isAutoBuilding} onClick={resetSettings}>Reset Settings</button>
-        <button type="button" className="auto-build-button" disabled={isAutoBuilding} aria-busy={isAutoBuilding} onClick={handleAutoBuild}>
+        <button type="button" className="auto-build-button" disabled={isAutoBuilding || isLockedOverBudget} aria-busy={isAutoBuilding} onClick={handleAutoBuild}>
           {isAutoBuilding ? <><span className="auto-build-spinner" aria-hidden="true" /> Building Squad...</> : '🚀 Auto Build Squad'}
         </button>
       </div>

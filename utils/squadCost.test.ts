@@ -13,3 +13,7 @@ describe('calculateSquadTotalCost', () => {
     expect(calculateSquadTotalCost(squad)).toBe(750_000);
   });
 });
+it('never overflows accumulated card costs',()=>{
+ expect(calculateSquadTotalCost({ST:{card:{price:Number.MAX_VALUE}},CF:{card:{price:Number.MAX_VALUE}}})).toBe(Number.MAX_VALUE);
+ expect(calculateSquadTotalCost({ST:{card:{price:NaN}},CF:{card:{price:Infinity}}})).toBe(0);
+});

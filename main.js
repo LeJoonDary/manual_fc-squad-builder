@@ -27,7 +27,7 @@ import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleS
 import { FORMATIONS, reassignFormation } from './utils/formations.js';
 import { fitPitchViewport, fitSquadWorkspace } from './utils/pitchViewport.js';
 import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts';
-import { calculateBudgetStatus } from './utils/budget.ts';
+import { calculateBudgetStatus, safeBudgetNumber, parseBudgetInput, formatBudgetNumber } from './utils/budget.ts';
 import { mountAutoBuildSettings } from './components/AutoBuildSettings.jsx';
 import { autoBuildManagerState } from './utils/autoBuildUi.js';
 
@@ -1991,7 +1991,7 @@ function updateSquadChemistry() {
   const result = calculateChemistry(chemistrySquad, getManagerChemistryBonus());
   totalChemistryOutput.value = String(result.totalChemistry);
   const totalCost = calculateSquadTotalCost(squad);
-  totalCostOutput.value = new Intl.NumberFormat('en-US').format(totalCost);
+  totalCostOutput.value = formatBudgetNumber(totalCost);
   updateBudgetUI(totalCost);
   renderChemistryBreakdown();
 
@@ -2020,14 +2020,15 @@ function updateSquadChemistry() {
 }
 
 function updateTargetBudget(event) {
-  const digits = event.target.value.replace(/\D/g, '');
-  targetBudget = Number(digits) || 0;
-  event.target.value = targetBudget > 0 ? new Intl.NumberFormat('en-US').format(targetBudget) : '';
+  targetBudget = parseBudgetInput(event.target.value);
+  event.target.value = targetBudget > 0 ? formatBudgetNumber(targetBudget) : '';
   updateBudgetUI(calculateSquadTotalCost(squad));
 }
 
 function updateBudgetUI(totalCost) {
   window.dispatchEvent(new Event('auto-build-context-change'));
+  totalCost = safeBudgetNumber(totalCost);
+  targetBudget = safeBudgetNumber(targetBudget);
   const budget = calculateBudgetStatus(totalCost, targetBudget);
   const formatter = new Intl.NumberFormat('en-US');
   budgetProgress.className = `budget-progress is-${budget.level}`;
