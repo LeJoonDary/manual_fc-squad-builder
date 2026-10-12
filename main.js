@@ -255,7 +255,7 @@ function applyAutoBuildResult(result, request) {
   managerState = nextManager;
   renderManagerSlot();
   updateSquadChemistry();
-  status.textContent = result.status === 'fallback' ? `Built the closest matching squad. Chemistry: ${result.totalChemistry}/33.` : 'Applied the auto-built squad of 11 players and manager settings.';
+  status.textContent = 'Applied the auto-built squad of 11 players and manager settings.';
 }
 function applyFormation(formation, savedPlayers = null) {
   closeModal();
