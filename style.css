@@ -1381,7 +1381,7 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .brand:hover .metaxi-brand-asset { transform: scale(1.05); }
 .metaxi-brand-asset { transition: transform .2s ease; }
 .app-shell.is-squad-active .pitch { border-width: 1px; box-shadow: 0 0 50px #10b98140; }
-.pitch::before { inset: auto; left: 50%; top: 50%; width: var(--formation-height, 1125px); height: var(--pitch-width, 900px); transform: translate(-50%, -50%) rotate(90deg) scale(1.45); background-image: url('/metaxi-background3.png'); opacity: .95; }
+.pitch::before { inset: auto; left: 50%; top: 50%; width: var(--formation-height, 1125px); height: var(--pitch-width, 900px); transform: translate(-50%, -50%) scale(1.85, 1.28) rotate(90deg); transform-origin: center; background-image: url('/metaxi-background3.png'); background-position: center; background-size: 100% 100%; opacity: .95; }
 .pitch::after { background: radial-gradient(ellipse at center, transparent 45%, #02061740); box-shadow: inset 0 0 0 1px #34d3994d; }
 @media (min-width: 1280px) { .app-shell.is-squad-active .squad-workspace { grid-template-columns: minmax(0, 1fr) 420px; } }
 @media (max-width: 1023px) {
@@ -1413,9 +1413,9 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .settings-trigger-icon { flex-shrink: 0; font-size: 14px; }
 .settings-trigger-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* Pitch-width header with bottom-aligned presets. */
+/* Full-container heading with bottom-aligned presets above the centered pitch. */
 .pitch-column { display: flex; flex-direction: column; min-width: 0; width: 100%; grid-row: 1; }
-#squad-builder-page .pitch-heading { width: 100%; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; padding: 0 4px 4px; }
+#squad-builder-page .pitch-heading { width: 100%; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; padding: 0 0 4px; }
 .pitch-heading-title { flex: 1 1 210px; min-width: 0; }
 #squad-builder-page .pitch-heading .status { margin: 4px 0 0; white-space: normal; overflow-wrap: anywhere; }
 .pitch-heading .squad-slots { margin-left: auto; justify-content: flex-end; align-items: flex-end; align-self: flex-end; }
@@ -1424,13 +1424,16 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   .app-shell.is-squad-active .chemistry-panel { position: sticky; top: 96px; }
 }
 
-/* Center the pitch and sidebar as one compact group, with no expanding grid track. */
-.app-header-inner, body.is-squad-active .app-header-inner, .app-shell.is-squad-active { box-sizing: border-box; width: 100%; max-width: 1280px; margin-inline: auto; padding-inline: 24px; }
+/* Center shared page containers and the pitch/sidebar group on wide screens. */
+.app-header-inner, body.is-squad-active .app-header-inner, .app-shell.is-squad-active, .app-shell.is-players-active, .app-shell:has(.players-page:not([hidden])) { box-sizing: border-box; width: 100%; max-width: 1600px; margin-inline: auto; padding-inline: 24px; }
 .app-header-inner, body.is-squad-active .app-header-inner { height: 80px; min-height: 80px; }
-.app-header .metaxi-brand-asset { height: 48px; width: auto; object-fit: contain; }
+
+.app-header .brand { display: inline-flex; align-items: center; gap: 10px; }
+.app-header .metaxi-brand-asset { height: 40px; width: 40px; flex-shrink: 0; object-fit: contain; }
 .app-shell.is-squad-active { display: flex; justify-content: center; align-items: flex-start; min-height: calc(100vh - 80px); padding-block: 24px; }
 .app-shell.is-squad-active #squad-builder-page { flex: none; align-items: center; width: 100%; max-width: 100%; }
-.app-shell.is-squad-active .squad-workspace { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 32px; width: 100%; max-width: 100%; margin-inline: auto; }
+.squad-content { display: flex; flex-direction: column; width: 100%; max-width: 100%; min-width: 0; margin-inline: auto; }
+.app-shell.is-squad-active .squad-workspace { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 32px; width: 100%; max-width: 100%; margin-inline: auto; }
 .app-shell.is-squad-active .pitch-column { flex: none; width: 840px; max-width: 100%; }
 .app-shell.is-squad-active .chemistry-panel { position: static; flex: none; width: 840px; max-width: 100%; }
 .app-shell.is-squad-active .pitch-scroll { height: auto; aspect-ratio: 4 / 5; max-height: 920px; }
@@ -1441,34 +1444,28 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   .app-header-inner, body.is-squad-active .app-header-inner { height: auto; min-height: 80px; flex-wrap: wrap; gap: 8px 16px; padding-block: 8px; }
 }
 
-/* Desktop viewport fit: measured heading space, shared pitch/sidebar height. */
-@media (min-width: 1024px) {
+/* Viewport fit for laptop windows, including display scaling. */
+@media (min-width: 768px) {
   body.is-squad-active { height: 100dvh; min-height: 0; overflow: hidden; }
   body.is-squad-active .app-header { position: relative; flex: 0 0 80px; height: 80px; }
-  body.is-squad-active .app-header-inner { height: 100%; min-height: 0; }
-  .app-shell.is-squad-active { flex: 1 1 0; height: 0; min-height: 0; max-width: 1968px; padding: 12px 24px; overflow: hidden; --max-pitch-height: 1600px; }
+  body.is-squad-active .app-header-inner { height: 100%; min-height: 0; max-width: 1600px; width: 100%; }
+  .app-shell.is-squad-active { flex: 1 1 0; height: 0; min-height: 0; padding: 12px 24px; overflow: hidden; max-width: 1600px; }
   .app-shell.is-squad-active #squad-builder-page { height: 100%; min-height: 0; }
-  .app-shell.is-squad-active .squad-workspace { height: 100%; min-height: 0; flex-direction: row; align-items: flex-start; justify-content: center; gap: 20px; }
-  .app-shell.is-squad-active .pitch-column { flex: none; width: var(--viewport-pitch-width, 440px); max-width: 100%; min-height: 0; }
+  .squad-content { width: 100%; flex: 1 1 0; height: 0; min-height: 0; }
+  .app-shell.is-squad-active .squad-workspace { flex: 1 1 0; height: 0; min-height: 0; flex-direction: row; align-items: stretch; justify-content: flex-start; gap: 24px; }
+  .app-shell.is-squad-active .pitch-column { flex: 1 1 0; width: auto; min-width: 0; height: 100%; max-width: none; min-height: 0; }
   #squad-builder-page .pitch-heading { margin-bottom: 8px; padding-bottom: 0; gap: 6px; }
   #squad-builder-page .pitch-heading h1 { font-size: 24px; }
   #squad-builder-page .pitch-heading .status { max-height: 29px; overflow: auto; font-size: 11px; }
   .pitch-heading .squad-slots { gap: 4px; }
   .pitch-heading .squad-slots-label { display: none; }
   .pitch-heading .squad-slot-main { padding: 5px 7px; gap: 4px; }
-  .app-shell.is-squad-active .pitch-scroll { height: var(--viewport-pitch-height, 550px); max-height: var(--max-pitch-height); min-height: 0; aspect-ratio: 4 / 5; }
-  .app-shell.is-squad-active .chemistry-panel { position: static; flex: none; width: 360px; height: var(--viewport-pitch-height, 550px); min-height: 0; max-height: var(--max-pitch-height); margin-top: var(--pitch-header-height, 70px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+  .app-shell.is-squad-active .pitch-scroll { flex: 1 1 0; width: 100%; height: 0; max-height: none; min-height: 0; aspect-ratio: auto; }
+  .app-shell.is-squad-active .chemistry-panel { position: static; flex: none; width: 380px; height: calc(100% - var(--pitch-header-height, 70px)); min-height: 0; max-height: none; margin-top: var(--pitch-header-height, 70px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
   .app-shell.is-squad-active .chemistry-panel-header { flex: none; }
   .app-shell.is-squad-active .chemistry-panel-scroll { flex: none; overflow: visible; }
 }
-@media (min-width: 1280px) {
-  .app-shell.is-squad-active .squad-workspace { gap: 32px; }
-  .app-shell.is-squad-active .chemistry-panel { width: 400px; }
-}
-@media (min-width: 1536px) {
-  .app-shell.is-squad-active .chemistry-panel { width: 440px; }
-}
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   body.is-squad-active { height: auto; min-height: 100dvh; overflow-y: auto; }
   .app-shell.is-squad-active .chemistry-panel { position: static; height: auto; max-height: none; margin-top: 0; overflow: visible; }
 }
@@ -1603,3 +1600,17 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .browser-player-card .browser-player-playstyles .playstyle-icon { opacity: 1; }
 .browser-player-card .browser-player-stat-label { color: #94a3b8; }
 .browser-player-card .browser-player-stat-value { color: #f8fafc; }
+
+/* Footer stays outside the pitch/sidebar area and reserves its own viewport space. */
+.site-footer { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; width: 100%; max-width: 1600px; margin: 12px auto 0; padding: 10px 0 2px; border-top: 1px solid #1e293b99; color: #94a3b8; font-size: 11px; line-height: 1.5; }
+.site-footer p { flex: 1; margin: 0; text-align: center; }
+.site-footer nav { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.site-footer button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; }
+.site-footer button:disabled { cursor: default; color: #94a3b8; }
+.footer-link-status { color: #64748b; font-size: 10px; }
+@media (max-width: 1023px) { .site-footer { justify-content: center; text-align: center; } .site-footer p { flex-basis: 100%; } }
+
+@media (min-width: 768px) {
+  .app-shell.is-squad-active .pitch { height: var(--pitch-height, 1040px); }
+  .app-shell.is-squad-active .pitch::before { inset: auto; left: 50%; top: 50%; width: var(--pitch-height, 1040px); height: var(--pitch-width, 900px); transform: translate(-50%, -50%) scale(1.85, 1.28) rotate(90deg); transform-origin: center; background-position: center; background-size: 100% 100%; }
+}

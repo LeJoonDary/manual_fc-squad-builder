@@ -77,4 +77,10 @@
 #bischof, 86, future, https://www.youtube.com/shorts/2Z5wx8xSObg
 #sneijder, 88, hero, https://www.youtube.com/shorts/iPYYoPXzBcM
 
+#bonny, 87, future, https://www.youtube.com/shorts/Zy22SdpTG9M
+#franculino, 84, future, https://www.youtube.com/shorts/AaScbILzDLo
+#fakili, 84, future, https://www.youtube.com/shorts/yiWyYV_OXfQ
+
+
+
 

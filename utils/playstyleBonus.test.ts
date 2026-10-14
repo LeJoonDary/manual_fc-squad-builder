@@ -14,19 +14,27 @@ test.each([
  expect(getPlaystyleTier(card, 7)).toBe(tier);
 });
 const cases = [
- ['ST',38,4,2], ['CF',37,4,2], ['ST',7,4,2], ['ST',2,3,0], ['ST',3,0,0],
+ ['ST',38,4,2], ['CF',37,4,2], ['ST',7,4,2], ['ST',2,3,0], ['ST',3,3,0], ['CF',3,3,0], ['CAM',3,3,0], ['CDM',3,3,0],
  ['ST',1,3,1.5], ['ST',6,3,1.5], ['ST',27,2,1], ['ST',4,2,1], ['ST',17,2,1],
  ['CAM',4,4,2], ['CAM',17,4,2], ['CAM',7,4,2], ['CAM',27,2,1], ['CAM',2,2,0],
  ['CM',17,4,2], ['CDM',4,4,2], ['CM',7,3,1.5], ['CM',27,3,1.5], ['CM',9,2.5,1.3], ['CDM',8,2.5,1.3], ['CM',24,2.5,1.3], ['CDM',1,2.5,1.3],
  ['CB',8,4,2], ['LCB',24,3.5,1.8], ['RCB',10,3,1.5], ['CB',9,2,1],
  ['LB',10,3,1.5], ['RWB',1,3.5,1.8], ['RB',6,3.5,1.8], ['LWB',9,3,1.5], ['LB',8,3,1.5], ['GK',33,3,1.5], ['GK',31,3,1.5],
- ['ST',5,0,0], ['CM',12,3.5,1.8], ['CAM',12,3.5,1.8], ['CAM',38,2.5,1.3], ['CAM',37,2.5,1.3], ['CM',3,0,0], ['CB',11,0,0], ['CAM',1,0,0],
+ ['ST',5,0,0], ['CM',12,3.5,1.8], ['CAM',12,3.5,1.8], ['CAM',38,2.5,1.3], ['CAM',37,2.5,1.3], ['CM',3,3,0], ['CB',11,0,0], ['CAM',1,0,0],
 ] as const;
 test.each(cases)('%s playstyle %s gold=%s silver=%s', (pos, id, gold, silver) => {
  expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [id] }, pos)).toBe(gold);
  expect(calculatePlaystyleAndSkillBonus({ playstyles: [id] }, pos)).toBe(silver);
  expect(calculatePlaystyleAndSkillBonus({ playstyles: [id,id], playstylesPlus: [id,id], card_playstyles: [{ playstyle_id: id, is_plus: true }] }, pos)).toBe(gold);
 });
+test.each(['ST', 'CF', 'CAM', 'CM', 'CDM'])('Power Shot name matching awards only gold at %s', pos => {
+ expect(calculatePlaystyleAndSkillBonus({ playstyles: [{ name: 'Power Shot', is_plus: true }] }, pos)).toBe(3);
+ expect(calculatePlaystyleAndSkillBonus({ playstyles: [{ name: 'Power Shot', is_plus: false }] }, pos)).toBe(0);
+});
+test.each(['LW', 'RW', 'LM', 'RM', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'GK'])('Power Shot gold awards no bonus outside target positions at %s', pos => {
+ expect(calculatePlaystyleAndSkillBonus({ playstylesPlus: [3] }, pos)).toBe(0);
+});
+
 test('stars use precise weights, neutral missing data and normalized aliases', () => {
  expect(calculatePlaystyleAndSkillBonus({ wf: 5, sm: 5 }, 'LS')).toBe(5);
  expect(calculatePlaystyleAndSkillBonus({ wf: '4', sm: '4' }, 'CAM')).toBe(2.5);

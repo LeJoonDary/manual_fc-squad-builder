@@ -30,43 +30,27 @@ test('hidden frames never produce a negative scale', () => {
   expect(fitPitchViewport(0, 0, 1040).scale).toBe(0);
 });
 
-test('desktop workspace fits laptop, FHD, QHD and 4K with matching sidebar height', () => {
-  for (const [screenWidth, screenHeight] of [[1024, 600], [1366, 768], [1920, 1080], [2560, 1440], [3840, 2160]]) {
-    const sidebar = screenWidth >= 1536 ? 440 : screenWidth >= 1280 ? 400 : 360;
-    const gap = screenWidth >= 1280 ? 32 : 20, cap = 1600;
-    const width = Math.min(screenWidth - 48, 1920);
-    const height = screenHeight - 80 - 24;
-    for (const header of [60, 100, 140]) {
-      const fit = fitSquadWorkspace(width, height, sidebar, gap, header, cap);
-      expect(fit.pitchWidth + sidebar + gap).toBeLessThanOrEqual(width);
-      expect(fit.pitchHeight + header).toBeLessThanOrEqual(height);
-      expect(fit.pitchHeight).toBeLessThanOrEqual(cap);
-      expect(fit.pitchWidth / fit.pitchHeight).toBeCloseTo(4 / 5);
+test('workspace fills remaining height independently of width from laptop to 4K', () => {
+  for (const [width, height] of [[768,432], [1366,768], [1920,1080], [2560,1440], [3840,2160]]) {
+    const availableWidth = Math.min(width, 1600) - 48;
+    const availableHeight = height - 160;
+    for (const header of [60,100,140]) {
+      const fit = fitSquadWorkspace(availableWidth, availableHeight, 380, 24, header);
+      expect(fit.pitchWidth).toBe(availableWidth - 404);
+      expect(fit.pitchHeight).toBe(availableHeight - header);
+      expect(fit.pitchHeight + header).toBe(availableHeight);
     }
   }
 });
 
-test('QHD and 4K use the available height and scale all formation artwork and cards together', () => {
-  for (const [screenHeight, expectedHeight] of [[1440, 1246], [2160, 1600]]) {
-    const layout = fitSquadWorkspace(1920, screenHeight - 104, 440, 32, 90);
-    expect(layout.pitchHeight).toBe(expectedHeight);
-    expect(layout.pitchWidth).toBeCloseTo(expectedHeight * .8);
-    for (const formation of FORMATIONS) {
-      const fit = fitPitchViewport(layout.pitchWidth, layout.pitchHeight, formation.height);
-      expect(fit.fittedHeight).toBeLessThanOrEqual(layout.pitchHeight + .001);
-      expect(fit.scale).toBeGreaterThan(0);
-      const laptop = fitPitchViewport(480, 600, formation.height);
-      expect(fit.scale).toBeGreaterThan(laptop.scale);
-    }
-  }
-  expect(fitPitchViewport(1008, 1260, 1125).scale).toBeGreaterThan(1);
+test('narrowing the window changes only pitch width, not height', () => {
+  const wide = fitSquadWorkspace(1552, 1100, 380, 24, 90);
+  const narrow = fitSquadWorkspace(976, 1100, 380, 24, 90);
+  expect(wide.pitchHeight).toBe(1010);
+  expect(narrow.pitchHeight).toBe(wide.pitchHeight);
+  expect(wide.pitchWidth - narrow.pitchWidth).toBe(576);
 });
 
-test('pitch shrinks continuously only after the margins are exhausted', () => {
-  for (let width = 1144; width > 1024; width--) {
-    const previous = fitSquadWorkspace(width - 48, 1100, 380, 28, 90);
-    const next = fitSquadWorkspace(width - 49, 1100, 380, 28, 90);
-    expect(previous.pitchWidth - next.pitchWidth).toBeCloseTo(1);
-    expect(previous.pitchHeight - next.pitchHeight).toBeCloseTo(1.25);
-  }
+test('insufficient space never produces negative dimensions', () => {
+  expect(fitSquadWorkspace(300, 60, 380, 24, 90)).toEqual({ pitchWidth: 0, pitchHeight: 0, headerHeight: 90 });
 });

@@ -17,7 +17,6 @@ export function PriorityPositionsSelector({ selectedPositions, onChange, disable
           {rank >= 0 && <span className={`priority-position-rank rank-${RAINBOW_BADGE_STYLES[rank]}`}>{rank + 1}</span>}{label}
         </button>;
       })}</div>
-      <p>At budgets of 300,000 C or more, each card is capped by priority: 35% → 25% → 20% → 16% → 13% → 10% → 8%. Default order: ST → CAM → wings → CB → CM/CDM → fullbacks → GK. With a custom order, unselected groups use GK 10%, fullbacks 15%, others 18%.</p>
     </div>
   </section>;
 }

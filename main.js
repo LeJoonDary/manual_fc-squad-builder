@@ -170,16 +170,15 @@ initialFormation.slots.forEach(({ position, x, y }) => {
 });
 const pitchFrame = document.querySelector('.pitch-scroll');
 const squadWorkspace = document.querySelector('.squad-workspace');
+const squadPage = document.querySelector('#squad-builder-page');
 function updatePitchViewport() {
-  if (window.matchMedia('(min-width: 1024px)').matches && squadWorkspace.clientHeight) {
-    const heading = document.querySelector('.pitch-heading');
-    const layout = fitSquadWorkspace(squadWorkspace.clientWidth, squadWorkspace.clientHeight,
-      document.querySelector('.chemistry-panel').offsetWidth,
-      Number.parseFloat(getComputedStyle(squadWorkspace).columnGap),
-      heading.offsetHeight + 8,
-      Number.parseFloat(getComputedStyle(squadWorkspace).getPropertyValue('--max-pitch-height')) || 1600);
-    squadWorkspace.style.setProperty('--viewport-pitch-width', `${layout.pitchWidth}px`);
-    squadWorkspace.style.setProperty('--viewport-pitch-height', `${layout.pitchHeight}px`);
+  if (window.matchMedia('(min-width: 768px)').matches && squadWorkspace.clientHeight) {
+    const sidebarWidth = document.querySelector('.chemistry-panel').offsetWidth;
+    const gap = Number.parseFloat(getComputedStyle(squadWorkspace).columnGap);
+    // Measure the full page so the fitted wrapper can grow again after a resize.
+    const layout = fitSquadWorkspace(squadPage.clientWidth, squadWorkspace.clientHeight,
+      sidebarWidth, gap,
+      document.querySelector('.pitch-heading').offsetHeight + 8);
     squadWorkspace.style.setProperty('--pitch-header-height', `${layout.headerHeight}px`);
   }
   const pitch = pitchFrame.querySelector('.pitch');
@@ -189,12 +188,14 @@ function updatePitchViewport() {
   const fit = fitPitchViewport(availableWidth, pitchFrame.clientHeight, height);
   pitch.style.setProperty('--pitch-width', `${fit.scale > 0 ? availableWidth / fit.scale : fit.width}px`);
   pitch.style.setProperty('--pitch-scale', fit.scale);
+  pitch.style.setProperty('--pitch-height', `${pitchFrame.clientHeight / fit.scale}px`);
   squadWorkspace.style.setProperty('--fitted-pitch-width', `${Math.min(availableWidth, fit.width * fit.scale)}px`);
   squadWorkspace.style.setProperty('--fitted-pitch-height', `${Math.min(pitchFrame.clientHeight, fit.fittedHeight)}px`);
   pitchFrame.style.setProperty('--scroll-pitch-width', `${fit.width * fit.scale}px`);
   pitchFrame.style.setProperty('--scroll-pitch-height', `${fit.fittedHeight}px`);
 }
 const pitchResizeObserver = new ResizeObserver(updatePitchViewport);
+pitchResizeObserver.observe(squadPage);
 pitchResizeObserver.observe(squadWorkspace);
 pitchResizeObserver.observe(pitchFrame);
 pitchResizeObserver.observe(document.querySelector('.pitch-heading'));
