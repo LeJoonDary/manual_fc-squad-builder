@@ -1,5 +1,6 @@
 import { expect, test, vi } from 'vitest';
 import { searchExclusionCards, fetchExcludedCardDetails, fetchExclusionCardIdsByOvr } from './exclusionCardSearch.js';
+import { playerNamePattern } from './playerSearch.js';
 
 function database(response = { data: [], error: null }) {
   const queries = [];
@@ -13,7 +14,7 @@ function database(response = { data: [], error: null }) {
   return { db, queries };
 }
 
-test('search treats punctuation literally through normalized client filtering', async () => {
+test('search filters names on the server and fetches only 15 cards in rating order', async () => {
   const card = { id: 10, players: { name: 'A,%_(B)"' } };
   const { db, queries } = database([{ data: [card] }, { data: [] }]);
   const signal = new AbortController().signal;
@@ -23,10 +24,23 @@ test('search treats punctuation literally through normalized client filtering', 
   expect(query.table).toBe('card_versions');
   expect(query.select.mock.calls[0][0]).toContain('players!inner(id,name,long_name)');
   expect(query.select.mock.calls[0][0]).toContain('image_url,background_url');
-  expect(query.or).not.toHaveBeenCalled();
-  expect(query.range).toHaveBeenCalledWith(0, 499);
+  const pattern = JSON.stringify(playerNamePattern(keyword.trim()));
+  expect(query.or).toHaveBeenCalledWith(`name.imatch.${pattern},long_name.imatch.${pattern}`, { referencedTable: 'players' });
+  expect(query.range).toHaveBeenCalledWith(0, 14);
+  expect(query.limit).toHaveBeenCalledWith(15);
+  expect(queries).toHaveLength(1);
+  expect(query.order).toHaveBeenCalledWith('overall', { ascending: false, nullsFirst: false });
   expect(query.abortSignal).toHaveBeenCalledWith(signal);
   expect(query.order.mock.calls.map(call => call[0])).toEqual(['overall', 'id']);
+});
+
+test('short trimmed searches never query, and subsequent pages remain bounded', async () => {
+  const { db, queries } = database();
+  for (const keyword of ['', ' ', ' a ']) expect(await searchExclusionCards(db, { keyword })).toEqual([]);
+  expect(db.from).not.toHaveBeenCalled();
+  await searchExclusionCards(db, { keyword: 'Messi', offset: 15 });
+  expect(queries[0].range).toHaveBeenCalledWith(15, 29);
+  expect(queries[0].limit).toHaveBeenCalledWith(15);
 });
 
 test('OVR query includes boundaries and continues across capped pages until empty', async () => {

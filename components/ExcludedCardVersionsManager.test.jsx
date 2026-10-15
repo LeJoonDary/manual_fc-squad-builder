@@ -57,17 +57,37 @@ test('debounces independent name search and toggles only the selected version wi
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
 });
 
+test('short queries skip search and cancel a pending debounce', async () => {
+  await type(' a '); await advance(400);
+  expect(searchExclusionCards).not.toHaveBeenCalled();
+  expect($('#exclusion-panel-search').textContent).toContain('at least 2 characters');
+  await type('Messi'); await advance(299);
+  await type('M'); await advance(400);
+  expect(searchExclusionCards).not.toHaveBeenCalled();
+});
+
+test('header clear action is beside the title, separate from close, and hidden when empty', async () => {
+  expect($('.exclusion-title-row .exclusion-clear')).toBeNull();
+  await act(async () => excludedCardVersionsStore.ban(100, 'Saved card'));
+  expect($('#exclusion-manager-title').nextElementSibling).toBe($('.exclusion-title-row .exclusion-clear'));
+  expect($('.exclusion-title-row .modal-close')).toBeNull();
+  await click($('.exclusion-title-row .exclusion-clear'));
+  expect($('.exclusion-title-row .exclusion-clear')).toBeNull();
+  expect($('[role="dialog"]')).not.toBeNull();
+  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
+});
+
 test('ignores stale search responses and cancels requests on close', async () => {
   let resolveOld;
   searchExclusionCards.mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }))
-    .mockResolvedValueOnce([card(102)]);
+    .mockResolvedValueOnce([card(102, 'special_totw')]);
   await type('Old'); await advance(300);
   const oldSignal = searchExclusionCards.mock.calls[0][1].signal;
   await type('New'); await advance(300);
   expect(oldSignal.aborted).toBe(true);
-  await act(async () => resolveOld([card(999)]));
-  expect($('#exclusion-panel-search').textContent).toContain('#102');
-  expect($('#exclusion-panel-search').textContent).not.toContain('#999');
+  await act(async () => resolveOld([card(999, 'special_toty')]));
+  expect($('#exclusion-panel-search').textContent).toContain('TOTW');
+  expect($('#exclusion-panel-search').textContent).not.toContain('TOTY');
   const newSignal = searchExclusionCards.mock.calls[1][1].signal;
   await act(async () => $('#exclusion-card-search').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   expect($('[role="dialog"]')).toBeNull();
@@ -76,15 +96,15 @@ test('ignores stale search responses and cancels requests on close', async () =>
 });
 
 test('loads more without duplicates, retries failures at the same offset, and resets pagination on a new search', async () => {
-  searchExclusionCards.mockResolvedValueOnce(Array.from({ length: 30 }, (_, i) => card(i)))
-    .mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce([card(29), card(30)])
+  searchExclusionCards.mockResolvedValueOnce(Array.from({ length: 15 }, (_, i) => card(i)))
+    .mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce([card(14), card(15)])
     .mockResolvedValueOnce([]);
   await type('Same'); await advance(300);
   await click($('.exclusion-load-more')); await advance(1);
   expect($('#exclusion-panel-search [role="alert"]').textContent).toContain('offline');
   await click($('#exclusion-panel-search [role="alert"] button')); await advance(1);
-  expect(searchExclusionCards.mock.calls[2][1].offset).toBe(30);
-  expect(document.querySelectorAll('.exclusion-toggle')).toHaveLength(31);
+  expect(searchExclusionCards.mock.calls[2][1].offset).toBe(15);
+  expect(document.querySelectorAll('.exclusion-toggle')).toHaveLength(16);
   expect($('.exclusion-load-more')).toBeNull();
   await type('Nobody'); await advance(300);
   expect(searchExclusionCards.mock.calls[3][1].offset).toBe(0);

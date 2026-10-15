@@ -172,7 +172,7 @@ LEAGUE_ALIAS_MAP = {
     "liga bbva mx": 23, "liga mx": 23, "roshn saudi league": 14,
     "scottish premiership": 27, "trendyol süper lig": 11,
     
-    # ★ WSL 관련 모든 변형 명칭을 1번(Barclays WSL)으로 통합
+    # ★ WSL 관련 변형 명칭
     "barclays wsl": 1,
     "wsl": 1,
     "barclays-womens-super-league": 1,
@@ -181,12 +181,20 @@ LEAGUE_ALIAS_MAP = {
     "barclays women’s super league": 1,
     "women's super league": 1,
 
-    # 기타 주요 여성 리그 변형 보강
+    # 기타 주요 여성 리그 변형
     "national women's soccer league": 8, "national-womens-soccer-league": 8, "nwsl": 8,
     "google pixel frauen-bundesliga": 9, "google-pixel-frauen-bundesliga": 9, "gpfbl": 9,
     "arkema première ligue": 10, "arkema-premiere-ligue": 10, "arkema pl": 10,
     "liga f moeve": 6, "liga-f-moeve": 6, "liga f": 6,
-    "efl championship": 19, "k league 1": 48
+    "efl championship": 19, "k league 1": 48,
+
+    # ★ [추가] CSL (중국 슈퍼리그) 모든 변형 명칭 ➔ 47번으로 매핑
+    "csl": 47,
+    "chinese super league": 47,
+    "chinese-super-league": 47,
+    "chinese football association super league": 47,
+    "chinese-football-association-super-league": 47,
+    "cfa super league": 47
 }
 
 CLUB_ALIAS_MAP = {

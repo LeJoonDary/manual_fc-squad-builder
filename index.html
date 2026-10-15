@@ -88,14 +88,20 @@
         </div>
         </div>
         <footer class="site-footer" aria-label="META XI information">
-          <span>© 2026 META XI. All rights reserved.</span>
-          <p>Game assets and data property of EA Sports. Not affiliated with EA.</p>
-          <nav aria-label="문의 및 정책">
-            <button type="button" disabled title="준비 중">문의사항 / 피드백</button>
-            <button type="button" disabled title="준비 중">이용약관</button>
-            <button type="button" disabled title="준비 중">개인정보처리방침</button>
-            <span class="footer-link-status">준비 중</span>
+          <nav aria-label="Contact and legal information">
+            <button type="button" data-legal-tab="contact" aria-haspopup="dialog">Contact &amp; Feedback</button>
+            <span aria-hidden="true">·</span>
+            <button type="button" data-legal-tab="terms" aria-haspopup="dialog">Terms of Service</button>
+            <span aria-hidden="true">·</span>
+            <button type="button" data-legal-tab="privacy" aria-haspopup="dialog">Privacy Policy</button>
+            <span aria-hidden="true">·</span>
+            <button type="button" data-legal-tab="disclaimer" aria-haspopup="dialog">Disclaimer</button>
           </nav>
+          <div class="site-footer-notice">
+            <span>© 2026 META XI. All rights reserved.</span>
+            <span class="footer-separator" aria-hidden="true">|</span>
+            <span>Non-commercial fan-made tool. Not affiliated with or endorsed by Electronic Arts Inc.</span>
+          </div>
         </footer>
       </section>
 

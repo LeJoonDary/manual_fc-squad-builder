@@ -5,7 +5,9 @@ import { excludedCardVersionsStore, getExcludedCardManagementCount, isSquadOvrRa
 import { searchExclusionCards, fetchExcludedCardDetails, EXCLUSION_SEARCH_PAGE_SIZE,
   exclusionCardName, exclusionCardLabel } from '../utils/exclusionCardSearch.js';
 
-function CardSummary({ card, id, fallbackName }) {
+const formatVersion = version => String(version ?? '').replace(/^special_/i, '').replace(/_/g, ' ').toUpperCase().trim();
+
+function CardSummary({ card, fallbackName }) {
   const club = (Array.isArray(card?.clubs) ? card.clubs[0] : card?.clubs)?.name;
   const positions = (card?.card_positions ?? []).map(row => (Array.isArray(row.positions) ? row.positions[0] : row.positions)?.name).filter(Boolean).join(' / ');
   return <>
@@ -16,7 +18,7 @@ function CardSummary({ card, id, fallbackName }) {
     <div className="exclusion-card-info">
       <strong>{card ? exclusionCardName(card) : fallbackName}</strong>
       <span>{positions || '—'} · {club || 'Unknown club'}</span>
-      <span>{card?.version || (card ? 'Unknown version' : 'Card details unavailable')} · #{id}</span>
+      <span className="exclusion-card-version">{formatVersion(card?.version)}</span>
     </div>
   </>;
 }
@@ -87,7 +89,7 @@ function ExclusionDialog({ supabase, onClose }) {
     let active = true;
     const controller = new AbortController();
     setSearchError('');
-    if (!keyword.trim()) {
+    if (keyword.trim().length < 2) {
       setRows([]); setHasMore(false); setSearchLoading(false);
       return () => { active = false; controller.abort(); };
     }
@@ -162,10 +164,12 @@ function ExclusionDialog({ supabase, onClose }) {
     <div className="modal-backdrop" onClick={onClose} />
     <section ref={panel} className="modal-panel exclusion-manager-panel" role="dialog" aria-modal="true" aria-labelledby="exclusion-manager-title">
       <header className="modal-header">
-        <div><p className="eyebrow">AUTO BUILD</p><h2 id="exclusion-manager-title">Excluded Cards ({ids.length})</h2></div>
-        <button type="button" className="exclusion-clear" disabled={!ids.length} onClick={() => change(() => {
+        <div><p className="eyebrow">AUTO BUILD</p><div className="exclusion-title-row"><h2 id="exclusion-manager-title">Excluded Cards ({ids.length})</h2>
+        {ids.length > 0 && <button type="button" className="exclusion-clear" onClick={() => change(() => {
           excludedCardVersionsStore.clear(); setSelected([]);
-        }, 'Exclusions cleared.')}>Clear All</button>
+          document.getElementById(tab === 'search' ? 'exclusion-card-search' : 'exclusion-tab-excluded').focus();
+        }, 'Exclusions cleared.')}>Clear All</button>}
+        </div></div>
         <button className="modal-close" type="button" aria-label="Close Excluded Cards" onClick={onClose}>×</button>
       </header>
       <p className="exclusion-manager-help">Only the selected card versions will be excluded. Other versions of the player remain available in the pool.</p>
@@ -188,11 +192,11 @@ function ExclusionDialog({ supabase, onClose }) {
             setKeyword(event.target.value); setPage(0); setRows([]); setHasMore(false);
           }} />
         <div className="exclusion-card-list" aria-busy={searchLoading}>
-          {!keyword.trim() && <p>Search for cards you wish to exclude from the build.</p>}
+          {keyword.trim().length < 2 && <p>Enter at least 2 characters to search for cards to exclude.</p>}
           {rows.map(card => {
             const id = String(card.id), banned = ids.includes(id);
             return <div className="exclusion-card-row" key={id}>
-              <CardSummary card={card} id={id} />
+              <CardSummary card={card} />
               <button type="button" className="exclusion-toggle" aria-pressed={banned}
                 aria-label={`${exclusionCardLabel(card)} ${banned ? 'Remove exclusion' : 'Exclude'}`}
                 onClick={() => change(() => banned ? excludedCardVersionsStore.unban(id) : excludedCardVersionsStore.ban(id, exclusionCardLabel(card)),
@@ -200,7 +204,7 @@ function ExclusionDialog({ supabase, onClose }) {
             </div>;
           })}
           {searchLoading && <p role="status">Searching cards…</p>}
-          {!searchLoading && !searchError && keyword.trim() && !rows.length && <p>No results found.</p>}
+          {!searchLoading && !searchError && keyword.trim().length >= 2 && !rows.length && <p>No results found.</p>}
           {searchError && <p role="alert">{searchError} <button type="button" onClick={() => setSearchRetry(value => value + 1)}>Try Again</button></p>}
           {hasMore && !searchError && <button type="button" className="exclusion-load-more" disabled={searchLoading} onClick={() => setPage(value => value + 1)}>Load More</button>}
         </div>
@@ -248,7 +252,7 @@ function ExclusionDialog({ supabase, onClose }) {
           {ids.map(id => <div className="exclusion-card-row" key={id}>
             <input type="checkbox" aria-label={`Select ${names[id]}`} checked={selectedIds.includes(id)} onChange={event =>
               setSelected(previous => event.target.checked ? [...previous, id] : previous.filter(value => value !== id))} />
-            <CardSummary card={cache.current.get(id)} id={id} fallbackName={names[id]} />
+            <CardSummary card={cache.current.get(id)} fallbackName={names[id]} />
             <button type="button" className="exclusion-toggle" aria-label={`Remove exclusion for ${names[id] || id}`}
               onClick={() => change(() => excludedCardVersionsStore.unban(id), 'Card exclusion removed.')}>Remove</button>
           </div>)}

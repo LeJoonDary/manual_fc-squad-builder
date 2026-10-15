@@ -912,6 +912,7 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .exclusion-card-info { flex: 1; min-width: 0; display: grid; gap: 6px; overflow-wrap: anywhere; }
 .exclusion-card-info strong { font-size: .9rem; }
 .exclusion-card-info span { color: #b9c7da; font-size: .75rem; }
+.exclusion-card-info .exclusion-card-version { font-size: 10px; font-weight: 600; color: #9ca3af; letter-spacing: .05em; }
 .exclusion-card-row .exclusion-toggle { flex-shrink: 0; }
 .exclusion-card-row .exclusion-toggle[aria-pressed="true"] { border-color: #63e6be; color: #8ff0d2; background: #183c40; }
 .exclusion-select-all { display: flex; align-items: center; gap: 10px; font-size: .85rem; }
@@ -919,6 +920,11 @@ h1 { margin: 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
 .exclusion-bulk-actions { display: flex; align-items: center; gap: 10px; padding: 16px 0 0; }
 .exclusion-bulk-actions span { flex: 1; color: #b9c7da; font-size: .8rem; }
 .exclusion-bulk-actions .exclusion-clear { color: #fda4af; border-color: #9a4d60; }
+.exclusion-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.exclusion-title-row h2 { color: #fff; font-size: 20px; font-weight: 700; }
+.exclusion-title-row .exclusion-clear { padding: 4px 10px; border: 1px solid rgb(239 68 68 / 30%); border-radius: 6px; background: rgb(239 68 68 / 10%); color: #f87171; font-size: 12px; cursor: pointer; transition: background-color 150ms ease; }
+.exclusion-title-row .exclusion-clear:hover { background: rgb(239 68 68 / 20%); }
+.exclusion-manager-panel > .modal-header > .modal-close { flex-shrink: 0; }
 .exclusion-load-more { width: 100%; margin: 12px 0; }
 .exclusion-action-message { margin: 0; padding: 12px 24px; color: #8ff0d2; font-size: .8rem; }
 .exclusion-action-message[role="alert"] { color: #fda4af; }
@@ -1602,13 +1608,48 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .browser-player-card .browser-player-stat-value { color: #f8fafc; }
 
 /* Footer stays outside the pitch/sidebar area and reserves its own viewport space. */
-.site-footer { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; width: 100%; max-width: 1600px; margin: 12px auto 0; padding: 10px 0 2px; border-top: 1px solid #1e293b99; color: #94a3b8; font-size: 11px; line-height: 1.5; }
-.site-footer p { flex: 1; margin: 0; text-align: center; }
-.site-footer nav { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.site-footer button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; }
-.site-footer button:disabled { cursor: default; color: #94a3b8; }
-.footer-link-status { color: #64748b; font-size: 10px; }
-@media (max-width: 1023px) { .site-footer { justify-content: center; text-align: center; } .site-footer p { flex-basis: 100%; } }
+.site-footer { display: flex; flex: 0 0 auto; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 100%; max-width: 1600px; margin: 16px auto 0; padding: 12px 0 8px; border-top: 1px solid rgb(31 41 55 / 50%); text-align: center; line-height: 1.5; }
+.site-footer nav { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 24px; color: #9ca3af; font-size: 12px; }
+.site-footer-notice { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; color: #6b7280; font-size: 11px; }
+.site-footer nav > span, .site-footer .footer-separator { color: #374151; }
+.site-footer button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; transition: color 150ms ease; }
+.site-footer button:hover { color: #fff; }
+.site-footer button[data-legal-tab="contact"]:hover { color: #00df82; }
+.site-footer button:focus-visible, .legal-modal :focus-visible { outline: 2px solid #38bdf8; outline-offset: 4px; }
+.legal-modal { position: fixed; inset: 0; z-index: 50; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 16px; border: 0; background: transparent; color: #d1d5db; }
+.legal-modal[open] { display: flex; align-items: center; justify-content: center; }
+.legal-modal::backdrop { background: rgb(0 0 0 / 75%); backdrop-filter: blur(4px); }
+.legal-modal-box { width: 100%; max-width: 576px; background: #0b131e; border: 1px solid #1f2937; border-radius: 16px; box-shadow: 0 25px 50px -12px rgb(0 0 0 / 50%); overflow: hidden; }
+.legal-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid #1f2937; }
+.legal-modal-header h2 { margin: 0; color: #f3f4f6; font-size: 16px; }
+.legal-modal-close { flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #9ca3af; cursor: pointer; font-size: 18px; }
+.legal-modal-close:hover { background: #1f2937; color: #fff; }
+.legal-modal-body { max-height: 65vh; overflow-y: auto; padding: 20px 24px; font-size: 12px; line-height: 1.625; overscroll-behavior: contain; }
+.legal-modal-body ul, .legal-modal-body ol { margin: 0; padding-left: 18px; }
+.legal-modal-body li + li { margin-top: 16px; }
+.legal-modal-body h3 { margin: 0 0 4px; color: #e5e7eb; font-size: inherit; }
+.legal-modal-body p { margin: 0; }
+.legal-modal-body a { color: #7dd3fc; text-decoration: underline; overflow-wrap: anywhere; }
+.legal-contact { display: grid; gap: 16px; }
+.legal-contact > div > h3 { color: #fff; font-size: 14px; }
+.legal-contact p, .legal-contact-address { color: #9ca3af; }
+.legal-contact-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid #1f2937; border-radius: 12px; background: rgb(18 31 47 / 60%); }
+.legal-contact-address { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.legal-contact-address strong { color: #00df82; font-family: monospace; overflow-wrap: anywhere; }
+.legal-contact-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 4px; }
+.legal-contact-actions a { display: flex; align-items: center; justify-content: center; padding: 8px 12px; border-radius: 8px; text-align: center; text-decoration: none; font-weight: 600; transition: background-color 150ms ease; }
+.legal-contact-actions .legal-contact-gmail { background: #00df82; color: #000; font-weight: 700; }
+.legal-contact-actions .legal-contact-gmail:hover { background: #00c573; }
+.legal-contact-actions .legal-contact-mail { background: #1f2937; color: #fff; }
+.legal-contact-actions .legal-contact-mail:hover { background: #374151; }
+.legal-contact-copy { width: 100%; padding: 6px; border: 1px dashed #374151; border-radius: 8px; background: transparent; color: #9ca3af; font: inherit; font-size: 11px; cursor: pointer; }
+.legal-contact-copy:hover { border-color: #6b7280; color: #fff; }
+.legal-contact-copy:disabled { cursor: wait; }
+.legal-contact-status:empty { display: none; }
+.legal-modal-body.custom-scrollbar { scrollbar-width: thin; scrollbar-color: #374151 #0b131e; }
+.legal-modal-body.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.legal-modal-body.custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+@media (max-width: 767px) { .site-footer nav > span, .site-footer .footer-separator { display: none; } }
 
 @media (min-width: 768px) {
   .app-shell.is-squad-active .pitch { height: var(--pitch-height, 1040px); }

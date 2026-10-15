@@ -1,7 +1,7 @@
 import { normalizeExcludedCardVersionIds } from './excludedCardVersions.js';
-import { fetchNameFilteredPage } from './playerSearch.js';
+import { playerNamePattern } from './playerSearch.js';
 
-export const EXCLUSION_SEARCH_PAGE_SIZE = 30;
+export const EXCLUSION_SEARCH_PAGE_SIZE = 15;
 export const EXCLUSION_CARD_SELECT = 'id,overall,version,image_url,background_url,clubs(name),card_positions(is_primary,positions(name)),players!inner(id,name,long_name)';
 
 export async function fetchExclusionCardIdsByOvr(db, { minOvr, maxOvr, signal }) {
@@ -26,11 +26,17 @@ export async function fetchExclusionCardIdsByOvr(db, { minOvr, maxOvr, signal })
 
 export async function searchExclusionCards(db, { keyword, offset = 0, signal }) {
   const term = keyword.trim();
-  if (!term) return [];
+  if (term.length < 2) return [];
   if (!db) throw new Error('Supabase connection is not configured.');
-  return fetchNameFilteredPage(() => db.from('card_versions').select(EXCLUSION_CARD_SELECT)
-    .order('overall', { ascending: false, nullsFirst: false }).order('id'),
-  term, offset, EXCLUSION_SEARCH_PAGE_SIZE, signal);
+  signal?.throwIfAborted();
+  const pattern = JSON.stringify(playerNamePattern(term));
+  const { data, error } = await db.from('card_versions').select(EXCLUSION_CARD_SELECT)
+    .or(`name.imatch.${pattern},long_name.imatch.${pattern}`, { referencedTable: 'players' })
+    .order('overall', { ascending: false, nullsFirst: false }).order('id')
+    .range(offset, offset + EXCLUSION_SEARCH_PAGE_SIZE - 1)
+    .limit(EXCLUSION_SEARCH_PAGE_SIZE).abortSignal(signal);
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function fetchExcludedCardDetails(db, ids, signal) {

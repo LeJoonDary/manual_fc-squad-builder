@@ -4,14 +4,7 @@
 #raphinha, 89, potm, https://www.youtube.com/shorts/Dh5hp6IvI0o
 #olise, 91, potm, https://www.youtube.com/shorts/4UNYUdCAo6g
 #pedro goncalves, 83, glory, https://www.youtube.com/shorts/HAGYeNsGJvI
-#walcott, 85, hall, https://www.youtube.com/shorts/x-69M_H6-Sc
-#nico williams, 84, gold, https://www.youtube.com/shorts/jXmEa5OWrKc
-#de jong, 86, gold, https://www.youtube.com/shorts/6PrUhDAv0LY
-#russo, 88, gold, https://www.youtube.com/shorts/UTgvTKajYcw
-#messi, 89, gold, https://www.youtube.com/shorts/Wc03y99yVjo
-#kane, 90, gold, https://www.youtube.com/shorts/WfjKHc-l9kU
-#chawinga, 87, gold, https://www.youtube.com/shorts/BmXadmwJLfQ
-#patri guijarro, 88, gold, https://www.youtube.com/shorts/LHIQFX-8lKg
+
 #raphinha, 88, gold, https://www.youtube.com/shorts/4BBZY5LOr7g
 #bouaddi, 83, glory, https://www.youtube.com/shorts/LjAlkVBcKfA
 #remy, 84, hall of fut, https://www.youtube.com/shorts/k44SKqn20AA
@@ -34,47 +27,19 @@
 #gordon, 86, glory, https://www.youtube.com/shorts/OyQ9PxrjPmg
 #nico paz, 87, glory, https://www.youtube.com/shorts/2StfOdygYZ4
 #lookman, 86, glory, https://www.youtube.com/shorts/ZF4geJWfw7A
-#rashford, 82, gold, https://www.youtube.com/shorts/c5tOLpxGEh0
-#malen, 83, gold, https://www.youtube.com/shorts/MnL_qCmmHHE
-#pavlovic, 83, gold, https://www.youtube.com/shorts/tR55qD0BnSk
-#vicky lopez, 84, gold, https://www.youtube.com/shorts/djkpzWM8c4c
-#foden, 84, gold, https://www.youtube.com/shorts/NzhCcoldUxA
-#rudiger, 83, gold, https://www.youtube.com/shorts/VZEBqXs2CyI
-#kika nazareth, 83, gold, https://www.youtube.com/shorts/jMT8cfVIro4
-#thuram, 86, totw, https://www.youtube.com/shorts/Tnz5wGeLzJA
-#barella, 87, gold, https://www.youtube.com/shorts/lVzUandWWX4
-#beerensteyn, 83, gold, https://www.youtube.com/shorts/9sh2AIBg5so
-#cherki, 86, gold, https://www.youtube.com/shorts/EoKfigdI26M
-#musiala, 87, gold, https://www.youtube.com/shorts/aSmbl82_2yk
-#rummenigge, 86, debut international, https://www.youtube.com/shorts/6sexi_ZYCX8
-#isak, 86, gold, https://www.youtube.com/shorts/avJ2YeLqfzQ
-#harder, 88, glory, https://www.youtube.com/shorts/0sPRy9JmL58
-#diomande, 84, gold, https://www.youtube.com/shorts/duPoMhtBbHo
-#semenyo, 85, gold, https://www.youtube.com/shorts/6p6mDqK-F8c
-
 #mbappe, 91, glory, https://www.youtube.com/shorts/--nVS0YoP8E
 #claudia pina, 89, potm, https://www.youtube.com/shorts/bxJxdqMNQdQ
-#pajor, 89, gold, https://www.youtube.com/shorts/aiTBZIl6mS4
-#kvaratskhelia, 89, gold, https://www.youtube.com/shorts/06FWvQdXchU
-#salma paralluelo, 87, gold, https://www.youtube.com/shorts/8bmSVoknw_Y
 #dumornay, 88, gold, https://www.youtube.com/shorts/r4d_4lNZdzU
-
-#adeyemi, 83, ones, https://www.youtube.com/shorts/1ua04cVA4qA
-#valverde, 87, gold, https://www.youtube.com/shorts/nlnaoCm_K5k
 #patati, 84, foundation, https://www.youtube.com/shorts/SUiXq1cJ4wI
 
 #joan garcia, 86, gold, https://www.youtube.com/shorts/QrCyj2E8Low
 #carlos espi, 85, future, https://www.youtube.com/shorts/x7bHYl5RcWM
-#hulk, 85, hall_of_fut, https://www.youtube.com/shorts/r2TWl8kdPRE
 #lewis-skelly, 88, future, https://www.youtube.com/shorts/rAiLAS-MPJw
 #brown, 85, future, https://www.youtube.com/shorts/TUvcy9b2EZI
 #vicky lopez, 90, future, https://www.youtube.com/shorts/gJLkfDqjWvc
 #jacobo ramon, 87, future, https://www.youtube.com/shorts/fbsY7YNKVIU
 
-#anyomi, 85, watch, https://www.youtube.com/shorts/ir02FXY0C6U
-
 #richards, 85, hall, https://www.youtube.com/shorts/hbgYHZhQNyI
-#bischof, 86, future, https://www.youtube.com/shorts/2Z5wx8xSObg
 #sneijder, 88, hero, https://www.youtube.com/shorts/iPYYoPXzBcM
 
 #bonny, 87, future, https://www.youtube.com/shorts/Zy22SdpTG9M
@@ -83,3 +48,11 @@
 
 #xavi espart, 85, future, https://www.youtube.com/shorts/hYRub58xpHQ
 #ferran torres, 85, potm, https://www.youtube.com/shorts/yFJVrn9nRXc
+
+#kika nazareth, 83, gold, https://www.youtube.com/shorts/ceApPp14_vg
+#vicky lopez, 84, gold, https://www.youtube.com/shorts/KJGbGPuPg0k
+#rashford, 82, gold, https://www.youtube.com/shorts/MEH2J2sFRJY
+#kane, 90, gold, https://www.youtube.com/shorts/lfyByh26UyM
+#pato, 85, hall, https://www.youtube.com/shorts/obRRDxBP9EI
+
+
