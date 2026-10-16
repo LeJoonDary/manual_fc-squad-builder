@@ -30,7 +30,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
   const { lockedCost, distributableBudget, unlimited } = getRemainingAutoBuildBudget(
     safeTargetBudget, formation, { currentSquad: getCurrentSquad() }, false);
   const isLockedOverBudget = safeTargetBudget > 0 && lockedCost > safeTargetBudget;
-  const lockedWarning = `⚠️ 잠긴 선수 금액(${formatBudgetNumber(lockedCost)} C)이 목표 예산(${formatBudgetNumber(safeTargetBudget)} C)을 초과했습니다. 선수의 잠금을 해제하거나 예산을 올려주세요.`;
+  const lockedWarning = `⚠️ Locked player cost (${formatBudgetNumber(lockedCost)} C) exceeds your target budget (${formatBudgetNumber(safeTargetBudget)} C). Unlock players or increase your budget.`;
   const [minChemistry, setMinChemistry] = useState(33);
   const requirements = Object.values(getRoleOptions().slotRequirements ?? {});
   const activeRolesCount = requirements.reduce((count, req) => count + (req?.roles?.length ?? (req?.role ? 1 : 0)), 0);
@@ -53,7 +53,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       const snapshot = getSquadSnapshot();
       const exclusionSnapshot = excludedCardVersionsStore.getState();
       const roleOptions = structuredClone(getRoleOptions());
-      const options = { ...roleOptions, currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], keyPositions: [...keyPositions], excludeZeroPriceCards: true };
+      const options = { ...roleOptions, maxIcons: exclusionSnapshot.maxIcons, maxHeroes: exclusionSnapshot.maxHeroes, currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], keyPositions: [...keyPositions], excludeZeroPriceCards: true };
       const candidates = await fetchCandidatePlayers(totalBudget, formation, isThreeBack, supabase, options);
       const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, true, options);
       if (JSON.stringify(getRoleOptions()) !== JSON.stringify(roleOptions)) throw new Error('Advanced settings changed during the build. Try again.');

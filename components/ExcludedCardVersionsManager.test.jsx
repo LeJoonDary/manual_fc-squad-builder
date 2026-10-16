@@ -301,3 +301,40 @@ test('main button and modal count stay synchronized through range and individual
   expect($('#excluded-card-versions-list').textContent).toContain('No cards currently excluded.');
   expect($('.settings-inline-clear').disabled).toBe(true);
  });
+
+test('selects independent special limits with accessible pressed states', async () => {
+  const icons = $('[role="group"][aria-label="Max Icons"]');
+  const heroes = $('[role="group"][aria-label="Max Heroes"]');
+  expect(icons.querySelector('[aria-pressed="true"]').textContent).toBe('Any');
+  await click([...icons.querySelectorAll('button')].find(button => button.textContent === 'Exclude'));
+  await click([...heroes.querySelectorAll('button')].find(button => button.textContent === '5'));
+  expect(excludedCardVersionsStore.getState()).toMatchObject({ maxIcons: 0, maxHeroes: 5 });
+  expect(icons.querySelector('[aria-pressed="true"]').classList.contains('is-exclude')).toBe(true);
+  await act(async () => excludedCardVersionsStore.reset());
+  expect(icons.querySelector('[aria-pressed="true"]').textContent).toBe('Any');
+  expect(heroes.querySelector('[aria-pressed="true"]').textContent).toBe('Any');
+});
+
+test('counts special limits in both titles and clears them with the panel trash button', async () => {
+  await act(async () => {
+    excludedCardVersionsStore.setMaxIcons(0);
+    excludedCardVersionsStore.setMaxHeroes(1);
+  });
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (2)');
+  expect($('.excluded-card-versions-toggle').textContent).toContain('Excluded Cards (2)');
+  expect($('.settings-inline-clear').disabled).toBe(false);
+  await click($('.settings-inline-clear'));
+  expect(excludedCardVersionsStore.getState()).toMatchObject({ excludedCardVersionIds: [], maxIcons: null, maxHeroes: null });
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (0)');
+  expect($('.settings-inline-clear').disabled).toBe(true);
+});
+test('modal Clear All clears cards and special limits while preserving the OVR range', async () => {
+  await act(async () => {
+    excludedCardVersionsStore.ban(100, 'Test');
+    excludedCardVersionsStore.setMaxIcons(5);
+    excludedCardVersionsStore.setSquadOvrRange({ min: 80, max: 99 });
+  });
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (2)');
+  await click($('.exclusion-title-row .exclusion-clear'));
+  expect(excludedCardVersionsStore.getState()).toMatchObject({ excludedCardVersionIds: [], maxIcons: null, maxHeroes: null, squadOvrRange: { min: 80, max: 99 } });
+});

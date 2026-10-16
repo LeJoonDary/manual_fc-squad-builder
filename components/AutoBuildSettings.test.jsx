@@ -132,8 +132,8 @@ describe('Auto Build UI workflow', () => {
     await act(async () => button().click());
     expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
     await act(async () => resolve([{ id: 1 }]));
-    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, '4-3-3', false, props.supabase, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
-    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
+    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, '4-3-3', false, props.supabase, { currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
+    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(result, { snapshot: 'snapshot', formation: '4-3-3', totalBudget: 1000000 });
     expect(button().disabled).toBe(false);
     expect(container.querySelector('[role="status"]').textContent).toContain('Squad built successfully!');
@@ -240,12 +240,15 @@ it('clears exclusions and tactical selections inline without opening dialogs, an
   expect(container.querySelector('[aria-label="Reset All Preferences"]').disabled).toBe(true);
   await act(async () => {
     excludedCardVersionsStore.ban(100, 'Other');
+    excludedCardVersionsStore.setMaxIcons(0);
+    excludedCardVersionsStore.setMaxHeroes(5);
     excludedCardVersionsStore.setSquadOvrRange({ min: 80, max: 90 });
     options = { slotRequirements: { ST: { role: { name: 'Poacher', minLevel: 1 } } } };
     window.dispatchEvent(new Event('auto-build-context-change'));
   });
   await act(async () => container.querySelector('.auto-build-reset').click());
   expect(resetTargetBudget).toHaveBeenCalledOnce();
+  expect(excludedCardVersionsStore.getState()).toMatchObject({ maxIcons: null, maxHeroes: null });
   expect(clearRolesAndPlaystyles).toHaveBeenCalledTimes(2);
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
   expect(excludedCardVersionsStore.getState().squadOvrRange).toEqual({ min: 45, max: 99 });

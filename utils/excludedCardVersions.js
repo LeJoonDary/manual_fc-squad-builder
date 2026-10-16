@@ -22,8 +22,12 @@ export function isSquadOvrRangeCustom(range = DEFAULT_SQUAD_OVR_RANGE) {
   return range.min !== DEFAULT_SQUAD_OVR_RANGE.min || range.max !== DEFAULT_SQUAD_OVR_RANGE.max;
 }
 
-export function getExcludedCardManagementCount({ excludedCardVersionIds, squadOvrRange }) {
-  return excludedCardVersionIds.length + Number(isSquadOvrRangeCustom(squadOvrRange));
+export function getTotalExcludedCount({ excludedCardVersionIds, maxIcons = null, maxHeroes = null }) {
+  return excludedCardVersionIds.length + Number(maxIcons !== null) + Number(maxHeroes !== null);
+}
+
+export function getExcludedCardManagementCount(state) {
+  return getTotalExcludedCount(state) + Number(isSquadOvrRangeCustom(state.squadOvrRange));
 }
 
 export function validateSquadOvrRange(range = DEFAULT_SQUAD_OVR_RANGE) {
@@ -33,9 +37,17 @@ export function validateSquadOvrRange(range = DEFAULT_SQUAD_OVR_RANGE) {
   return { min: range.min, max: range.max };
 }
 
+export function validateSpecialCardLimit(value = null) {
+  if (value !== null && (!Number.isInteger(value) || value < 0 || value > 5)) {
+    throw new RangeError('Special card limits must be Any or a whole number from 0 to 5.');
+  }
+  return value;
+}
+
 export function createExcludedCardVersionsStore(getStorage = () => globalThis.localStorage) {
   const listeners = new Set();
-  const makeState = (ids = [], names = {}, range = DEFAULT_SQUAD_OVR_RANGE) => Object.freeze({
+  const makeState = (ids = [], names = {}, range = DEFAULT_SQUAD_OVR_RANGE, maxIcons = null, maxHeroes = null) => Object.freeze({
+    maxIcons: validateSpecialCardLimit(maxIcons), maxHeroes: validateSpecialCardLimit(maxHeroes),
     squadOvrRange: Object.freeze(validateSquadOvrRange(range)),
     excludedCardVersionIds: Object.freeze(normalizeExcludedCardVersionIds(ids)),
     excludedCardVersionNames: Object.freeze(Object.fromEntries(normalizeExcludedCardVersionIds(ids).map(id =>
@@ -44,11 +56,11 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
   let state = makeState();
   try {
     const saved = JSON.parse(getStorage()?.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY) ?? 'null');
-    if (saved) state = makeState(saved.excludedCardVersionIds, saved.excludedCardVersionNames, saved.squadOvrRange);
+    if (saved) state = makeState(saved.excludedCardVersionIds, saved.excludedCardVersionNames, saved.squadOvrRange, saved.maxIcons, saved.maxHeroes);
   } catch { /* Invalid or unavailable storage must not prevent the app from opening. */ }
 
-  function update(ids, names, range = state.squadOvrRange) {
-    const next = makeState(ids, names, range);
+  function update(ids, names, range = state.squadOvrRange, maxIcons = state.maxIcons, maxHeroes = state.maxHeroes) {
+    const next = makeState(ids, names, range, maxIcons, maxHeroes);
     try {
       const storage = getStorage();
       if (!storage) throw new Error('Storage unavailable');
@@ -62,6 +74,8 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
 
   return {
     getState: () => state,
+    setMaxIcons(value) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, state.squadOvrRange, value); },
+    setMaxHeroes(value) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, state.squadOvrRange, state.maxIcons, value); },
     setSquadOvrRange(range) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, range); },
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     banMany(ids) {
@@ -87,9 +101,9 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
       if (remaining.length !== state.excludedCardVersionIds.length) update(remaining, state.excludedCardVersionNames);
     },
     clear() {
-      if (state.excludedCardVersionIds.length) update([], {});
+      if (getTotalExcludedCount(state)) update([], {}, state.squadOvrRange, null, null);
     },
-    reset() { update([], {}, DEFAULT_SQUAD_OVR_RANGE); },
+    reset() { update([], {}, DEFAULT_SQUAD_OVR_RANGE, null, null); },
   };
 }
 

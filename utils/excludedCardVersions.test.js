@@ -35,7 +35,7 @@ test('ban/unban is shared, deduplicated, and restored with names after reload', 
   store.ban('123', '중복');
   expect(listener).toHaveBeenCalledTimes(1);
   const restored = createExcludedCardVersionsStore(() => storage);
-  expect(restored.getState()).toEqual({ squadOvrRange: { min: 45, max: 99 }, excludedCardVersionIds: ['123'], excludedCardVersionNames: { 123: '테스트 선수' } });
+  expect(restored.getState()).toEqual({ maxIcons: null, maxHeroes: null, squadOvrRange: { min: 45, max: 99 }, excludedCardVersionIds: ['123'], excludedCardVersionNames: { 123: '테스트 선수' } });
   restored.unban(123);
   expect(createExcludedCardVersionsStore(() => storage).getState().excludedCardVersionIds).toEqual([]);
   unsubscribe();
@@ -68,13 +68,13 @@ test('bulk removal and reset each persist and notify once, including names', () 
   store.unbanMany(['1', 2, 2, 999]);
   expect(listener).toHaveBeenCalledTimes(1);
   expect(createExcludedCardVersionsStore(() => storage).getState()).toEqual({
-    squadOvrRange: { min: 45, max: 99 },
+    maxIcons: null, maxHeroes: null, squadOvrRange: { min: 45, max: 99 },
     excludedCardVersionIds: ['3'], excludedCardVersionNames: { 3: 'Card 3' },
   });
   store.clear();
   expect(listener).toHaveBeenCalledTimes(2);
   expect(createExcludedCardVersionsStore(() => storage).getState()).toEqual({
-    squadOvrRange: { min: 45, max: 99 },
+    maxIcons: null, maxHeroes: null, squadOvrRange: { min: 45, max: 99 },
     excludedCardVersionIds: [], excludedCardVersionNames: {},
   });
 });
@@ -106,4 +106,18 @@ test('OVR conditions persist without collecting IDs and survive individual ban c
   expect(restored.getState().squadOvrRange).toEqual({ min: 75, max: 99 });
   expect(restored.getState().excludedCardVersionIds).toEqual(['123']);
   expect(() => store.setSquadOvrRange({ min: 90, max: 70 })).toThrow();
+});
+
+ test('special limits persist independently and reset to Any', () => {
+  const storage = memoryStorage();
+  const store = createExcludedCardVersionsStore(() => storage);
+  expect(store.getState()).toMatchObject({ maxIcons: null, maxHeroes: null });
+  store.setMaxIcons(0); store.setMaxHeroes(5); store.ban(123);
+  const restored = createExcludedCardVersionsStore(() => storage);
+  expect(restored.getState()).toMatchObject({ maxIcons: 0, maxHeroes: 5 });
+  restored.clear();
+  expect(restored.getState()).toMatchObject({ excludedCardVersionIds: [], maxIcons: null, maxHeroes: null });
+  expect(() => restored.setMaxIcons(6)).toThrow(RangeError);
+  restored.reset();
+  expect(restored.getState()).toMatchObject({ maxIcons: null, maxHeroes: null });
 });

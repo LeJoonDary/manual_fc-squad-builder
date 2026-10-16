@@ -82,10 +82,12 @@ describe('owned, locked and special-card constraints', () => {
     expect(result.squad.filter(p => p.isIcon || p.isHero).length).toBeLessThanOrEqual(maxSpecialCards);
   });
 
-  it('rejects a locked special count exceeding the limit', async () => {
+  it('preserves a locked special card when auto-fill specials are excluded', async () => {
     const { rows, groups } = fixture();
     const currentSquad = { LW: { card: { ...rows[0], card_type: 'ICON' }, isLocked: true, isOwned: true } };
-    await expect(generateOptimalSquad('4-3-3', groups, 1000000, 0, false, { currentSquad, maxSpecialCards: 0 })).rejects.toThrow('Locked');
+    const result = await generateOptimalSquad('4-3-3', groups, 1000000, 0, false, { currentSquad, maxSpecialCards: 0 });
+    expect(result.squad.find(player => player.slotPosition === 'LW')).toMatchObject({ isLocked: true, isIcon: true });
+    expect(result.squad.filter(player => !player.isLocked && (player.isIcon || player.isHero))).toHaveLength(0);
   });
 
   it('keeps all 11 locked owned players at zero budget without any candidates', async () => {

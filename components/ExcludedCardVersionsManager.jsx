@@ -1,9 +1,11 @@
 import { TrashIcon } from './TrashIcon.jsx';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { excludedCardVersionsStore, getExcludedCardManagementCount, isSquadOvrRangeCustom } from '../utils/excludedCardVersions.js';
+import { excludedCardVersionsStore, getExcludedCardManagementCount, getTotalExcludedCount, isSquadOvrRangeCustom } from '../utils/excludedCardVersions.js';
 import { searchExclusionCards, fetchExcludedCardDetails, EXCLUSION_SEARCH_PAGE_SIZE,
   exclusionCardName, exclusionCardLabel } from '../utils/exclusionCardSearch.js';
+
+const LIMIT_OPTIONS = [{ label: 'Any', value: null }, { label: 'Exclude', value: 0 }, ...[1, 2, 3, 4, 5].map(value => ({ label: String(value), value }))];
 
 const formatVersion = version => String(version ?? '').replace(/^special_/i, '').replace(/_/g, ' ').toUpperCase().trim();
 
@@ -26,8 +28,9 @@ function CardSummary({ card, fallbackName }) {
 function ExclusionDialog({ supabase, onClose }) {
   const exclusionState = useSyncExternalStore(
     excludedCardVersionsStore.subscribe, excludedCardVersionsStore.getState);
-  const { excludedCardVersionIds: ids, excludedCardVersionNames: names, squadOvrRange } = exclusionState;
+  const { excludedCardVersionIds: ids, excludedCardVersionNames: names, squadOvrRange, maxIcons, maxHeroes } = exclusionState;
   const totalCount = getExcludedCardManagementCount(exclusionState);
+  const totalExcludedCount = getTotalExcludedCount(exclusionState);
   const [tab, setTab] = useState('search');
   const [minOvr, setMinOvr] = useState(squadOvrRange.min);
   const [maxOvr, setMaxOvr] = useState(squadOvrRange.max);
@@ -164,8 +167,8 @@ function ExclusionDialog({ supabase, onClose }) {
     <div className="modal-backdrop" onClick={onClose} />
     <section ref={panel} className="modal-panel exclusion-manager-panel" role="dialog" aria-modal="true" aria-labelledby="exclusion-manager-title">
       <header className="modal-header">
-        <div><p className="eyebrow">AUTO BUILD</p><div className="exclusion-title-row"><h2 id="exclusion-manager-title">Excluded Cards ({ids.length})</h2>
-        {ids.length > 0 && <button type="button" className="exclusion-clear" onClick={() => change(() => {
+        <div><p className="eyebrow">AUTO BUILD</p><div className="exclusion-title-row"><h2 id="exclusion-manager-title">Excluded Cards ({totalExcludedCount})</h2>
+        {totalExcludedCount > 0 && <button type="button" className="exclusion-clear" onClick={() => change(() => {
           excludedCardVersionsStore.clear(); setSelected([]);
           document.getElementById(tab === 'search' ? 'exclusion-card-search' : 'exclusion-tab-excluded').focus();
         }, 'Exclusions cleared.')}>Clear All</button>}
@@ -208,7 +211,7 @@ function ExclusionDialog({ supabase, onClose }) {
           {searchError && <p role="alert">{searchError} <button type="button" onClick={() => setSearchRetry(value => value + 1)}>Try Again</button></p>}
           {hasMore && !searchError && <button type="button" className="exclusion-load-more" disabled={searchLoading} onClick={() => setPage(value => value + 1)}>Load More</button>}
         </div>
-        <fieldset className="exclusion-ovr">
+        <fieldset className="exclusion-settings-group exclusion-ovr">
           <legend>Squad OVR Range</legend>
           <div className="exclusion-ovr-fields">
             {[['min', 'Min OVR', minOvr, setMinOvr], ['max', 'Max OVR', maxOvr, setMaxOvr]].map(([key, label, value, setValue]) =>
@@ -237,6 +240,19 @@ function ExclusionDialog({ supabase, onClose }) {
           </button>
           <p>Candidate pool: OVR {squadOvrRange.min} – {squadOvrRange.max}. Applying a new range overwrites previous settings.</p>
         </fieldset>
+        <fieldset className="exclusion-settings-group exclusion-special-limits">
+          <legend>Special Card Limits</legend>
+          <p>Exclude = No special cards, 1~5 = Max allowed</p>
+          {[["Max Icons", maxIcons, excludedCardVersionsStore.setMaxIcons], ["Max Heroes", maxHeroes, excludedCardVersionsStore.setMaxHeroes]].map(([label, value, setter]) =>
+            <div className="exclusion-special-row" key={label}>
+              <span>{label}</span>
+              <div role="group" aria-label={label} className="exclusion-special-options">
+                {LIMIT_OPTIONS.map(opt => <button key={opt.label} type="button" aria-pressed={value === opt.value}
+                  className={opt.value === 0 ? 'is-exclude' : ''}
+                  onClick={() => change(() => setter(opt.value), `${label} updated.`)}>{opt.label}</button>)}
+              </div>
+            </div>)}
+        </fieldset>
       </div>
       <div id="exclusion-panel-excluded" role="tabpanel" aria-labelledby="exclusion-tab-excluded" hidden={tab !== 'excluded'}>
         {hasOvrRule && <div className="exclusion-ovr-rule" role="status">
@@ -263,7 +279,7 @@ function ExclusionDialog({ supabase, onClose }) {
             excludedCardVersionsStore.unbanMany(selectedIds); setSelected([]);
             document.getElementById('exclusion-tab-excluded').focus();
           }, 'Selected card exclusions removed.')}>Remove Selected</button>
-          <button type="button" className="exclusion-clear" disabled={!ids.length} onClick={() => change(() => {
+          <button type="button" className="exclusion-clear" disabled={!totalExcludedCount} onClick={() => change(() => {
             excludedCardVersionsStore.clear(); setSelected([]);
             document.getElementById('exclusion-tab-excluded').focus();
           }, 'Exclusions cleared.')}>Clear All</button>
@@ -278,13 +294,14 @@ function ExclusionDialog({ supabase, onClose }) {
 export function ExcludedCardVersionsManager({ supabase }) {
   const exclusionState = useSyncExternalStore(excludedCardVersionsStore.subscribe, excludedCardVersionsStore.getState);
   const totalCount = getExcludedCardManagementCount(exclusionState);
+  const totalExcludedCount = getTotalExcludedCount(exclusionState);
   const [open, setOpen] = useState(false);
   const [clearError, setClearError] = useState('');
   return <section className="excluded-card-versions-manager">
     <div className="settings-inline-control">
     <button type="button" className="excluded-card-versions-toggle" aria-haspopup="dialog" aria-expanded={open}
-      onClick={() => setOpen(true)}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🚫</span><span className="settings-trigger-label">Excluded Cards ({exclusionState.excludedCardVersionIds.length})</span></span></button>
-    {<button disabled={exclusionState.excludedCardVersionIds.length === 0} type="button" className="settings-inline-clear" aria-label="Clear excluded cards" title="Clear excluded cards" onClick={event => {
+      onClick={() => setOpen(true)}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🚫</span><span className="settings-trigger-label">Excluded Cards ({totalExcludedCount})</span></span></button>
+    {<button disabled={totalExcludedCount === 0} type="button" className="settings-inline-clear" aria-label="Clear excluded cards" title="Clear excluded cards" onClick={event => {
       event.stopPropagation();
       try { excludedCardVersionsStore.clear(); setClearError(''); }
       catch (error) { setClearError(error.message); }

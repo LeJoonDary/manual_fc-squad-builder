@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, isPositionMatched, normalizeChemistryPosition } from './chemistry.ts';
 import { FORMATIONS } from './formations.js';
 import { getCardCoinPrice, calculateSquadTotalCost } from './squadCost.ts';
-import { getCardVersionId, normalizeExcludedCardVersionIds, validateSquadOvrRange } from './excludedCardVersions.js';
+import { getCardVersionId, normalizeExcludedCardVersionIds, validateSpecialCardLimit, validateSquadOvrRange } from './excludedCardVersions.js';
 
 export interface PlaystyleReqItem { id: number; name: string; isPlus: boolean; }
 export interface RoleReqItem { name: string; minLevel: 1 | 2; }
@@ -41,11 +41,19 @@ export interface AutoBuildOptions {
   currentSquad?: Record<string, { card: Record<string, any>; isOwned?: boolean; isLocked?: boolean } | null>;
   /** Combined Icon/Hero maximum. null/undefined means unlimited (11). */
   maxSpecialCards?: number | null;
+  maxIcons?: number | null;
+  maxHeroes?: number | null;
 }
 function specialLimit(options: AutoBuildOptions): number {
   const limit = options.maxSpecialCards ?? 11;
   if (!Number.isInteger(limit) || limit < 0 || limit > 11) throw new RangeError('Icon / Hero Limit must be between 0 and 11.');
   return limit;
+}
+function withinCardLimits(players: readonly any[], options: AutoBuildOptions): boolean {
+  const icons = validateSpecialCardLimit(options.maxIcons) ?? 11;
+  const heroes = validateSpecialCardLimit(options.maxHeroes) ?? 11;
+  return (icons === 11 || players.filter(player => !player.isLocked && isCardIcon(player)).length <= icons)
+    && (heroes === 11 || players.filter(player => !player.isLocked && isCardHero(player)).length <= heroes);
 }
 function passesMarketPriceFilter(card: Record<string, any>, options: AutoBuildOptions): boolean {
   return card.price != null && Number.isFinite(Number(card.price)) && Number(card.price) > 0;
@@ -163,9 +171,6 @@ export async function fetchCandidatePlayers(
   const squadOvrRange = validateSquadOvrRange(options.squadOvrRange);
   const maxSpecial = specialLimit(options);
   const entries = Object.entries(options.currentSquad ?? {}).filter(([, entry]) => entry?.card);
-  const locked = entries.filter(([, entry]) => entry!.isLocked);
-  const lockedSpecial = locked.filter(([, entry]) => isSpecialCard(rawEntryCard(entry!)) && !isCardIcon(rawEntryCard(entry!))).length;
-  if (lockedSpecial > maxSpecial) throw new Error('Locked Icons / Heroes exceed the limit. Unlock players or increase the limit.');
   if (!supabase) throw new Error('Supabase connection is not configured.');
   // A separate inner-join alias filters parents without truncating the full position list.
   const select = `${AUTO_BUILD_CANDIDATE_SELECT}, candidate_positions:card_positions!inner(positions!inner(name))`;
@@ -191,7 +196,7 @@ export async function fetchCandidatePlayers(
       if (options.excludeZeroPriceCards === true) query = query.gt('price', 0);
       if (excluded.size) query = query.not('id', 'in', `(${[...excluded].join(',')})`);
       if (cap !== null) query = query.lte('price', Math.floor(cap));
-      if (lockedSpecial >= maxSpecial) query = query.or('card_type.is.null,card_type.not.in.(ICON,SPECIAL_ICON,HERO,SPECIAL_HERO)');
+      if (maxSpecial === 0) query = query.or('card_type.is.null,card_type.not.in.(ICON,SPECIAL_ICON,HERO,SPECIAL_HERO)');
       if (cheapest) query = query.order('price', { ascending: true });
       query = query.order('overall', { ascending: false, nullsFirst: false });
       query = query.order('id', { ascending: true });
@@ -220,7 +225,7 @@ export async function fetchCandidatePlayers(
   const candidates = new Map<string, CandidatePlayer>();
   for (const { group, rows } of results) {
     for (const row of rows) {
-      if (excluded.has(getCardVersionId(row)) || !passesMarketPriceFilter(row, options)) continue;
+      if (!withinCardLimits([row], options) || excluded.has(getCardVersionId(row)) || !passesMarketPriceFilter(row, options)) continue;
       const { candidate_positions: _matchedPositions, ...card } = row;
       const existing = candidates.get(String(card.id));
       if (existing) existing.candidateGroups.push(group);
@@ -231,10 +236,10 @@ export async function fetchCandidatePlayers(
   for (const [, entry] of entries) {
     if (!entry!.isOwned) continue;
     const card = rawEntryCard(entry!);
-    if (!passesMarketPriceFilter(card, options)) continue;
+    if (!withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
 
     if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
-    if (isSpecialCard(card) && lockedSpecial >= maxSpecial && !entry!.isLocked) continue;
+    if (isSpecialCard(card) && maxSpecial === 0 && !entry!.isLocked) continue;
     const candidateGroups = plan.filter(item => item.positions.some(position => prepareCandidate(card, position, isThreeBack, true))).map(item => item.group);
     candidates.set(String(card.id), { ...card, candidateGroups, isOwned: true } as CandidatePlayer);
   }
@@ -912,8 +917,7 @@ export async function generateOptimalSquad(
     fixed.metaScore = evaluateCandidateScore(fixed, position, [], totalBudget);
     fixedPlayers.set(index, fixed);
   });
-  const specialCount = (players: GeneratedPlayer[]) => players.filter(p => (engineIcon(p) && !p.isLocked) || isCardHero(p)).length;
-  if (specialCount([...fixedPlayers.values()]) > maxSpecial) throw new Error('Locked Icons / Heroes exceed the limit. Unlock players or increase the limit.');
+  const specialCount = (players: GeneratedPlayer[]) => players.filter(p => !p.isLocked && (engineIcon(p) || isCardHero(p))).length;
   const fixedPlayerKeys = new Set([...fixedPlayers.values()].map(p => p.playerKey));
   if (fixedPlayerKeys.size !== fixedPlayers.size) throw new Error('The same player is locked in multiple positions.');
   const formationPositions = layout.slots.map(slot => slot.position);
@@ -933,7 +937,7 @@ export async function generateOptimalSquad(
     const unique = new Map<string, GeneratedPlayer>();
     for (const card of sharedSources.get(normalizeChemistryPosition(position))!) {
       // Locked slots are restored separately via fixedPlayers, never filtered here.
-      if (!passesMarketPriceFilter(card, options)) continue;
+      if (!withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
 
       // Exclusions and advanced requirements must precede scoring and every stage slice.
       if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
@@ -1038,7 +1042,7 @@ export async function generateOptimalSquad(
               if (groupCost + player.price > groupCap || player.price > cap || partial.cost + player.price > spendingLimit
                 || players.some(p => p.playerKey === player.playerKey)) continue;
               const trial = [...players, player];
-              if (!isNewSelectionValid(trial) || !isActiveLeagueCandidate(player, players) || specialCount(trial) > maxSpecial) continue;
+              if (!isNewSelectionValid(trial) || !isActiveLeagueCandidate(player, players) || specialCount(trial) > maxSpecial || !withinCardLimits(trial, options)) continue;
               const slots = partial.slots.slice(); slots[slotIndex] = player;
               collect({ slots, cost: partial.cost + player.price }, offset + 1, groupCost + player.price, score + player.metaScore);
             }
@@ -1067,7 +1071,7 @@ export async function generateOptimalSquad(
       const index = order[depth];
       const slotCap = liveSlotCap(index, state.slots, state.cost);
       const anchor = selectDynamicAnchor(occupied, considerManager, options.keyPositions, formationPositions);
-      const source = rawPools[index].filter(p => p.price <= slotCap).slice(0, limit);
+      const source = rawPools[index].filter(p => p.price <= slotCap && withinCardLimits([...occupied, p], options)).slice(0, limit);
       const eligible = getDynamicCandidatesForSlot(layout.slots[index].position, occupied, source,
         Math.min(slotCap, spendingLimit - state.cost), anchor, limit, stageIndex > 0 ? coreLeagueFor(occupied) : null, considerManager, minChemistry);
       // At depth zero, keep pure meta order and let the recursion return to the next ace.
@@ -1079,14 +1083,14 @@ export async function generateOptimalSquad(
         const cost = state.cost + candidate.price;
         const groupCost = squad.filter(p => !p.isLocked && priorityGroup(p.slotPosition) === anchorPosition).reduce((sum, p) => sum + p.price, 0);
         if (totalBudget > 0 && groupCost > anchorGroupCap) continue;
-        if (specialCount(squad) > maxSpecial) continue;
+        if (specialCount(squad) > maxSpecial || !withinCardLimits(squad, options)) continue;
         const used = new Set(squad.map(p => p.playerKey));
         let reserve = 0;
         for (const remaining of order.slice(depth + 1)) {
           let cheapest = Infinity;
           for (const p of rawPools[remaining]) {
             if (p.price < cheapest && !used.has(p.playerKey)
-              && isActiveLeagueCandidate(p, squad) && isNewSelectionValid([...squad, p])) cheapest = p.price;
+              && withinCardLimits([...squad, p], options) && isActiveLeagueCandidate(p, squad) && isNewSelectionValid([...squad, p])) cheapest = p.price;
           }
           reserve += cheapest;
         }
@@ -1164,8 +1168,8 @@ export function upgradeSquadToTargetBudgetRatio(
         if (performance.now() >= deadline) return current;
         if (!isActiveLeagueCandidate(candidate, others)) continue;
         const trial = current.map(player => player === target ? candidate : player);
-        if (!isStrictSelectionValid(trial) || !fitsAnchorBudgetCaps(trial, totalBudget, options.keyPositions)
-          || trial.filter(player => (engineIcon(player) && !player.isLocked) || isCardHero(player)).length > maxSpecial
+        if (!withinCardLimits(trial, options) || !isStrictSelectionValid(trial) || !fitsAnchorBudgetCaps(trial, totalBudget, options.keyPositions)
+          || trial.filter(player => !player.isLocked && (engineIcon(player) || isCardHero(player))).length > maxSpecial
           || calculateSquadChemistry(trial, considerManager).totalChemistry < chemistryFloor) continue;
         current = trial;
         replaced = true;
