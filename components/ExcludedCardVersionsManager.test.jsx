@@ -222,9 +222,9 @@ test.each([
   await click($('#exclusion-tab-excluded'));
   expect($('#exclusion-panel-excluded').firstElementChild).toBe($('.exclusion-ovr-rule'));
   expect($('.exclusion-ovr-rule').textContent).toContain('OVR ' + label + ' only in squad');
-  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (2)');
+  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (2)');
   await click($('.exclusion-ovr-rule button'));
-  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (1)');
+  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (1)');
   expectOvrInputs(45, 99);
   expect($('.exclusion-ovr-rule')).toBeNull();
   expect(excludedCardVersionsStore.getState().squadOvrRange).toEqual({ min: 45, max: 99 });
@@ -245,12 +245,12 @@ test('reset clears draft inputs even when the saved range is already default', a
   await setInput('#exclusion-ovr-max', '80');
   await click(document.querySelectorAll('.exclusion-ovr-chips button')[3]);
   expectOvrInputs(45, 99);
-  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (0)');
+  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (0)');
 });
 
 test('saved ranges initialize on reopen, external changes sync, and unrelated bans preserve drafts', async () => {
   await click(document.querySelectorAll('.exclusion-ovr-chips button')[1]);
-  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (1)');
+  expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (1)');
   await click($('.modal-close'));
   await click($('.excluded-card-versions-toggle'));
   expectOvrInputs(45, 74);
@@ -264,7 +264,7 @@ test('saved ranges initialize on reopen, external changes sync, and unrelated ba
 test('main button and modal count stay synchronized through range and individual card changes', async () => {
   const expectCounts = count => {
     expect($('.excluded-card-versions-toggle .settings-trigger-label').textContent).toBe('Excluded Cards (' + excludedCardVersionsStore.getState().excludedCardVersionIds.length + ')');
-    expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions & Ranges (' + count + ')');
+    expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (' + count + ')');
   };
   expectCounts(0);
   await click(document.querySelectorAll('.exclusion-ovr-chips button')[0]);

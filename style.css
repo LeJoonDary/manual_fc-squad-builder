@@ -1665,3 +1665,18 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .exclusion-special-options button:hover { color: white; background: #1f293799; }
 .exclusion-special-options button[aria-pressed="true"] { background: #00df82; color: black; font-weight: 700; box-shadow: 0 1px 2px #0003; }
 .exclusion-special-options button.is-exclude[aria-pressed="true"] { background: #ef4444cc; color: white; }
+
+.main-nav-tabs, #guide-control { display: flex; align-items: stretch; }
+.main-nav-tabs { gap: inherit; }
+.guide-modal { width: min(880px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; overflow: auto; color: #f1f5f9; background: #0b131e; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 24px 80px #0009; }
+.guide-modal::backdrop { background: #020713cc; backdrop-filter: blur(4px); }
+.guide-modal .modal-header { gap: 12px; }
+.guide-modal h2 { margin: 0; font-size: clamp(16px, 3vw, 22px); }
+.guide-video { aspect-ratio: 16 / 9; background: #000; }
+.guide-video iframe { display: block; width: 100%; height: 100%; border: 0; }
+.guide-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 18px 24px; }
+.guide-footer label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1; }
+.guide-footer input { accent-color: #00df82; }
+.guide-close-button { padding: 8px 20px; border: 0; border-radius: 8px; background: #00df82; color: #07120d; font-weight: 700; cursor: pointer; }
+.guide-modal button:focus-visible, .app-header .guide-trigger:focus-visible { outline: 2px solid #00df82; outline-offset: 3px; }
+@media (max-width: 560px) { .app-header-inner { flex-wrap: wrap; } .main-nav { max-width: 100%; } .guide-footer { padding: 16px; } }

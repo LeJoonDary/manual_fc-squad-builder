@@ -177,7 +177,7 @@ function ExclusionDialog({ supabase, onClose }) {
       </header>
       <p className="exclusion-manager-help">Only the selected card versions will be excluded. Other versions of the player remain available in the pool.</p>
       <div className="exclusion-manager-tabs" role="tablist" aria-label="Excluded Cards tabs">
-        {[['search', 'Search & Exclude'], ['excluded', `Active Exclusions & Ranges (${totalCount})`]].map(([key, label]) =>
+        {[['search', 'Search & Exclude'], ['excluded', `Active Exclusions (${totalCount})`]].map(([key, label]) =>
           <button key={key} id={`exclusion-tab-${key}`} role="tab" type="button" aria-selected={tab === key}
             aria-controls={`exclusion-panel-${key}`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}
             onKeyDown={event => {

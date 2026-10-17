@@ -30,9 +30,11 @@ import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts'
 import { calculateBudgetStatus, safeBudgetNumber, parseBudgetInput, formatBudgetNumber } from './utils/budget.ts';
 import { mountAutoBuildSettings } from './components/AutoBuildSettings.jsx';
 import { autoBuildManagerState } from './utils/autoBuildUi.js';
+import { mountGuideControl } from './components/GuideModal.jsx';
 import { createLegalModal } from './components/LegalModal.js';
 
 createLegalModal();
+mountGuideControl(document.getElementById('guide-control'));
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
