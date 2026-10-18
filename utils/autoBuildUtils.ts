@@ -26,20 +26,22 @@ export interface SlotRequirement {
   role?: { name: string; minLevel: 1 | 2 };
   playstyle?: { idOrName: string | number; isPlus: boolean };
 }
-export type GenderFilterType = 'all' | 'men' | 'women';
+export type MaxFemalePlayers = 'any' | 'exclude' | 1 | 2 | 3 | 4 | 5;
 
-/** Check female terms first: "women" contains "men", and "female" contains "male". */
-export function matchesGenderFilter(card: Record<string, any>, filter: GenderFilterType = 'all'): boolean {
-  if (filter === 'all') return true;
-  const raw = card.raw ?? card;
-  const gender = String(relation(raw.players).gender || raw.player?.gender || raw.playerDef?.gender || raw.gender || card.gender || '').trim().toLowerCase();
-  const women = gender.includes('women') || gender.includes('female');
-  const men = !women && (gender.includes('men') || gender.includes('male'));
-  return filter === 'women' ? women : men;
+export function isFemaleCandidate(card: any): boolean {
+  const raw = card?.card ?? card?.raw ?? card;
+  const sources = [raw, raw?.raw, raw?.player, raw?.playerDef, relation(raw?.players),
+    relation(raw?.raw?.players), card];
+  return sources.some(source => /women|female/i.test(String(source?.gender ?? '')));
+}
+export function withinFemaleLimit(players: readonly any[], options: AutoBuildOptions = {}): boolean {
+  const limit = options.maxFemalePlayers ?? 'any';
+  return limit === 'any' || players.filter(player => !player.isLocked && isFemaleCandidate(player)).length
+    <= (limit === 'exclude' ? 0 : limit);
 }
 
 export interface AutoBuildOptions {
-  genderFilter?: GenderFilterType;
+  maxFemalePlayers?: MaxFemalePlayers;
   slotRequirements?: Record<string, SlotRequirement>;
 
   excludeZeroPriceCards?: boolean;
@@ -197,8 +199,7 @@ export async function fetchCandidatePlayers(
         .in('candidate_positions.positions.name', positions)
         .gte('overall', Math.max(80, squadOvrRange.min, (unlimited || (totalBudget ?? 0) >= 5000000) ? 85 : 0)).lte('overall', squadOvrRange.max).gte('price', 0);
       // Filter the joined player before LIMIT so the other gender cannot crowd out candidates.
-      if (options.genderFilter === 'women') query = query.or('gender.ilike.*women*,gender.ilike.*female*', { referencedTable: 'players' });
-      if (options.genderFilter === 'men') query = query.or('and(gender.ilike.*men*,gender.not.ilike.*women*,gender.not.ilike.*female*),and(gender.ilike.*male*,gender.not.ilike.*female*,gender.not.ilike.*women*)', { referencedTable: 'players' });
+      if (options.maxFemalePlayers === 'exclude') query = query.or('gender.is.null,and(gender.not.ilike.*women*,gender.not.ilike.*female*)', { referencedTable: 'players' });
       const stars = slotRequirement(roleSlot, options);
       if (stars?.minSm ?? stars?.minSkillMoves) query = query.gte('sm', (stars.minSm ?? stars.minSkillMoves)!);
       if (stars?.minWf ?? stars?.minWeakFoot) query = query.gte('wf', (stars.minWf ?? stars.minWeakFoot)!);
@@ -241,7 +242,7 @@ export async function fetchCandidatePlayers(
   const candidates = new Map<string, CandidatePlayer>();
   for (const { group, rows } of results) {
     for (const row of rows) {
-      if (!matchesGenderFilter(row, options.genderFilter) || !withinCardLimits([row], options) || excluded.has(getCardVersionId(row)) || !passesMarketPriceFilter(row, options)) continue;
+      if (!withinFemaleLimit([row], options) || !withinCardLimits([row], options) || excluded.has(getCardVersionId(row)) || !passesMarketPriceFilter(row, options)) continue;
       const { candidate_positions: _matchedPositions, ...card } = row;
       const existing = candidates.get(String(card.id));
       if (existing) existing.candidateGroups.push(group);
@@ -252,7 +253,7 @@ export async function fetchCandidatePlayers(
   for (const [, entry] of entries) {
     if (!entry!.isOwned) continue;
     const card = rawEntryCard(entry!);
-    if (!matchesGenderFilter(card, options.genderFilter) || !withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
+    if (!withinFemaleLimit([card], options) || !withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
 
     if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
     if (isSpecialCard(card) && maxSpecial === 0 && !entry!.isLocked) continue;
@@ -297,7 +298,7 @@ export function findBestManager(players: readonly AutoBuildPlayer[]): BestManage
     player,
   }));
   const baseline = calculateChemistry(squad).totalChemistry;
-  const leagues = uniqueAffiliations(players.map(player => player.leagueId));
+  const leagues = uniqueAffiliations(players.map(player => player.leagueId)).filter(id => !['2118', 'icons'].includes(String(id).trim().toLowerCase().replace(/^league:(id|name):/, '')));
   const nations = uniqueAffiliations(players.map(player => player.nationId));
   let best: BestManagerResult | undefined;
 
@@ -637,7 +638,7 @@ export function getDynamicCandidatesForSlot(position: string, squad: readonly Ge
   const saturated = calculateSquadChemistry(squad, considerManager).totalChemistry >= minChemistryTarget;
   const buildCore = !saturated && coreLeague !== null && (counts.league.get(coreLeague) ?? 0) < getLeagueConstraints(options).maxPlayersPerLeague;
   return pool.filter(p => !used.has(p.playerKey) && p.price <= budget && isActiveLeagueCandidate(p, squad)
-    && isNewSelectionValid([...squad, p], options))
+    && withinFemaleLimit([...squad, p], options) && isNewSelectionValid([...squad, p], options))
     .map(card => {
       // Evaluate the actual completed squad, including manager/Icon effects, rather than
       // assuming that a number of Icons guarantees chemistry for every possible card.
@@ -719,7 +720,7 @@ export function calculateDynamicSlotCap(position: string, unfilledPositions: rea
   return Math.min(availableBudget, Math.max(weightedCap, averageFloor));
 }
 
-export interface AnchorBudgetContext { genderFilter?: GenderFilterType; anchorStepIndex?: number; remainingBudget?: number; remainingSlotsCount?: number; maxPriceCap?: number; }
+export interface AnchorBudgetContext { anchorStepIndex?: number; remainingBudget?: number; remainingSlotsCount?: number; maxPriceCap?: number; }
 /** Static query caps expand anchors; live caps additionally reserve funds for later slots. */
 export function getPriorityPriceCap(position: string, budget: number, keyPositions: readonly string[] = [], formationPositions?: readonly string[], context: AnchorBudgetContext = {}): number {
   if (budget < 300000) return Infinity;
@@ -766,7 +767,7 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
   if (budget >= 300000) {
     if (['LM','RM','LW','RW'].includes(pos) && pace < 85) return false;
   }
-  if (!['CB', 'GK'].includes(pos) || context.genderFilter === 'women') return true;
+  if (!['CB', 'GK'].includes(pos)) return true;
   const source = card.card ?? card.raw ?? card;
   const league = card.leagueId ?? card.league_id ?? card.league?.id
     ?? source.leagueId ?? source.league_id ?? source.league?.id ?? relation(source.leagues).id;
@@ -794,6 +795,7 @@ export function fitsAnchorBudgetCaps(squad: readonly GeneratedPlayer[], budget: 
 }
 
 export function calculateFinalSquadScore(squad: readonly any[], chemistry: number, budget = 0, relaxed = false, minChemistryTarget = 33, options: AutoBuildOptions = {}): number {
+  if (!withinFemaleLimit(squad, options)) return -Infinity;
   if (!(relaxed && getLeagueConstraints(options).maxPlayersPerLeague === 5 ? isRelaxedSelectionValid(squad) : isNewSelectionValid(squad, options))) return -Infinity;
   if (budget > 0 && squad.reduce((sum, p) => sum + Number(p.price ?? p.card?.price ?? 0), 0) > budget) return -Infinity;
   if (chemistry < minChemistryTarget) return -20000 + chemistry * 100;
@@ -968,7 +970,7 @@ export async function generateOptimalSquad(
     const unique = new Map<string, GeneratedPlayer>();
     for (const card of sharedSources.get(normalizeChemistryPosition(position))!) {
       // Locked slots are restored separately via fixedPlayers, never filtered here.
-      if (!matchesGenderFilter(card, options.genderFilter) || !withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
+      if (!withinFemaleLimit([card], options) || !withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
 
       // Exclusions and advanced requirements must precede scoring and every stage slice.
       if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
@@ -987,7 +989,7 @@ export async function generateOptimalSquad(
       b.metaScore - a.metaScore
       || a.price - b.price || a.id.localeCompare(b.id));
     const filtered = sorted.filter(p => passesNewCandidateFilter(p.card, position, totalBudget, options.keyPositions, formationPositions,
-      { maxPriceCap: Infinity, genderFilter: options.genderFilter }));
+      { maxPriceCap: Infinity }));
     // Keep lower-tier legal links available for the expanded pass.
     return filtered;
   });
@@ -1053,7 +1055,7 @@ export async function generateOptimalSquad(
       const occupied = filled(state);
       if (occupied.length > filled(bestPartial).length) bestPartial = state;
       if (depth === order.length) {
-        if (!isNewSelectionValid(occupied, options)) return false;
+        if (!withinFemaleLimit(occupied, options) || !isNewSelectionValid(occupied, options)) return false;
         const result = evaluate(state);
         if (!bestComplete || choose(result, bestComplete)) bestComplete = result;
         return result.totalChemistry >= minChemistry;
@@ -1074,7 +1076,7 @@ export async function generateOptimalSquad(
               if (groupCost + player.price > groupCap || player.price > cap || partial.cost + player.price > spendingLimit
                 || players.some(p => p.playerKey === player.playerKey)) continue;
               const trial = [...players, player];
-              if (!isNewSelectionValid(trial, options) || !isActiveLeagueCandidate(player, players) || specialCount(trial) > maxSpecial || !withinCardLimits(trial, options)) continue;
+              if (!withinFemaleLimit(trial, options) || !isNewSelectionValid(trial, options) || !isActiveLeagueCandidate(player, players) || specialCount(trial) > maxSpecial || !withinCardLimits(trial, options)) continue;
               const slots = partial.slots.slice(); slots[slotIndex] = player;
               collect({ slots, cost: partial.cost + player.price }, offset + 1, groupCost + player.price, score + player.metaScore);
             }
@@ -1103,7 +1105,7 @@ export async function generateOptimalSquad(
       const index = order[depth];
       const slotCap = liveSlotCap(index, state.slots, state.cost);
       const anchor = selectDynamicAnchor(occupied, considerManager, options.keyPositions, formationPositions);
-      const source = rawPools[index].filter(p => p.price <= slotCap && withinCardLimits([...occupied, p], options)).slice(0, limit);
+      const source = rawPools[index].filter(p => p.price <= slotCap && withinFemaleLimit([...occupied, p], options) && withinCardLimits([...occupied, p], options)).slice(0, limit);
       const eligible = getDynamicCandidatesForSlot(layout.slots[index].position, occupied, source,
         Math.min(slotCap, spendingLimit - state.cost), anchor, limit, stageIndex > 0 ? coreLeagueFor(occupied) : null, considerManager, minChemistry, options);
       // At depth zero, keep pure meta order and let the recursion return to the next ace.
@@ -1115,14 +1117,14 @@ export async function generateOptimalSquad(
         const cost = state.cost + candidate.price;
         const groupCost = squad.filter(p => !p.isLocked && priorityGroup(p.slotPosition) === anchorPosition).reduce((sum, p) => sum + p.price, 0);
         if (totalBudget > 0 && groupCost > anchorGroupCap) continue;
-        if (specialCount(squad) > maxSpecial || !withinCardLimits(squad, options)) continue;
+        if (!withinFemaleLimit(squad, options) || specialCount(squad) > maxSpecial || !withinCardLimits(squad, options)) continue;
         const used = new Set(squad.map(p => p.playerKey));
         let reserve = 0;
         for (const remaining of order.slice(depth + 1)) {
           let cheapest = Infinity;
           for (const p of rawPools[remaining]) {
             if (p.price < cheapest && !used.has(p.playerKey)
-              && withinCardLimits([...squad, p], options) && isActiveLeagueCandidate(p, squad) && isNewSelectionValid([...squad, p], options)) cheapest = p.price;
+              && withinCardLimits([...squad, p], options) && isActiveLeagueCandidate(p, squad) && withinFemaleLimit([...squad, p], options) && isNewSelectionValid([...squad, p], options)) cheapest = p.price;
           }
           reserve += cheapest;
         }
@@ -1151,7 +1153,7 @@ export async function generateOptimalSquad(
   }
   const result = bestComplete ?? evaluate(bestPartial);
   const complete = result.squad.length === 11;
-  const success = complete && result.totalChemistry >= minChemistry && isNewSelectionValid(result.squad, options);
+  const success = complete && result.totalChemistry >= minChemistry && withinFemaleLimit(result.squad, options) && isNewSelectionValid(result.squad, options);
   return { ...result, success, minChemistryTarget: minChemistry, status: success ? 'success' : complete ? 'chemistry_unmet' : 'incomplete', iterations, searchLimitReached: pruned,
     searchStage, stageAttempts };
 }
@@ -1185,14 +1187,14 @@ export function upgradeSquadToTargetBudgetRatio(
       const upgrades = (candidatePools[position] ?? []).filter(candidate => {
         const card = candidate.card;
         return candidate.slotPosition === position && candidate.id !== target.id
-          && matchesGenderFilter(card, options.genderFilter) && passesMarketPriceFilter(card, options) && isPositionMatched(position, candidate)
+          && withinFemaleLimit([card], options) && passesMarketPriceFilter(card, options) && isPositionMatched(position, candidate)
           && candidate.price <= target.price + remaining
           && !others.some(player => player.playerKey === candidate.playerKey)
           && !excluded.has(getCardVersionId(card))
           && card.overall != null && card.overall >= ovrRange.min && card.overall <= ovrRange.max
           && meetsRoleRequirement(card, position, options)
           && passesNewCandidateFilter(card, position, totalBudget, options.keyPositions, squad.map(player => player.slotPosition),
-            { maxPriceCap: Infinity, genderFilter: options.genderFilter })
+            { maxPriceCap: Infinity })
           && calculateMetaScore(candidate, position, totalBudget) > targetScore;
       }).sort((a, b) => calculateMetaScore(b, position, totalBudget) - calculateMetaScore(a, position, totalBudget)
         || a.price - b.price || a.id.localeCompare(b.id)).slice(0, 175);
@@ -1200,7 +1202,7 @@ export function upgradeSquadToTargetBudgetRatio(
         if (performance.now() >= deadline) return current;
         if (!isActiveLeagueCandidate(candidate, others)) continue;
         const trial = current.map(player => player === target ? candidate : player);
-        if (!withinCardLimits(trial, options) || !isNewSelectionValid(trial, options) || !fitsAnchorBudgetCaps(trial, totalBudget, options.keyPositions)
+        if (!withinCardLimits(trial, options) || !withinFemaleLimit(trial, options) || !isNewSelectionValid(trial, options) || !fitsAnchorBudgetCaps(trial, totalBudget, options.keyPositions)
           || trial.filter(player => !player.isLocked && (engineIcon(player) || isCardHero(player))).length > maxSpecial
           || calculateSquadChemistry(trial, considerManager).totalChemistry < chemistryFloor) continue;
         current = trial;

@@ -31,7 +31,7 @@ export function createCandidateMockDb(rows, error = null) {
             && (!call.genderOr || (() => {
               const g = String(row.players?.gender ?? '').toLowerCase();
               const female = g.includes('women') || g.includes('female');
-              return call.genderOr.startsWith('and(') ? !female && (g.includes('men') || g.includes('male')) : female;
+              return call.genderOr.startsWith('gender.is.null') ? !female : call.genderOr.startsWith('and(') ? !female && (g.includes('men') || g.includes('male')) : female;
             })())
             && row.overall >= call.ovrMin && row.overall <= call.ovrMax
             && row.price != null && row.price >= call.min && (call.max === undefined || row.price <= call.max)

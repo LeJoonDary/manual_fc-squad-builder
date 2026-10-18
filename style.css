@@ -1658,13 +1658,13 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 
 .exclusion-special-limits { margin-top: 16px; }
 .exclusion-special-limits > p { margin: 0 0 12px; font-size: 10px; color: #6b7280; }
-.exclusion-special-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: #9ca3af; font-weight: 500; }
-.exclusion-special-row > span { color: #fff; }
+.exclusion-special-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 14px; color: #cbd5e1; font-weight: 500; }
+.exclusion-special-row > span { flex: 0 0 96px; color: #cbd5e1; }
 .exclusion-special-options { display: flex; gap: 4px; padding: 4px; background: #070d14; border: 1px solid #1f2937; border-radius: 8px; }
-.exclusion-special-options button { min-width: 28px; height: 28px; padding: 0 8px; display: flex; align-items: center; justify-content: center; line-height: 1; border: 0; border-radius: 4px; background: transparent; color: #9ca3af; font-size: 11px; font-weight: 500; cursor: pointer; transition: background .15s, color .15s; }
+.exclusion-special-options button { min-width: 28px; height: 28px; padding: 0 8px; display: flex; align-items: center; justify-content: center; line-height: 1; border: 1px solid #334155; border-radius: 4px; background: #151c28; color: #9ca3af; font-size: 11px; font-weight: 500; cursor: pointer; transition: background .15s, color .15s; }
 .exclusion-special-options button:hover { color: white; background: #1f293799; }
-.exclusion-special-options button[aria-pressed="true"] { background: #00df82; color: black; font-weight: 700; box-shadow: 0 1px 2px #0003; }
-.exclusion-special-options button.is-exclude[aria-pressed="true"] { background: #ef4444cc; color: white; }
+.exclusion-special-options button[aria-pressed="true"] { background: #00ffa3; color: black; font-weight: 700; box-shadow: 0 1px 2px #0003; }
+.exclusion-special-options button.is-exclude[aria-pressed="true"] { background: #ef4444; color: white; }
 
 .main-nav-tabs, #guide-control { display: flex; align-items: stretch; }
 .main-nav-tabs { gap: inherit; }

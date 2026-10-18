@@ -53,7 +53,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       const snapshot = getSquadSnapshot();
       const exclusionSnapshot = excludedCardVersionsStore.getState();
       const roleOptions = structuredClone(getRoleOptions());
-      const options = { ...roleOptions, genderFilter: exclusionSnapshot.genderFilter, maxIcons: exclusionSnapshot.maxIcons, maxHeroes: exclusionSnapshot.maxHeroes, currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], keyPositions: [...keyPositions], excludeZeroPriceCards: true };
+      const options = { ...roleOptions, maxFemalePlayers: exclusionSnapshot.maxFemalePlayers, maxIcons: exclusionSnapshot.maxIcons, maxHeroes: exclusionSnapshot.maxHeroes, currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], keyPositions: [...keyPositions], excludeZeroPriceCards: true };
       const candidates = await fetchCandidatePlayers(totalBudget, formation, isThreeBack, supabase, options);
       const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, true, options);
       if (JSON.stringify(getRoleOptions()) !== JSON.stringify(roleOptions)) throw new Error('Advanced settings changed during the build. Try again.');

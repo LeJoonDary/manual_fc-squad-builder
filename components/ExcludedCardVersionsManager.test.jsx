@@ -36,19 +36,19 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 test('selects gender with the existing special-limit button styles and retains it on reopen', async () => {
-  const group = () => $('[aria-label="Player Gender"]');
+  const group = () => $('[aria-label="Max Female"]');
   expect(group().className).toBe('exclusion-special-options');
-  for (const [label, value] of [['Men Only', 'men'], ['Women Only', 'women'], ['Any', 'all']]) {
+  for (const [label, value] of [['Exclude', 'exclude'], ...[1, 2, 3, 4, 5].map(n => [String(n), n]), ['Any', 'any']]) {
     await click([...group().querySelectorAll('button')].find(button => button.textContent === label));
-    expect(excludedCardVersionsStore.getState().genderFilter).toBe(value);
+    expect(excludedCardVersionsStore.getState().maxFemalePlayers).toBe(value);
     await click($('[aria-label="Close Excluded Cards"]'));
     await click($('.excluded-card-versions-toggle'));
     expect(group().querySelector('[aria-pressed="true"]').textContent).toBe(label);
   }
 });
 
-test.each(['men', 'women'])('counts %s everywhere and removes only the gender tag', async gender => {
-  await act(async () => excludedCardVersionsStore.setGenderFilter(gender));
+test.each(['exclude', 1, 2, 3, 4, 5])('counts %s everywhere and removes only the gender tag', async gender => {
+  await act(async () => excludedCardVersionsStore.setMaxFemalePlayers(gender));
   expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (1)');
   expect($('.excluded-card-versions-toggle').textContent).toContain('Excluded Cards (1)');
   expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (1)');
@@ -61,24 +61,24 @@ test.each(['men', 'women'])('counts %s everywhere and removes only the gender ta
   expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (4)');
   expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (4)');
   await click($('#exclusion-tab-excluded'));
-  expect($('.exclusion-gender-rule').textContent).toContain(gender === 'men' ? 'Men Only' : 'Women Only');
-  await click($('[aria-label="Remove player gender filter"]'));
-  expect($('.exclusion-gender-rule')).toBeNull();
+  expect($('.exclusion-female-rule').textContent).toContain(gender === 'exclude' ? 'Exclude' : String(gender));
+  await click($('[aria-label="Remove female player limit"]'));
+  expect($('.exclusion-female-rule')).toBeNull();
   expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (3)');
-  expect(excludedCardVersionsStore.getState()).toMatchObject({ genderFilter: 'all', excludedCardVersionIds: ['123'], maxIcons: 0, maxHeroes: 2 });
+  expect(excludedCardVersionsStore.getState()).toMatchObject({ maxFemalePlayers: 'any', excludedCardVersionIds: ['123'], maxIcons: 0, maxHeroes: 2 });
 });
 
 test.each(['.modal-header .exclusion-clear', '.exclusion-bulk-actions .exclusion-clear', '.settings-inline-clear'])('clears gender-only exclusions with %s and persists Any', async selector => {
-  await act(async () => excludedCardVersionsStore.setGenderFilter('women'));
+  await act(async () => excludedCardVersionsStore.setMaxFemalePlayers(3));
   if (selector.includes('bulk')) await click($('#exclusion-tab-excluded'));
   await click($(selector));
-  expect(excludedCardVersionsStore.getState().genderFilter).toBe('all');
-  expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).genderFilter).toBe('all');
+  expect(excludedCardVersionsStore.getState().maxFemalePlayers).toBe('any');
+  expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).maxFemalePlayers).toBe('any');
   expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (0)');
   expect($('.excluded-card-versions-toggle').textContent).toContain('Excluded Cards (0)');
   expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (0)');
   expect($('.settings-inline-clear').disabled).toBe(true);
-  expect($('[aria-label="Player Gender"] [aria-pressed="true"]').textContent).toBe('Any');
+  expect($('[aria-label="Max Female"] [aria-pressed="true"]').textContent).toBe('Any');
 });
 
 test('debounces independent name search and toggles only the selected version with live counts', async () => {

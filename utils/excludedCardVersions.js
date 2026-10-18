@@ -1,6 +1,6 @@
-/** @typedef {'all' | 'men' | 'women'} GenderFilterType */
-export function validateGenderFilter(value = 'all') {
-  if (!['all', 'men', 'women'].includes(value)) throw new RangeError('Invalid player gender filter.');
+/** @typedef {'any' | 'exclude' | 1 | 2 | 3 | 4 | 5} MaxFemalePlayers */
+export function validateMaxFemalePlayers(value = 'any') {
+  if (!['any', 'exclude', 1, 2, 3, 4, 5].includes(value)) throw new RangeError('Invalid female player limit.');
   return value;
 }
 
@@ -28,9 +28,9 @@ export function isSquadOvrRangeCustom(range = DEFAULT_SQUAD_OVR_RANGE) {
   return range.min !== DEFAULT_SQUAD_OVR_RANGE.min || range.max !== DEFAULT_SQUAD_OVR_RANGE.max;
 }
 
-export function getTotalExcludedCount({ excludedCardVersionIds, maxIcons = null, maxHeroes = null, genderFilter = 'all' }) {
+export function getTotalExcludedCount({ excludedCardVersionIds, maxIcons = null, maxHeroes = null, maxFemalePlayers = 'any' }) {
   return excludedCardVersionIds.length + Number(maxIcons !== null) + Number(maxHeroes !== null)
-    + Number(genderFilter !== 'all');
+    + Number(maxFemalePlayers !== 'any');
 }
 
 export function getExcludedCardManagementCount(state) {
@@ -53,8 +53,8 @@ export function validateSpecialCardLimit(value = null) {
 
 export function createExcludedCardVersionsStore(getStorage = () => globalThis.localStorage) {
   const listeners = new Set();
-  const makeState = (ids = [], names = {}, range = DEFAULT_SQUAD_OVR_RANGE, maxIcons = null, maxHeroes = null, genderFilter = 'all') => Object.freeze({
-    genderFilter: validateGenderFilter(genderFilter),
+  const makeState = (ids = [], names = {}, range = DEFAULT_SQUAD_OVR_RANGE, maxIcons = null, maxHeroes = null, maxFemalePlayers = 'any') => Object.freeze({
+    maxFemalePlayers: validateMaxFemalePlayers(maxFemalePlayers),
     maxIcons: validateSpecialCardLimit(maxIcons), maxHeroes: validateSpecialCardLimit(maxHeroes),
     squadOvrRange: Object.freeze(validateSquadOvrRange(range)),
     excludedCardVersionIds: Object.freeze(normalizeExcludedCardVersionIds(ids)),
@@ -64,11 +64,11 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
   let state = makeState();
   try {
     const saved = JSON.parse(getStorage()?.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY) ?? 'null');
-    if (saved) state = makeState(saved.excludedCardVersionIds, saved.excludedCardVersionNames, saved.squadOvrRange, saved.maxIcons, saved.maxHeroes, saved.genderFilter);
+    if (saved) state = makeState(saved.excludedCardVersionIds, saved.excludedCardVersionNames, saved.squadOvrRange, saved.maxIcons, saved.maxHeroes, saved.maxFemalePlayers ?? (saved.genderFilter === 'men' ? 'exclude' : 'any'));
   } catch { /* Invalid or unavailable storage must not prevent the app from opening. */ }
 
-  function update(ids, names, range = state.squadOvrRange, maxIcons = state.maxIcons, maxHeroes = state.maxHeroes, genderFilter = state.genderFilter) {
-    const next = makeState(ids, names, range, maxIcons, maxHeroes, genderFilter);
+  function update(ids, names, range = state.squadOvrRange, maxIcons = state.maxIcons, maxHeroes = state.maxHeroes, maxFemalePlayers = state.maxFemalePlayers) {
+    const next = makeState(ids, names, range, maxIcons, maxHeroes, maxFemalePlayers);
     try {
       const storage = getStorage();
       if (!storage) throw new Error('Storage unavailable');
@@ -82,7 +82,7 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
 
   return {
     getState: () => state,
-    setGenderFilter(value) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, state.squadOvrRange, state.maxIcons, state.maxHeroes, value); },
+    setMaxFemalePlayers(value) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, state.squadOvrRange, state.maxIcons, state.maxHeroes, value); },
     setMaxIcons(value) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, state.squadOvrRange, value); },
     setMaxHeroes(value) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, state.squadOvrRange, state.maxIcons, value); },
     setSquadOvrRange(range) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, range); },
@@ -110,9 +110,9 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
       if (remaining.length !== state.excludedCardVersionIds.length) update(remaining, state.excludedCardVersionNames);
     },
     clear() {
-      if (getTotalExcludedCount(state)) update([], {}, state.squadOvrRange, null, null, 'all');
+      if (getTotalExcludedCount(state)) update([], {}, state.squadOvrRange, null, null, 'any');
     },
-    reset() { update([], {}, DEFAULT_SQUAD_OVR_RANGE, null, null, 'all'); },
+    reset() { update([], {}, DEFAULT_SQUAD_OVR_RANGE, null, null, 'any'); },
   };
 }
 

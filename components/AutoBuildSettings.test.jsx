@@ -132,8 +132,8 @@ describe('Auto Build UI workflow', () => {
     await act(async () => button().click());
     expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
     await act(async () => resolve([{ id: 1 }]));
-    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, '4-3-3', false, props.supabase, { genderFilter: 'all', currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
-    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { genderFilter: 'all', currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
+    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, '4-3-3', false, props.supabase, { maxFemalePlayers: 'any', currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
+    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { maxFemalePlayers: 'any', currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(result, { snapshot: 'snapshot', formation: '4-3-3', totalBudget: 1000000 });
     expect(button().disabled).toBe(false);
     expect(container.querySelector('[role="status"]').textContent).toContain('Squad built successfully!');
@@ -289,10 +289,10 @@ it('keeps the same settings and budget nodes across over-budget locks, empty and
 });
 
 it('passes gender selection to both stages and resets it with Reset Settings', async () => {
-  await act(async () => excludedCardVersionsStore.setGenderFilter('women'));
+  await act(async () => excludedCardVersionsStore.setMaxFemalePlayers(2));
   await act(async () => button().click());
-  expect(fetchCandidatePlayers.mock.lastCall[4].genderFilter).toBe('women');
-  expect(generateOptimalSquad.mock.lastCall[5].genderFilter).toBe('women');
+  expect(fetchCandidatePlayers.mock.lastCall[4].maxFemalePlayers).toBe(2);
+  expect(generateOptimalSquad.mock.lastCall[5].maxFemalePlayers).toBe(2);
   await act(async () => container.querySelector('.auto-build-reset').click());
-  expect(excludedCardVersionsStore.getState().genderFilter).toBe('all');
+  expect(excludedCardVersionsStore.getState().maxFemalePlayers).toBe('any');
 });
