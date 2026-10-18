@@ -631,13 +631,13 @@ export function isActiveLeagueCandidate(card: PlayerCard, squad: readonly Player
 
 /** Dynamic pruning happens after links and hard constraints, never before. */
 export function getDynamicCandidatesForSlot(position: string, squad: readonly GeneratedPlayer[], pool: readonly GeneratedPlayer[], budget: number,
-  anchor: GeneratedPlayer | null = selectDynamicAnchor(squad), candidateLimit = 100, coreLeague: string | null = null, considerManager = false, minChemistryTarget = 33): GeneratedPlayer[] {
+  anchor: GeneratedPlayer | null = selectDynamicAnchor(squad), candidateLimit = 100, coreLeague: string | null = null, considerManager = false, minChemistryTarget = 33, options: AutoBuildOptions = {}): GeneratedPlayer[] {
   const used = new Set(squad.map(p => p.playerKey));
   const counts = linkCounts(squad);
   const saturated = calculateSquadChemistry(squad, considerManager).totalChemistry >= minChemistryTarget;
-  const buildCore = !saturated && coreLeague !== null && (counts.league.get(coreLeague) ?? 0) < 5;
+  const buildCore = !saturated && coreLeague !== null && (counts.league.get(coreLeague) ?? 0) < getLeagueConstraints(options).maxPlayersPerLeague;
   return pool.filter(p => !used.has(p.playerKey) && p.price <= budget && isActiveLeagueCandidate(p, squad)
-    && isNewSelectionValid([...squad, p]))
+    && isNewSelectionValid([...squad, p], options))
     .map(card => {
       // Evaluate the actual completed squad, including manager/Icon effects, rather than
       // assuming that a number of Icons guarantees chemistry for every possible card.
@@ -675,7 +675,22 @@ function withinSelectionQuota(players: readonly any[], limits: readonly number[]
 
 export const isStrictSelectionValid = (players: readonly any[]) => withinSelectionQuota(players, [5, 5, 4]);
 export const isRelaxedSelectionValid = (players: readonly any[]) => withinSelectionQuota(players, [6, 6, 5]);
-export const isNewSelectionValid = isStrictSelectionValid;
+export function getLeagueConstraints(options: AutoBuildOptions = {}) {
+  // The settings store represents Exclude as 0 and Any as null.
+  const isNoSpecial = options.maxIcons === 0 && options.maxHeroes === 0;
+  return { minLeagues: isNoSpecial ? 2 : 3, maxLeagues: 3, maxPlayersPerLeague: isNoSpecial ? 9 : 5 };
+}
+export function isNewSelectionValid(players: readonly any[], options: AutoBuildOptions = {}): boolean {
+  const constraints = getLeagueConstraints(options);
+  if (!withinSelectionQuota(players, [5, constraints.maxPlayersPerLeague, 4])) return false;
+  // Keep the existing normal-mode and lock behavior; no-special completed squads
+  // must still use at least two leagues, even with a lower chemistry target.
+  if (constraints.maxPlayersPerLeague === 9) {
+    const leagues = leagueDistribution(players);
+    return leagues.length <= constraints.maxLeagues && (players.length < 11 || leagues.length >= constraints.minLeagues);
+  }
+  return true;
+}
 
 export const WOMEN_LEAGUES = new Set([1, 6, 8, 9, 10, 15, 16, 31, 38, 44, 49, 53, 2215, 2216, 2218, 2221, 2222]);
 
@@ -778,8 +793,8 @@ export function fitsAnchorBudgetCaps(squad: readonly GeneratedPlayer[], budget: 
   return remaining >= 0;
 }
 
-export function calculateFinalSquadScore(squad: readonly any[], chemistry: number, budget = 0, relaxed = false, minChemistryTarget = 33): number {
-  if (!(relaxed ? isRelaxedSelectionValid(squad) : isStrictSelectionValid(squad))) return -Infinity;
+export function calculateFinalSquadScore(squad: readonly any[], chemistry: number, budget = 0, relaxed = false, minChemistryTarget = 33, options: AutoBuildOptions = {}): number {
+  if (!(relaxed && getLeagueConstraints(options).maxPlayersPerLeague === 5 ? isRelaxedSelectionValid(squad) : isNewSelectionValid(squad, options))) return -Infinity;
   if (budget > 0 && squad.reduce((sum, p) => sum + Number(p.price ?? p.card?.price ?? 0), 0) > budget) return -Infinity;
   if (chemistry < minChemistryTarget) return -20000 + chemistry * 100;
   const leagues = leagueDistribution(squad);
@@ -1011,7 +1026,7 @@ export async function generateOptimalSquad(
     const chemistry = calculateSquadChemistry(squad, considerManager);
     return { squad, totalCost: state.cost, totalChemistry: chemistry.totalChemistry, manager: chemistry.manager,
       teamMetaScore: squad.length ? squad.reduce((sum, p) => sum + p.metaScore, 0) / squad.length : 0,
-      finalScore: calculateFinalSquadScore(squad, chemistry.totalChemistry, totalBudget, false, minChemistry) };
+      finalScore: calculateFinalSquadScore(squad, chemistry.totalChemistry, totalBudget, false, minChemistry, options) };
   };
   let bestComplete: ReturnType<typeof evaluate> | null = order.length ? null : evaluate(initial);
   const choose = (a: ReturnType<typeof evaluate>, b: ReturnType<typeof evaluate>) =>
@@ -1038,6 +1053,7 @@ export async function generateOptimalSquad(
       const occupied = filled(state);
       if (occupied.length > filled(bestPartial).length) bestPartial = state;
       if (depth === order.length) {
+        if (!isNewSelectionValid(occupied, options)) return false;
         const result = evaluate(state);
         if (!bestComplete || choose(result, bestComplete)) bestComplete = result;
         return result.totalChemistry >= minChemistry;
@@ -1058,7 +1074,7 @@ export async function generateOptimalSquad(
               if (groupCost + player.price > groupCap || player.price > cap || partial.cost + player.price > spendingLimit
                 || players.some(p => p.playerKey === player.playerKey)) continue;
               const trial = [...players, player];
-              if (!isNewSelectionValid(trial) || !isActiveLeagueCandidate(player, players) || specialCount(trial) > maxSpecial || !withinCardLimits(trial, options)) continue;
+              if (!isNewSelectionValid(trial, options) || !isActiveLeagueCandidate(player, players) || specialCount(trial) > maxSpecial || !withinCardLimits(trial, options)) continue;
               const slots = partial.slots.slice(); slots[slotIndex] = player;
               collect({ slots, cost: partial.cost + player.price }, offset + 1, groupCost + player.price, score + player.metaScore);
             }
@@ -1089,7 +1105,7 @@ export async function generateOptimalSquad(
       const anchor = selectDynamicAnchor(occupied, considerManager, options.keyPositions, formationPositions);
       const source = rawPools[index].filter(p => p.price <= slotCap && withinCardLimits([...occupied, p], options)).slice(0, limit);
       const eligible = getDynamicCandidatesForSlot(layout.slots[index].position, occupied, source,
-        Math.min(slotCap, spendingLimit - state.cost), anchor, limit, stageIndex > 0 ? coreLeagueFor(occupied) : null, considerManager, minChemistry);
+        Math.min(slotCap, spendingLimit - state.cost), anchor, limit, stageIndex > 0 ? coreLeagueFor(occupied) : null, considerManager, minChemistry, options);
       // At depth zero, keep pure meta order and let the recursion return to the next ace.
       if (depth === 0) eligible.sort((a, b) => b.metaScore - a.metaScore || a.price - b.price || a.id.localeCompare(b.id));
       for (const [candidateIndex, candidate] of eligible.entries()) {
@@ -1106,7 +1122,7 @@ export async function generateOptimalSquad(
           let cheapest = Infinity;
           for (const p of rawPools[remaining]) {
             if (p.price < cheapest && !used.has(p.playerKey)
-              && withinCardLimits([...squad, p], options) && isActiveLeagueCandidate(p, squad) && isNewSelectionValid([...squad, p])) cheapest = p.price;
+              && withinCardLimits([...squad, p], options) && isActiveLeagueCandidate(p, squad) && isNewSelectionValid([...squad, p], options)) cheapest = p.price;
           }
           reserve += cheapest;
         }
@@ -1135,7 +1151,7 @@ export async function generateOptimalSquad(
   }
   const result = bestComplete ?? evaluate(bestPartial);
   const complete = result.squad.length === 11;
-  const success = complete && result.totalChemistry >= minChemistry;
+  const success = complete && result.totalChemistry >= minChemistry && isNewSelectionValid(result.squad, options);
   return { ...result, success, minChemistryTarget: minChemistry, status: success ? 'success' : complete ? 'chemistry_unmet' : 'incomplete', iterations, searchLimitReached: pruned,
     searchStage, stageAttempts };
 }
@@ -1184,7 +1200,7 @@ export function upgradeSquadToTargetBudgetRatio(
         if (performance.now() >= deadline) return current;
         if (!isActiveLeagueCandidate(candidate, others)) continue;
         const trial = current.map(player => player === target ? candidate : player);
-        if (!withinCardLimits(trial, options) || !isStrictSelectionValid(trial) || !fitsAnchorBudgetCaps(trial, totalBudget, options.keyPositions)
+        if (!withinCardLimits(trial, options) || !isNewSelectionValid(trial, options) || !fitsAnchorBudgetCaps(trial, totalBudget, options.keyPositions)
           || trial.filter(player => !player.isLocked && (engineIcon(player) || isCardHero(player))).length > maxSpecial
           || calculateSquadChemistry(trial, considerManager).totalChemistry < chemistryFloor) continue;
         current = trial;
