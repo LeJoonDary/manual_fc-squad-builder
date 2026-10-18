@@ -26,7 +26,20 @@ export interface SlotRequirement {
   role?: { name: string; minLevel: 1 | 2 };
   playstyle?: { idOrName: string | number; isPlus: boolean };
 }
+export type GenderFilterType = 'all' | 'men' | 'women';
+
+/** Check female terms first: "women" contains "men", and "female" contains "male". */
+export function matchesGenderFilter(card: Record<string, any>, filter: GenderFilterType = 'all'): boolean {
+  if (filter === 'all') return true;
+  const raw = card.raw ?? card;
+  const gender = String(relation(raw.players).gender || raw.player?.gender || raw.playerDef?.gender || raw.gender || card.gender || '').trim().toLowerCase();
+  const women = gender.includes('women') || gender.includes('female');
+  const men = !women && (gender.includes('men') || gender.includes('male'));
+  return filter === 'women' ? women : men;
+}
+
 export interface AutoBuildOptions {
+  genderFilter?: GenderFilterType;
   slotRequirements?: Record<string, SlotRequirement>;
 
   excludeZeroPriceCards?: boolean;
@@ -183,6 +196,9 @@ export async function fetchCandidatePlayers(
       let query = supabase.from('card_versions').select(projection)
         .in('candidate_positions.positions.name', positions)
         .gte('overall', Math.max(80, squadOvrRange.min, (unlimited || (totalBudget ?? 0) >= 5000000) ? 85 : 0)).lte('overall', squadOvrRange.max).gte('price', 0);
+      // Filter the joined player before LIMIT so the other gender cannot crowd out candidates.
+      if (options.genderFilter === 'women') query = query.or('gender.ilike.*women*,gender.ilike.*female*', { referencedTable: 'players' });
+      if (options.genderFilter === 'men') query = query.or('and(gender.ilike.*men*,gender.not.ilike.*women*,gender.not.ilike.*female*),and(gender.ilike.*male*,gender.not.ilike.*female*,gender.not.ilike.*women*)', { referencedTable: 'players' });
       const stars = slotRequirement(roleSlot, options);
       if (stars?.minSm ?? stars?.minSkillMoves) query = query.gte('sm', (stars.minSm ?? stars.minSkillMoves)!);
       if (stars?.minWf ?? stars?.minWeakFoot) query = query.gte('wf', (stars.minWf ?? stars.minWeakFoot)!);
@@ -225,7 +241,7 @@ export async function fetchCandidatePlayers(
   const candidates = new Map<string, CandidatePlayer>();
   for (const { group, rows } of results) {
     for (const row of rows) {
-      if (!withinCardLimits([row], options) || excluded.has(getCardVersionId(row)) || !passesMarketPriceFilter(row, options)) continue;
+      if (!matchesGenderFilter(row, options.genderFilter) || !withinCardLimits([row], options) || excluded.has(getCardVersionId(row)) || !passesMarketPriceFilter(row, options)) continue;
       const { candidate_positions: _matchedPositions, ...card } = row;
       const existing = candidates.get(String(card.id));
       if (existing) existing.candidateGroups.push(group);
@@ -236,7 +252,7 @@ export async function fetchCandidatePlayers(
   for (const [, entry] of entries) {
     if (!entry!.isOwned) continue;
     const card = rawEntryCard(entry!);
-    if (!withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
+    if (!matchesGenderFilter(card, options.genderFilter) || !withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
 
     if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
     if (isSpecialCard(card) && maxSpecial === 0 && !entry!.isLocked) continue;
@@ -688,7 +704,7 @@ export function calculateDynamicSlotCap(position: string, unfilledPositions: rea
   return Math.min(availableBudget, Math.max(weightedCap, averageFloor));
 }
 
-export interface AnchorBudgetContext { anchorStepIndex?: number; remainingBudget?: number; remainingSlotsCount?: number; maxPriceCap?: number; }
+export interface AnchorBudgetContext { genderFilter?: GenderFilterType; anchorStepIndex?: number; remainingBudget?: number; remainingSlotsCount?: number; maxPriceCap?: number; }
 /** Static query caps expand anchors; live caps additionally reserve funds for later slots. */
 export function getPriorityPriceCap(position: string, budget: number, keyPositions: readonly string[] = [], formationPositions?: readonly string[], context: AnchorBudgetContext = {}): number {
   if (budget < 300000) return Infinity;
@@ -735,7 +751,7 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
   if (budget >= 300000) {
     if (['LM','RM','LW','RW'].includes(pos) && pace < 85) return false;
   }
-  if (!['CB', 'GK'].includes(pos)) return true;
+  if (!['CB', 'GK'].includes(pos) || context.genderFilter === 'women') return true;
   const source = card.card ?? card.raw ?? card;
   const league = card.leagueId ?? card.league_id ?? card.league?.id
     ?? source.leagueId ?? source.league_id ?? source.league?.id ?? relation(source.leagues).id;
@@ -937,7 +953,7 @@ export async function generateOptimalSquad(
     const unique = new Map<string, GeneratedPlayer>();
     for (const card of sharedSources.get(normalizeChemistryPosition(position))!) {
       // Locked slots are restored separately via fixedPlayers, never filtered here.
-      if (!withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
+      if (!matchesGenderFilter(card, options.genderFilter) || !withinCardLimits([card], options) || !passesMarketPriceFilter(card, options)) continue;
 
       // Exclusions and advanced requirements must precede scoring and every stage slice.
       if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
@@ -956,7 +972,7 @@ export async function generateOptimalSquad(
       b.metaScore - a.metaScore
       || a.price - b.price || a.id.localeCompare(b.id));
     const filtered = sorted.filter(p => passesNewCandidateFilter(p.card, position, totalBudget, options.keyPositions, formationPositions,
-      { maxPriceCap: Infinity }));
+      { maxPriceCap: Infinity, genderFilter: options.genderFilter }));
     // Keep lower-tier legal links available for the expanded pass.
     return filtered;
   });
@@ -1153,14 +1169,14 @@ export function upgradeSquadToTargetBudgetRatio(
       const upgrades = (candidatePools[position] ?? []).filter(candidate => {
         const card = candidate.card;
         return candidate.slotPosition === position && candidate.id !== target.id
-          && passesMarketPriceFilter(card, options) && isPositionMatched(position, candidate)
+          && matchesGenderFilter(card, options.genderFilter) && passesMarketPriceFilter(card, options) && isPositionMatched(position, candidate)
           && candidate.price <= target.price + remaining
           && !others.some(player => player.playerKey === candidate.playerKey)
           && !excluded.has(getCardVersionId(card))
           && card.overall != null && card.overall >= ovrRange.min && card.overall <= ovrRange.max
           && meetsRoleRequirement(card, position, options)
           && passesNewCandidateFilter(card, position, totalBudget, options.keyPositions, squad.map(player => player.slotPosition),
-            { maxPriceCap: Infinity })
+            { maxPriceCap: Infinity, genderFilter: options.genderFilter })
           && calculateMetaScore(candidate, position, totalBudget) > targetScore;
       }).sort((a, b) => calculateMetaScore(b, position, totalBudget) - calculateMetaScore(a, position, totalBudget)
         || a.price - b.price || a.id.localeCompare(b.id)).slice(0, 175);

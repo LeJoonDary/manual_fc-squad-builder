@@ -13,7 +13,11 @@ export function createCandidateMockDb(rows, error = null) {
         gte(column, value) { if (column === 'overall') { call.ovrMin = value; return query; } call.minColumn = column; call.min = value; return query; },
         lte(column, value) { if (column === 'overall') { call.ovrMax = value; return query; } call.maxColumn = column; call.max = value; return query; },
         order(column, options) { call.orders.push({ column, ...options }); return query; },
-        or(value) { call.or = value; return query; },
+        or(value, options) {
+          if (options?.referencedTable === 'players') call.genderOr = value;
+          else call.or = value;
+          return query;
+        },
         not(column, operator, value) { call.not = { column, operator, value }; return query; },
         async range(from, to) {
           call.range = { from, to };
@@ -24,6 +28,11 @@ export function createCandidateMockDb(rows, error = null) {
           call.limit = value;
           const data = rows.filter(row => (!call.or || !['ICON', 'SPECIAL_ICON', 'HERO', 'SPECIAL_HERO'].includes(row.card_type))
             && (!call.not || !call.not.value.slice(1, -1).split(',').includes(String(row[call.not.column])))
+            && (!call.genderOr || (() => {
+              const g = String(row.players?.gender ?? '').toLowerCase();
+              const female = g.includes('women') || g.includes('female');
+              return call.genderOr.startsWith('and(') ? !female && (g.includes('men') || g.includes('male')) : female;
+            })())
             && row.overall >= call.ovrMin && row.overall <= call.ovrMax
             && row.price != null && row.price >= call.min && (call.max === undefined || row.price <= call.max)
             && (!call.gt || row[call.gt.column] > call.gt.value)

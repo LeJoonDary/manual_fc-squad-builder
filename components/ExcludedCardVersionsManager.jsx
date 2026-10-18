@@ -28,7 +28,7 @@ function CardSummary({ card, fallbackName }) {
 function ExclusionDialog({ supabase, onClose }) {
   const exclusionState = useSyncExternalStore(
     excludedCardVersionsStore.subscribe, excludedCardVersionsStore.getState);
-  const { excludedCardVersionIds: ids, excludedCardVersionNames: names, squadOvrRange, maxIcons, maxHeroes } = exclusionState;
+  const { excludedCardVersionIds: ids, excludedCardVersionNames: names, squadOvrRange, maxIcons, maxHeroes, genderFilter } = exclusionState;
   const totalCount = getExcludedCardManagementCount(exclusionState);
   const totalExcludedCount = getTotalExcludedCount(exclusionState);
   const [tab, setTab] = useState('search');
@@ -240,6 +240,14 @@ function ExclusionDialog({ supabase, onClose }) {
           </button>
           <p>Candidate pool: OVR {squadOvrRange.min} – {squadOvrRange.max}. Applying a new range overwrites previous settings.</p>
         </fieldset>
+        <fieldset className="exclusion-settings-group">
+          <legend>Player Gender</legend>
+          <div role="group" aria-label="Player Gender" className="exclusion-special-options">
+            {[['all', 'Any'], ['men', 'Men Only'], ['women', 'Women Only']].map(([value, label]) =>
+              <button key={value} type="button" aria-pressed={genderFilter === value}
+                onClick={() => change(() => excludedCardVersionsStore.setGenderFilter(value), 'Player gender updated.')}>{label}</button>)}
+          </div>
+        </fieldset>
         <fieldset className="exclusion-settings-group exclusion-special-limits">
           <legend>Special Card Limits</legend>
           <p>Exclude = No special cards, 1~5 = Max allowed</p>
@@ -258,6 +266,13 @@ function ExclusionDialog({ supabase, onClose }) {
         {hasOvrRule && <div className="exclusion-ovr-rule" role="status">
           <strong>🎯 OVR {squadOvrRange.min} ~ {squadOvrRange.max} only in squad</strong>
           <button type="button" aria-label="Remove OVR range" onClick={resetOvrRange}>✕ Cancel</button>
+        </div>}
+        {genderFilter !== 'all' && <div className="exclusion-ovr-rule exclusion-gender-rule" role="status">
+          <strong>Player Gender: {genderFilter === 'men' ? 'Men Only' : 'Women Only'}</strong>
+          <button type="button" aria-label="Remove player gender filter" onClick={() => change(() => {
+            excludedCardVersionsStore.setGenderFilter('all');
+            document.getElementById('exclusion-tab-excluded').focus();
+          }, 'Player gender reset to Any.')}>✕ Cancel</button>
         </div>}
         <label className="exclusion-select-all"><input ref={selectAll} type="checkbox" disabled={!ids.length}
           checked={ids.length > 0 && selectedIds.length === ids.length} onChange={event => setSelected(event.target.checked ? [...ids] : [])} /> Select / Deselect All</label>

@@ -35,7 +35,7 @@ test('ban/unban is shared, deduplicated, and restored with names after reload', 
   store.ban('123', '중복');
   expect(listener).toHaveBeenCalledTimes(1);
   const restored = createExcludedCardVersionsStore(() => storage);
-  expect(restored.getState()).toEqual({ maxIcons: null, maxHeroes: null, squadOvrRange: { min: 45, max: 99 }, excludedCardVersionIds: ['123'], excludedCardVersionNames: { 123: '테스트 선수' } });
+  expect(restored.getState()).toEqual({ genderFilter: 'all', maxIcons: null, maxHeroes: null, squadOvrRange: { min: 45, max: 99 }, excludedCardVersionIds: ['123'], excludedCardVersionNames: { 123: '테스트 선수' } });
   restored.unban(123);
   expect(createExcludedCardVersionsStore(() => storage).getState().excludedCardVersionIds).toEqual([]);
   unsubscribe();
@@ -68,13 +68,13 @@ test('bulk removal and reset each persist and notify once, including names', () 
   store.unbanMany(['1', 2, 2, 999]);
   expect(listener).toHaveBeenCalledTimes(1);
   expect(createExcludedCardVersionsStore(() => storage).getState()).toEqual({
-    maxIcons: null, maxHeroes: null, squadOvrRange: { min: 45, max: 99 },
+    genderFilter: 'all', maxIcons: null, maxHeroes: null, squadOvrRange: { min: 45, max: 99 },
     excludedCardVersionIds: ['3'], excludedCardVersionNames: { 3: 'Card 3' },
   });
   store.clear();
   expect(listener).toHaveBeenCalledTimes(2);
   expect(createExcludedCardVersionsStore(() => storage).getState()).toEqual({
-    maxIcons: null, maxHeroes: null, squadOvrRange: { min: 45, max: 99 },
+    genderFilter: 'all', maxIcons: null, maxHeroes: null, squadOvrRange: { min: 45, max: 99 },
     excludedCardVersionIds: [], excludedCardVersionNames: {},
   });
 });

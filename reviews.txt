@@ -55,4 +55,7 @@
 #kane, 90, gold, https://www.youtube.com/shorts/lfyByh26UyM
 #pato, 85, hall, https://www.youtube.com/shorts/obRRDxBP9EI
 
-
+#manzambi, 85, future, https://www.youtube.com/shorts/pSFXap2vL08
+#dro fer, 85, future, https://www.youtube.com/shorts/u1GvveIhiXY
+#hato, 85, future, https://www.youtube.com/shorts/BjPX2Wz8Gnc
+#mastantuono, 88, future, https://www.youtube.com/shorts/49hGYg7Du68
