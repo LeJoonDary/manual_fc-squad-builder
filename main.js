@@ -32,7 +32,9 @@ import { mountAutoBuildSettings } from './components/AutoBuildSettings.jsx';
 import { autoBuildManagerState } from './utils/autoBuildUi.js';
 import { mountGuideControl } from './components/GuideModal.jsx';
 import { createLegalModal } from './components/LegalModal.js';
+import { mountAnalytics } from './components/Analytics.jsx';
 
+mountAnalytics();
 createLegalModal();
 mountGuideControl(document.getElementById('guide-control'));
 
