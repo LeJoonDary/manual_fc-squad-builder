@@ -94,7 +94,7 @@ function isSpecialCard(card: Record<string, any>): boolean {
 export type BudgetGroup = 'FW' | 'MF' | 'DF';
 export type SquadFocus = 'attack' | 'balanced' | 'defense';
 const CANDIDATE_LIMITS = { FW: 300, MF: 300, DF: 300 };
-export const STAGE_TIMEOUT_MS = 5000;
+export const STAGE_TIMEOUT_MS = 9500;
 export const MAX_BACKTRACK_ITERATIONS = 50000;
 // Explicit solver and pitch display fields; omit full card-detail joins.
 export const AUTO_BUILD_CANDIDATE_SELECT = `
