@@ -1131,6 +1131,38 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 .slot-card-actions > .exclude-player { grid-column: 3; grid-row: 1; justify-self: center; }
 .slot-card-actions > .detail-player { grid-column: 4; }
 .slot-card-actions > .remove-player { grid-column: 5; }
+.slot-card-actions > .alternative-player { grid-column: 5; grid-row: 1; justify-self: center; border: 0; border-radius: 4px; cursor: pointer; background: #182631; color: white; padding: 0; }
+.slot-card-actions:has(.alternative-player) > .remove-player { grid-column: 6; }
+.slot-card-actions:has(.alternative-player) { grid-template-columns: repeat(6,minmax(0,1fr)); }
+.alternative-player:disabled { opacity: .4; cursor: not-allowed; }
+.alternative-dialog { width: min(1100px, 92vw); max-height: 80vh; overflow: auto; background: #101b24; color: #eef6ff; border: 1px solid #385365; border-radius: 16px; padding: 24px; }
+.alternative-dialog::backdrop { background: #000a; }
+.alternative-dialog.swap-player-dialog { padding: 0; background: #0b111e; }
+.swap-modal-header { position: sticky; top: 0; z-index: 30; padding: 24px; background: #0b111e; border-bottom: 1px solid #1e293bcc; }
+.swap-modal-header h2 { margin-bottom: 0; }
+.swap-modal-body { padding: 24px; }
+.alternative-dialog h2 { margin-top: 0; padding-right: 32px; }
+.alternative-dialog .swap-modal-close { position: absolute; top: 16px; right: 16px; display: flex; align-items: center; justify-content: center; padding: 6px; border: 0; border-radius: 8px; background: transparent; color: #94a3b8; cursor: pointer; transition: color .15s, background-color .15s; }
+.alternative-dialog .swap-modal-close:hover { color: white; background: #1c2940; }
+.swap-load-more-container { display: flex; justify-content: center; margin: 16px 0; }
+.swap-fallback-notice { margin: 0 0 16px; padding: 8px 12px; border: 1px solid #34d39955; border-radius: 8px; background: #064e3b55; color: #a7f3d0; font-size: 12px; line-height: 1.5; }
+.swap-secondary-button { padding: 8px 16px; border: 1px solid #334155; border-radius: 8px; background: #131d2e; color: #e2e8f0; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color .15s; }
+.swap-secondary-button:hover { background: #1c2940; }
+.alternative-load-more { padding: 10px 24px; border-color: #334155cc; border-radius: 12px; color: white; box-shadow: 0 1px 3px #0003; }
+.swap-conflict-dialog { width: min(560px, 92vw); }
+.swap-conflict-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.swap-rebuild-button { padding: 8px 16px; border: 1px solid transparent; border-radius: 8px; background: #059669; color: white; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color .15s; box-shadow: 0 2px 4px #0003; }
+.swap-rebuild-button:hover { background: #10b981; }
+.alternative-dialog button:focus-visible { outline: 2px solid #34d399; outline-offset: 3px; }
+.alternative-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 16px; }
+.alternative-loading { grid-column: 1 / -1; min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; }
+.alternative-spinner { width: 40px; height: 40px; border: 4px solid #385365; border-top-color: #34d399; border-radius: 50%; animation: alternative-spin .8s linear infinite; }
+@keyframes alternative-spin { to { transform: rotate(360deg); } }
+.alternative-results > .browser-player-card { animation: alternative-appear .2s ease-out; }
+@keyframes alternative-appear { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+.alternative-result { display: block; position: relative; min-height: 210px; width: 100%; text-align: left; padding: 12px; background: #1b303e center / cover; color: inherit; border: 1px solid #426077; border-radius: 8px; cursor: pointer; }
+.alternative-result .pitch-mini-content { width: 100%; height: 100%; min-height: 185px; }
+.alternative-result:hover, .alternative-result:focus-visible { border-color: #8eeac0; background: #244439; }
 .exclude-player { position: relative; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid rgba(255,255,255,.3); border-radius: 50%; background: rgba(4,12,31,.76); color: #9ca3af; cursor: pointer; }
 .exclude-player svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .exclude-player:hover { color: #f87171; background: rgba(69,10,10,.4); }

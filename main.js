@@ -8,6 +8,9 @@ import { excludedCardVersionsStore } from './utils/excludedCardVersions.js';
 import { createPitchChemistryBadge } from './components/PitchChemistryBadge.js';
 import { createPitchMiniCard } from './components/PitchMiniCard.js';
 import { createSquadSlots } from './components/SquadSlots.js';
+import { createAlternativePlayerModal } from './components/AlternativePlayerModal.js';
+import { fetchAlternativeCards, suggestAlternativePlayers, suggestAlternativePlayersAsync, getSwapConflicts } from './utils/alternativePlayers.js';
+import { createSwapConflictModal } from './components/SwapConflictModal.js';
 import { getCardBackground } from './utils/cardBackground.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { loadPlayerDetail } from './utils/playerCatalog.js';
@@ -137,6 +140,53 @@ let modalPlayerCards = [];
 let dragOriginPosition = null;
 let suppressSlotClick = false;
 const squad = {};
+const swapConflictModal = createSwapConflictModal({ rebuild: () => document.querySelector('.auto-build-button')?.click() });
+const alternativeModal = createAlternativePlayerModal({
+  renderCard: (card, onActivate) => buildPlayerCard(card, { actionLabel: 'Swap Player', onActivate, showMetaScore: false }),
+  async load(position, signal) {
+    const rows = await fetchAlternativeCards(supabase, position, signal);
+    return suggestAlternativePlayersAsync({
+      squad, targetPosition: position, candidates: rows.map(normalizeBrowserPlayerCard).filter(Boolean),
+      manager: getManagerChemistryBonus(), settings: excludedCardVersionsStore.getState(),
+      minChemistryTarget: getSwapChemistryTarget(),
+      maxBudget: targetBudget, minPrice: filters.minPrice, maxPrice: filters.maxPrice,
+    }, signal);
+  },
+  async select(position, card, signal, bestManager) {
+    if (getSwapConflicts(squad, position, excludedCardVersionsStore.getState()).length) throw new Error('Squad settings conflict. Close and reopen Swap.');
+    const original = squad[position];
+    const detail = card;
+    signal.throwIfAborted();
+    if (squad[position] !== original || isSquadSlotLocked(original)) throw new Error('The squad slot has changed');
+    const valid = suggestAlternativePlayers({
+      squad, targetPosition: position, candidates: [detail],
+      manager: bestManager ?? getManagerChemistryBonus(), settings: excludedCardVersionsStore.getState(),
+      minChemistryTarget: getSwapChemistryTarget(),
+      maxBudget: targetBudget, minPrice: filters.minPrice, maxPrice: filters.maxPrice,
+    });
+    const slot = document.querySelector(`.slot[data-position="${position}"]`);
+    if (!slot || !valid.length) throw new Error('This player is no longer eligible');
+    const chosenManager = valid[0].bestManager;
+    if (chosenManager) {
+      managerState = autoBuildManagerState({
+        bestLeagueId: chosenManager.leagueId, bestNationId: chosenManager.nationId,
+      }, affiliationCatalog, [...Object.values(squad).map(entry => entry?.card).filter(Boolean), detail]);
+    }
+    placeCard(slot, detail, false);
+    renderManagerSlot();
+    updateSquadChemistry();
+    status.textContent = `Replaced ${position} with ${getCardName(detail)}.`;
+  },
+});
+function getSwapChemistryTarget() {
+  return Number(document.querySelector('#min-chemistry')?.value ?? 33);
+}
+function openSwapModal(position, currentCard) {
+  if (!currentCard || isSquadSlotLocked(squad[position])) return;
+  const conflicts = getSwapConflicts(squad, position, excludedCardVersionsStore.getState());
+  if (conflicts.length) { swapConflictModal.open(conflicts); return; }
+  alternativeModal.open(position, currentCard);
+}
 let affiliationCatalog = { nations: [], leagues: [], clubs: [] };
 let modalRequest = 0;
 let modalSelectionRequest = 0;
@@ -164,7 +214,7 @@ document.querySelectorAll('.slot').forEach(bindSquadSlot);
 
 const formationPicker = document.querySelector('#formation-picker');
 const formationMenu = document.querySelector('#formation-menu');
-let currentFormation = '4-3-3';
+let currentFormation = '4-3-1-2';
 // Match the initial HTML slots to the same spacing used after formation changes.
 const initialFormation = FORMATIONS.find(formation => formation.name === currentFormation);
 document.querySelector('.pitch').style.setProperty('--formation-height', `${initialFormation.height}px`);
@@ -1722,7 +1772,17 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
     const selectedCard = squad[slot.dataset.position]?.card;
     if (selectedCard) playerDetail.open(selectedCard);
   });
-  cardActions.append(lockButton, ownedButton, createPitchExcludeButton(card), detailButton, removeButton);
+  const alternativeButton = document.createElement('button');
+  alternativeButton.type = 'button';
+  alternativeButton.className = 'alternative-player';
+  alternativeButton.textContent = '🔄';
+  alternativeButton.title = 'Suggest alternatives';
+  alternativeButton.setAttribute('aria-label', `Suggest alternatives for ${name}`);
+  alternativeButton.addEventListener('click', event => {
+    event.stopPropagation();
+    openSwapModal(slot.dataset.position, squad[slot.dataset.position]?.card);
+  });
+  cardActions.append(lockButton, ownedButton, createPitchExcludeButton(card), detailButton, alternativeButton, removeButton);
   top.append(cardActions);
   syncPitchExclusions();
   updateSlotLockUI(slot);
@@ -1762,6 +1822,8 @@ function updateSlotLockUI(slot) {
     lockButton.setAttribute('aria-pressed', String(isLocked));
   }
   if (removeButton) removeButton.hidden = isLocked;
+  const alternativeButton = slot.querySelector('.alternative-player');
+  if (alternativeButton) alternativeButton.disabled = isLocked;
 }
 
 function handleTogglePlayerOwned(event, slot) {

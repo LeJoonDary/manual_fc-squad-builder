@@ -19,6 +19,47 @@ function slot(position: string, player: PlayerCard | null): SquadSlot {
 }
 
 describe('calculateChemistry', () => {
+  it.each([
+    { version: 'special_base_hall_of_fut' },
+    { version: 'special_hall_of_fut' },
+    { club: 'HALL OF FUT' },
+    { club_id: 132794 },
+    { club_id: '132794' },
+    { raw: { version: 'special_base_hall_of_fut' } },
+    { clubs: [{ id: 132794, name: 'HALL OF FUT' }] },
+  ])('recognizes Hall of FUT metadata %j and includes its three points in the team total', metadata => {
+    const player = adaptChemistryPlayerCard({ id: 'hall', position: 'ST', ...metadata });
+    const result = calculateChemistry([slot('ST', player)]);
+    expect(result.playerChemMap.hall).toBe(3);
+    expect(result.totalChemistry).toBe(3);
+    expect(player.isIcon).toBe(false);
+    expect(player.isHero).toBe(false);
+  });
+  it('gives Hall of FUT three personal chemistry while retaining normal affiliation contributions', () => {
+    const special = adaptChemistryPlayerCard({
+      id: 'hall', position: 'ST', version: 'special_hall_of_fut', club_id: 1, league_id: 2, nation_id: 3,
+    });
+    const alone = calculateChemistry([slot('ST', special)]);
+    expect(alone.playerChemMap.hall).toBe(3);
+    expect(alone.totalChemistry).toBe(3);
+    expect(alone.groupCounts).toEqual({
+      club: { 'club:id:1': 1 }, league: { 'league:id:2': 1 }, nation: { 'nation:id:3': 1 },
+    });
+    expect(special.isIcon).toBe(false);
+    expect(special.isHero).toBe(false);
+    expect(calculateChemistry([slot('GK', special)]).totalChemistry).toBe(0);
+    expect(calculateChemistry([slot('ST', card('raw', { version: 'special_hall_of_fut' }))]).totalChemistry).toBe(3);
+  });
+
+  it('counts all Hall of FUT cards toward the full team chemistry of 33', () => {
+    const players = Array.from({ length: 11 }, (_, i) => adaptChemistryPlayerCard({
+      id: i, position: 'ST', version: 'special_hall_of_fut',
+      club_id: i, league_id: i, nation_id: i,
+    }));
+    const result = calculateChemistry(players.map(player => slot('ST', player)));
+    expect(result.totalChemistry).toBe(33);
+    expect(Object.values(result.playerChemMap)).toEqual(Array(11).fill(3));
+  });
   it.each(['ICON', 'SPECIAL_ICON', 'HERO', 'SPECIAL_HERO', 'NORMAL', 'SPECIAL'])(
     'uses normalized foreign keys and %s contributions', (card_type) => {
       const special = adaptChemistryPlayerCard({

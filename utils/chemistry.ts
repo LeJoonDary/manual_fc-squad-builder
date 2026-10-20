@@ -1,4 +1,4 @@
-import { isCardIcon, isCardHero } from './specialCardIdentity.js';
+import { isCardIcon, isCardHero, isCardHallOfFut } from './specialCardIdentity.js';
 import type { ChemistryManager, ChemistryResult, PlayerCard, SquadSlot } from '../types/chemistry';
 import { sharedClubKey } from './clubIdentity';
 
@@ -106,6 +106,7 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
     clubId: sharedClubKey(rawCard) || canonicalAffiliationKey(rawCard, 'club', ['club', 'clubName', 'club_name', 'team'], ['clubId', 'club_id']),
     isIcon: isCardIcon(rawCard),
     isHero: isCardHero(rawCard),
+    isHallOfFut: isCardHallOfFut(rawCard),
   };
 }
 
@@ -156,7 +157,7 @@ export function calculateChemistry(squad: SquadSlot[], manager: ChemistryManager
   if (manager?.nationId !== undefined && manager.nationId !== '') addCount(nationCounts, manager.nationId, 1);
 
   validSlots.forEach(({ player }) => {
-    if (player.isIcon || player.isHero) {
+    if (player.isIcon || player.isHero || isCardHallOfFut(player)) {
       playerChemMap[player.id] = 3;
       return;
     }

@@ -8,6 +8,8 @@ export interface PlayerCard {
   clubId: number | string;
   isIcon?: boolean;
   isHero?: boolean;
+  isHallOfFut?: boolean;
+  version?: string;
 }
 
 export interface SquadSlot {

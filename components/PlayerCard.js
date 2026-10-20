@@ -3,7 +3,7 @@ import { getCardBackground } from '../utils/cardBackground.js';
 
 // Shared DOM card component for the Players tab and selection modal.
 export function createPlayerCard(card, {
-  onActivate, onShowDetails = onActivate, actionLabel = 'View player details', textAffiliations = false,
+  onActivate, onShowDetails = onActivate, actionLabel = 'View player details', textAffiliations = false, showMetaScore = true,
   getCardName, getCardRating, getCardPosition, getChemistryEntityLogo,
   createPlaystyleBadges, unwrapRelation, affiliationCatalog, createReviewButton,
 }) {
@@ -110,7 +110,7 @@ export function createPlayerCard(card, {
     positions.append(more);
   }
   let score;
-  if (!card.summary_only) {
+  if (showMetaScore && !card.summary_only) {
     score = document.createElement('div');
     score.className = 'browser-player-meta-score bg-slate-950/85 text-emerald-400 border border-emerald-500/50 font-extrabold px-2 py-0.5 rounded-md';
     score.textContent = card.meta_score == null ? '[Meta Score: N/A]' : `[Meta Score: ${card.meta_score.toFixed(1)}]`;
