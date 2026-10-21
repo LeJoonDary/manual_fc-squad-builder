@@ -24,25 +24,22 @@ it('shows icons naturally without the obsolete fallback notice', async () => {
   expect(document.querySelector('.swap-fallback-notice')).toBeNull();
 });
 
-it('preserves standard-first ranking across eight-card page boundaries', async () => {
-  const suggestions = Array.from({ length: 26 }, (_, i) => ({
+it('preserves standard-first ranking across twenty-card page boundaries', async () => {
+  const suggestions = Array.from({ length: 46 }, (_, i) => ({
     card: { id: String(i), name: `Player ${i}`, overall: i < 6 ? 88 - i : 99 - (i - 6) }, isIcon: i >= 6,
   }));
   const load = vi.fn().mockResolvedValue(suggestions);
   const modal = createAlternativePlayerModal({ load, select: vi.fn(), renderCard });
   await modal.open('ST');
   const ratings = () => [...document.querySelectorAll('.browser-player-rating')].map(node => Number(node.textContent));
-  expect(ratings()).toEqual([88, 87, 86, 85, 84, 83, 99, 98]);
+  expect(ratings()).toEqual(suggestions.slice(0, 20).map(row => row.card.overall));
   const more = document.querySelector('.alternative-load-more');
   expect(more.hidden).toBe(false);
-  expect(more.textContent).toBe('Load More (8 Players)');
+  expect(more.textContent).toBe('Load More (20 Players)');
   more.click();
-  expect(ratings().slice(8)).toEqual([97, 96, 95, 94, 93, 92, 91, 90]);
+  expect(ratings()).toEqual(suggestions.slice(0, 40).map(row => row.card.overall));
   more.click();
-  expect(ratings().slice(16)).toEqual([89, 88, 87, 86, 85, 84, 83, 82]);
-  more.click();
-  expect(ratings()).toHaveLength(26);
-  expect(ratings().slice(24)).toEqual([81, 80]);
+  expect(ratings()).toEqual(suggestions.map(row => row.card.overall));
   expect(more.hidden).toBe(true);
   expect(load).toHaveBeenCalledTimes(1);
 });

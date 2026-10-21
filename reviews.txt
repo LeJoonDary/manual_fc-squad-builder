@@ -59,3 +59,5 @@
 #dro fer, 85, future, https://www.youtube.com/shorts/u1GvveIhiXY
 #hato, 85, future, https://www.youtube.com/shorts/BjPX2Wz8Gnc
 #mastantuono, 88, future, https://www.youtube.com/shorts/49hGYg7Du68
+
+#alvaro carreras, 81, gold, https://www.youtube.com/shorts/ZjqrSnPQ1zA

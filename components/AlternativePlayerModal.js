@@ -15,7 +15,7 @@ export function createAlternativePlayerModal({ load, select, renderCard }) {
   const more = document.createElement('button');
   more.type = 'button';
   more.className = 'alternative-load-more swap-secondary-button';
-  more.textContent = 'Load More (8 Players)';
+  more.textContent = 'Load More (20 Players)';
   more.hidden = true;
   const footer = document.createElement('div');
   footer.className = 'swap-load-more-container';
@@ -60,7 +60,7 @@ export function createAlternativePlayerModal({ load, select, renderCard }) {
         let selecting = false;
         let offset = 0;
         const appendPage = () => {
-        const page = suggestions.slice(offset, offset + 8);
+        const page = suggestions.slice(offset, offset + 20);
         offset += page.length;
         for (const suggestion of page) {
           const { card } = suggestion;

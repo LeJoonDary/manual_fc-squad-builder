@@ -7,7 +7,25 @@ const squad = { LCB: { card: card('current') }, RCB: { card: card('fixed') } };
 const suggest = (candidates, extra = {}) => suggestAlternativePlayers({ squad, targetPosition: 'LCB', candidates, minChemistryTarget: 0, limit: 10, ...extra });
 
 describe('alternative players', () => {
-  it('sorts gold and special cards before icons, then silver and bronze, by OVR within each tier', async () => {
+  it('lowers OVR to 75 only below five eligible 80+ cards, after position and budget filters', async () => {
+    const high = Array.from({ length: 5 }, (_, i) => card(`high${i}`, { overall: 80, price: 100 }));
+    const lower = [card('lower', { overall: 75, price: 100 }), card('silver', { overall: 74, price: 100 })];
+    const options = { squad, targetPosition: 'LCB', minChemistryTarget: 0, maxBudget: 100 };
+    for (const run of [suggestAlternativePlayers, suggestAlternativePlayersAsync]) {
+      expect((await run({ ...options, candidates: [...high, ...lower] })).map(row => row.card.id))
+        .toEqual(high.map(row => row.id));
+      const result = await run({ ...options, candidates: [...high.slice(0, 4), ...lower,
+        card('expensive', { overall: 99, price: 101 }), card('wrong', { overall: 99, position: 'GK' })] });
+      expect(result.map(row => row.card.id)).toEqual([...high.slice(0, 4).map(row => row.id), 'lower']);
+    }
+  });
+  it('sorts regular cards before both heroes and icons, then OVR descending and price ascending', () => {
+    const result = suggest([card('hero', { version: 'Hero', overall: 99 }),
+      card('icon', { version: 'Icon', overall: 98 }), card('expensive', { overall: 85, price: 200 }),
+      card('cheap', { overall: 85, price: 100 }), card('top', { overall: 90, price: 300 })]);
+    expect(result.map(row => row.card.id)).toEqual(['top', 'cheap', 'expensive', 'hero', 'icon']);
+  });
+  it('sorts eligible gold and special cards before icons and omits silver and bronze', async () => {
     const candidates = [
       card('silver', { overall: 74 }), card('bronze', { overall: 64 }),
       card('icon99', { overall: 99, is_icon: true }), card('gold75', { overall: 75 }),
@@ -15,11 +33,11 @@ describe('alternative players', () => {
       card('icon80', { overall: 80, league: 'Icons' }),
     ];
     const options = { squad, targetPosition: 'LCB', candidates, minChemistryTarget: 0 };
-    const expected = ['special90', 'gold75', 'icon99', 'icon80', 'silver', 'bronze'];
+    const expected = ['special90', 'gold75', 'icon99', 'icon80'];
     expect(suggestAlternativePlayers(options).map(row => row.card.id)).toEqual(expected);
     expect((await suggestAlternativePlayersAsync(options)).map(row => row.card.id)).toEqual(expected);
     expect(suggestAlternativePlayers({ ...options, settings: { maxIcons: 0 } }).map(row => row.card.id))
-      .toEqual(['special90', 'gold75', 'silver', 'bronze']);
+      .toEqual(['special90', 'gold75']);
   });
   it('rescues a 31-chemistry squad with a manager and preserves a sufficient current manager', () => {
     const positions = ['LB', 'LCB', 'RCB', 'RB', 'LCM', 'CM', 'RCM', 'CAM', 'LS', 'RS', 'GK'];
@@ -74,7 +92,7 @@ describe('alternative players', () => {
   it('returns all eligible candidates in OVR order without lowering the chemistry target', async () => {
     const candidates = Array.from({ length: 26 }, (_, i) => card(`c${i}`, { overall: 99 - i, pac: 40 + i * 2 }));
     const result = await suggestAlternativePlayersAsync({ squad, targetPosition: 'LCB', candidates, minChemistryTarget: 4 });
-    expect(result).toHaveLength(26);
+    expect(result).toHaveLength(20);
     expect(result.every((row, i) => !i || result[i - 1].card.overall >= row.card.overall)).toBe(true);
     expect(await suggestAlternativePlayersAsync({ squad, targetPosition: 'LCB', candidates, minChemistryTarget: 7 })).toEqual([]);
   });
@@ -90,13 +108,13 @@ describe('alternative players', () => {
     budgetSquad.RCB.isOwned = true;
     expect(suggest(candidates, { squad: budgetSquad, maxBudget: 1000 })).toHaveLength(3);
   });
-  it('checks late low-score candidates for chemistry without pre-pruning', async () => {
+  it('does not lower OVR based on chemistry failures when five high-rated candidates exist', async () => {
     const candidates = Array.from({ length: 210 }, (_, i) => card(`unlinked${i}`, {
       overall: 99, pac: 99, nation_id: 2, league_id: 2, club_id: 2,
     }));
     candidates.push(card('late', { overall: 75, pac: 60 }));
     const result = await suggestAlternativePlayersAsync({ squad, targetPosition: 'LCB', candidates, minChemistryTarget: 4 });
-    expect(result.map(row => row.card.id)).toEqual(['late']);
+    expect(result).toEqual([]);
     const controller = new AbortController();
     controller.abort();
     await expect(suggestAlternativePlayersAsync({ squad, targetPosition: 'LCB', candidates }, controller.signal)).rejects.toThrow();
@@ -156,4 +174,3 @@ describe('alternative players', () => {
     expect(ranges).toEqual([[0, 499], [500, 999]]);
   });
 });
-

@@ -15,12 +15,13 @@ export function getSwapConflicts(squad, targetPosition, settings = {}) {
 }
 
 export function getPlayerTier(card) {
-  if (swapIcon(card)) return 2;
+  if (swapIcon(card) || isCardHero(card)) return 2;
   return Number(card.overall ?? 0) >= 75 ? 1 : 3;
 }
 
 // All returned rows already meet the user's chemistry target.
 const swapOrder = (a, b) => getPlayerTier(a.card) - getPlayerTier(b.card) || Number(b.card.overall ?? 0) - Number(a.card.overall ?? 0)
+  || getCardCoinPrice(a.card) - getCardCoinPrice(b.card)
   || String(a.card.id).localeCompare(String(b.card.id));
 
 export function findSwapManager(slots, currentManager, target) {
@@ -89,13 +90,17 @@ function prepareSwap({ squad, targetPosition, manager = null, settings = {}, min
   };
 }
 
+function applySwapOvrFilter(candidates) {
+  const highRated = candidates.filter(({ card }) => Number(card.overall) >= 80);
+  return highRated.length >= 5 ? highRated : candidates.filter(({ card }) => Number(card.overall) >= 75);
+}
+
 export function suggestAlternativePlayers(options) {
   const prepared = prepareSwap(options);
   if (!prepared) return [];
   const qualified = [];
-  for (const card of options.candidates) {
-    const candidate = prepared.eligible(card);
-    if (!candidate) continue;
+  const eligible = options.candidates.map(card => prepared.eligible(card)).filter(Boolean);
+  for (const candidate of applySwapOvrFilter(eligible)) {
     const row = prepared.evaluate(candidate);
     if (row) qualified.push(row);
   }
@@ -107,6 +112,7 @@ export async function suggestAlternativePlayersAsync(options, signal) {
   const prepared = prepareSwap(options);
   if (!prepared) return [];
   const qualified = [];
+  const eligible = [];
   let lastYield = performance.now();
   const yieldIfNeeded = async () => {
     if (performance.now() - lastYield < 8) return;
@@ -116,12 +122,17 @@ export async function suggestAlternativePlayersAsync(options, signal) {
   };
   for (const card of options.candidates) {
     const candidate = prepared.eligible(card);
-    if (candidate) { const row = prepared.evaluate(candidate); if (row) qualified.push(row); }
+    if (candidate) eligible.push(candidate);
+    if (performance.now() - lastYield >= 8) await yieldIfNeeded();
+  }
+  for (const candidate of applySwapOvrFilter(eligible)) {
+    const row = prepared.evaluate(candidate);
+    if (row) qualified.push(row);
     if (performance.now() - lastYield >= 8) await yieldIfNeeded();
   }
   return qualified.sort(swapOrder);
 }
-// Scan every position-eligible card: an OVR-limited pool can miss the best chemistry.
+// Fetch all position candidates so the adaptive OVR cutoff uses the complete eligible pool.
 export async function fetchAlternativeCards(db, position, signal) {
   if (!db) throw new Error('Supabase connection is not configured.');
   const rows = [];
