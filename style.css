@@ -1702,7 +1702,11 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .main-nav-tabs { gap: inherit; }
 .guide-modal { width: min(880px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; overflow: auto; color: #f1f5f9; background: #0b131e; border: 1px solid #334155; border-radius: 16px; box-shadow: 0 24px 80px #0009; }
 .guide-modal::backdrop { background: #020713cc; backdrop-filter: blur(4px); }
-.guide-modal .modal-header { gap: 12px; }
+.guide-modal .modal-header { gap: 12px; flex-wrap: wrap; }
+.guide-header-actions { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.guide-language-toggle { display: flex; gap: 4px; padding: 4px; border: 1px solid #334155; border-radius: 10px; }
+.guide-language-toggle button { padding: 6px 10px; border: 0; border-radius: 6px; background: transparent; color: #cbd5e1; font-weight: 700; cursor: pointer; }
+.guide-language-toggle button[aria-pressed="true"] { background: #00df82; color: #07120d; }
 .guide-modal h2 { margin: 0; font-size: clamp(16px, 3vw, 22px); }
 .guide-video { aspect-ratio: 16 / 9; background: #000; }
 .guide-video iframe { display: block; width: 100%; height: 100%; border: 0; }
