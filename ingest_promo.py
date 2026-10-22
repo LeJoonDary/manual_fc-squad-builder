@@ -109,48 +109,134 @@ DETAIL_KEYS = {
     "gk_positioning": "attributeGkPositioning",
 }
 
+# -------------------------------------------------------------
+# 1. 리그 매핑 (오스트리아 40번, 폴란드 46번 추가)
+# -------------------------------------------------------------
 LEAGUE_ALIAS_MAP = {
-    # 기존 항목들...
-    "major league soccer": 7, "mls": 7, "premier league": 3,
-    "laliga ea sports": 2, "laliga": 2, "la liga": 2, "bundesliga": 4,
-    "ligue 1 mcdonald's": 5, "ligue 1": 5, "serie a enilive": 12, "serie a": 12,
-    "liga portugal": 13, "eredivisie": 21, "bundesliga 2": 22,
-    "liga bbva mx": 23, "liga mx": 23, "roshn saudi league": 14,
-    "scottish premiership": 27, "trendyol süper lig": 11,
-    
-    # ★ WSL 관련 모든 변형 명칭을 1번(Barclays WSL)으로 통합
+    # 기존 메이저 리그들
+    "major league soccer": 7,
+    "mls": 7,
+    "premier league": 3,
+    "laliga ea sports": 2,
+    "laliga": 2,
+    "la liga": 2,
+    "bundesliga": 4,
+    "ligue 1 mcdonald's": 5,
+    "ligue 1": 5,
+    "serie a enilive": 12,
+    "serie a": 12,
+    "liga portugal": 13,
+    "eredivisie": 21,
+    "bundesliga 2": 22,
+    "liga bbva mx": 23,
+    "liga mx": 23,
+    "roshn saudi league": 14,
+    "scottish premiership": 27,
+    "trendyol süper lig": 11,
+    "efl championship": 19,
+    "k league 1": 48,
+    "csl": 47,
+    "chinese super league": 47,
+    # ★ 오스트리아 분데스리가 (DB ID: 40)
+    "österreichische fußball-bundesliga": 40,
+    "osterreichische fussball-bundesliga": 40,
+    "ö. bundesliga": 40,
+    "o. bundesliga": 40,
+    "austrian bundesliga": 40,
+    # ★ 폴란드 엑스트라클라사 (DB ID: 46)
+    "pko bank polski ekstraklasa": 46,
+    "pko ekstraklasa": 46,
+    "ekstraklasa": 46,
+    # 여성 리그 변형
     "barclays wsl": 1,
     "wsl": 1,
-    "barclays-womens-super-league": 1,
     "barclays womens super league": 1,
     "barclays women's super league": 1,
-    "barclays women’s super league": 1,
-    "women's super league": 1,
-
-    # 기타 주요 여성 리그 변형 보강
-    "national women's soccer league": 8, "national-womens-soccer-league": 8, "nwsl": 8,
-    "google pixel frauen-bundesliga": 9, "google-pixel-frauen-bundesliga": 9, "gpfbl": 9,
-    "arkema première ligue": 10, "arkema-premiere-ligue": 10, "arkema pl": 10,
-    "liga f moeve": 6, "liga-f-moeve": 6, "liga f": 6,
-    "efl championship": 19, "k league 1": 48
+    "national women's soccer league": 8,
+    "nwsl": 8,
+    "google pixel frauen-bundesliga": 9,
+    "gpfbl": 9,
+    "arkema première ligue": 10,
+    "arkema pl": 10,
+    "liga f moeve": 6,
+    "liga f": 6,
 }
 
+# -------------------------------------------------------------
+# 2. 클럽 매핑 (DB 기준: Frosinone 로 일원화)
+# -------------------------------------------------------------
 CLUB_ALIAS_MAP = {
-    "ss lazio": "latium", "lazio": "latium", "inter": "lombardia fc",
-    "inter milan": "lombardia fc", "ac milan": "milano fc", "milan": "milano fc",
-    "atalanta": "bergamo calcio", "as roma": "roma", "bayern munich": "fc bayern münchen",
-    "bayern münchen": "fc bayern münchen", "bayern": "fc bayern münchen",
-    "manchester united": "man utd"
+    # 기존 가명/변형 클럽
+    "ss lazio": "Latium",
+    "lazio": "Latium",
+    "inter": "Lombardia FC",
+    "inter milan": "Lombardia FC",
+    "ac milan": "Milano FC",
+    "milan": "Milano FC",
+    "atalanta": "Bergamo Calcio",
+    "as roma": "Roma",
+    "bayern munich": "FC Bayern München",
+    "bayern münchen": "FC Bayern München",
+    "bayern": "FC Bayern München",
+    "manchester united": "Man Utd",
+    # ★ 프로시노네 -> 무조건 우리 DB 공식 명칭인 'Frosinone' (206)으로 매핑
+    "111657-frosinone-calcio": "Frosinone",
+    "frosinone-calcio": "Frosinone",
+    "frosinone calcio": "Frosinone",
+    "frosinone": "Frosinone",
+    # ★ 슈투름 그라츠 (DB ID: 318)
+    "sturm graz": "SK Sturm Graz",
+    "sk sturm graz": "SK Sturm Graz",
+    # ★ 레흐 포즈난 (DB ID: 300)
+    "lech poznan": "Lech Poznań",
+    "lech poznań": "Lech Poznań",
 }
 
+# -------------------------------------------------------------
+# 3. 국가명 매핑 (DB 정식 명칭 기준)
+# -------------------------------------------------------------
 NATION_ALIAS_MAP = {
-    "netherlands": 16,
-    "holland": 16,
-    "türkiye": 33,
-    "turkey": 33,
-    "korea republic": 49,
-    "south korea": 49,
-    "korea": 49,
+    # 코트디부아르 & 기니비사우
+    "ivory coast": "Côte d'Ivoire",
+    "cote d'ivoire": "Côte d'Ivoire",
+    "cote d’ivoire": "Côte d'Ivoire",
+    "coted'ivoire": "Côte d'Ivoire",
+    "guinea bissau": "Guinea-Bissau",
+    "guinea-bissau": "Guinea-Bissau",
+    # 네덜란드 & 튀르키예
+    "netherlands": "Holland",
+    "holland": "Holland",
+    "türkiye": "Turkey",
+    "turkey": "Turkey",
+    # 기타 국가 사전 방어
+    "cape verde": "Cape Verde Islands",
+    "cabo verde": "Cape Verde Islands",
+    "cape verde islands": "Cape Verde Islands",
+    "south korea": "Korea Republic",
+    "korea": "Korea Republic",
+    "korea republic": "Korea Republic",
+    "north korea": "Korea DPR",
+    "korea dpr": "Korea DPR",
+    "dr congo": "Congo DR",
+    "congo dr": "Congo DR",
+    "democratic republic of the congo": "Congo DR",
+    "republic of the congo": "Congo",
+    "curacao": "Curaçao",
+    "curaçao": "Curaçao",
+    "sao tome and principe": "São Tomé e Príncipe",
+    "são tomé and príncipe": "São Tomé e Príncipe",
+    "china": "China PR",
+    "china pr": "China PR",
+    "usa": "United States",
+    "united states": "United States",
+    "ireland": "Republic of Ireland",
+    "republic of ireland": "Republic of Ireland",
+    "bosnia": "Bosnia and Herzegovina",
+    "bosnia-herzegovina": "Bosnia and Herzegovina",
+    "macedonia": "North Macedonia",
+    "north macedonia": "North Macedonia",
+    "czechia": "Czech Republic",
+    "czech republic": "Czech Republic",
 }
 
 def get_table_columns(table_name):
@@ -176,22 +262,35 @@ def get_or_create_league(name):
         return None
 
 def get_or_create_nation(name):
-    if not name:
-        return None
-    clean = name.strip()
-    alias_id = NATION_ALIAS_MAP.get(clean.lower())
-    if alias_id:
-        return alias_id
-    res = supabase.table("nations").select("id").ilike("name", clean).execute()
-    if res.data:
-        return res.data[0]["id"]
-    try:
-        max_res = supabase.table("nations").select("id").order("id", desc=True).limit(1).execute()
-        next_id = (max_res.data[0]["id"] + 1) if max_res.data else 300
-        supabase.table("nations").insert({"id": next_id, "name": clean}).execute()
-        return next_id
-    except Exception:
-        return None
+  if not name:
+    return None
+  clean_name = name.strip()
+  canonical_name = NATION_ALIAS_MAP.get(clean_name.lower(), clean_name)
+
+  res = (
+      supabase.table("nations")
+      .select("id")
+      .ilike("name", canonical_name)
+      .execute()
+  )
+  if res.data:
+    return res.data[0]["id"]
+
+  try:
+    max_res = (
+        supabase.table("nations")
+        .select("id")
+        .order("id", desc=True)
+        .limit(1)
+        .execute()
+    )
+    next_id = (max_res.data[0]["id"] + 1) if max_res.data else 300
+    supabase.table("nations").insert(
+        {"id": next_id, "name": canonical_name}
+    ).execute()
+    return next_id
+  except Exception:
+    return None
 
 def get_or_create_club(name, league_id=None):
     if not name:
