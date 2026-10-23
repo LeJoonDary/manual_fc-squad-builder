@@ -1865,3 +1865,59 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+#mobile-filters-toggle { display: none; }
+@media (width < 768px) {
+  .app-shell.is-players-active,
+  .app-shell.is-players-active .players-page,
+  .app-shell.is-players-active .players-layout,
+  .app-shell.is-players-active .players-results {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .app-shell.is-players-active .players-layout,
+  .app-shell.is-players-active .players-results {
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    gap: 16px;
+  }
+  .players-sticky-header {
+    position: static;
+    top: auto;
+    height: auto;
+    max-height: none;
+    flex: none;
+    margin-bottom: 0;
+  }
+  .app-shell.is-players-active .players-sticky-header > .players-filters {
+    position: relative;
+    top: auto;
+    height: auto;
+    max-height: none;
+    margin: 0;
+  }
+  #mobile-filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 0 10px;
+    padding: 6px 10px;
+    border: 1px solid #475569;
+    border-radius: 8px;
+    background: #162641;
+    color: #f7fbff;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #mobile-filters-toggle:focus-visible { outline: 2px solid #63e6be; outline-offset: 2px; }
+  .app-shell.is-players-active .players-sticky-header > .players-filters.is-mobile-collapsed {
+    height: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border-width: 0;
+    overflow: clip;
+    visibility: hidden;
+  }
+}

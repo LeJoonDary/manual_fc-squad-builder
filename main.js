@@ -9,6 +9,7 @@ import { createPitchChemistryBadge } from './components/PitchChemistryBadge.js';
 import { createPitchMiniCard } from './components/PitchMiniCard.js';
 import { createSquadSlots } from './components/SquadSlots.js';
 import { createAlternativePlayerModal } from './components/AlternativePlayerModal.js';
+import { createMobileFiltersToggle } from './components/MobileFiltersToggle.js';
 import { resetMobileZoom } from './utils/mobileZoom.js';
 import { fetchAlternativeCards, suggestAlternativePlayers, suggestAlternativePlayersAsync, getSwapConflicts } from './utils/alternativePlayers.js';
 import { createSwapConflictModal } from './components/SwapConflictModal.js';
@@ -122,6 +123,11 @@ renderStatInputs(document.querySelector('.stats-filter-grid'));
 // Vanilla DOM 구조에서 <FilterBar /> 마운트와 동일한 역할을 합니다.
 // 검색 헤더 바로 아래, 선수 그리드 바로 위에 기존 필터 DOM을 배치합니다.
 if (filterBarMount && filterBar) filterBarMount.replaceWith(filterBar);
+const mobileFiltersToggle = createMobileFiltersToggle({
+  button: document.querySelector('#mobile-filters-toggle'),
+  panel: filterBar,
+  closePopovers: closeCommandPopovers,
+});
 
 const filters = createDefaultFilters();
 const filterAccordionState = { ovr: true, positions: true, price: true, 'sm-wf': true, playstyles: true, roles: false, affiliation: true, rarity: true, stats: true, miscellaneous: true };
@@ -829,6 +835,10 @@ function updateCommandSummaries() {
     badge.hidden = !value;
     badge.closest('.command-filter').classList.toggle('has-active-filter', Boolean(value));
   });
+  // Count active filter groups, matching the eight command buttons.
+  mobileFiltersToggle.updateCount(Object.values({
+    ...summaries, positions: summaries.positions || filters.selectedRoles.length,
+  }).filter(Boolean).length);
 }
 
 function resetPlayerResultsScroll() {
