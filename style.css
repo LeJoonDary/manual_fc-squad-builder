@@ -1716,3 +1716,22 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .guide-close-button { padding: 8px 20px; border: 0; border-radius: 8px; background: #00df82; color: #07120d; font-weight: 700; cursor: pointer; }
 .guide-modal button:focus-visible, .app-header .guide-trigger:focus-visible { outline: 2px solid #00df82; outline-offset: 3px; }
 @media (max-width: 560px) { .app-header-inner { flex-wrap: wrap; } .main-nav { max-width: 100%; } .guide-footer { padding: 16px; } }
+
+/* Mobile-only overrides: preserve the existing desktop cascade at 768px and above. */
+@media (width < 768px) {
+  .app-header-inner, body.is-squad-active .app-header-inner { flex-wrap: nowrap; justify-content: space-between; gap: 6px; padding-inline: 8px; }
+  .app-header .brand { flex-shrink: 0; gap: 4px; }
+  .app-header .metaxi-brand-asset { width: 28px; height: 28px; }
+  .app-header .metaxi-brand-name { font-size: 14px; letter-spacing: .02em; }
+  .app-header .metaxi-brand-name span { margin-left: 0; }
+  .app-header .main-nav { min-width: 0; gap: 0; }
+  .app-header .nav-tab { padding: 4px 8px; font-size: 12px; white-space: nowrap; }
+  .pitch-heading .squad-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; gap: 6px; margin-left: 0; align-items: start; }
+  .squad-slots-label { display: none; }
+  .squad-slot { min-width: 0; }
+  .pitch-heading .squad-slot-main { width: 100%; min-height: 36px; justify-content: center; flex-direction: column; gap: 4px; padding: 6px 4px; }
+  .squad-slot:not(.is-saved) .squad-slot-info { display: none; }
+  .squad-slot.is-saved .squad-slot-info { box-sizing: border-box; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .squad-slot-actions { flex-wrap: wrap; justify-content: center; padding: 3px; }
+  .squad-slot-actions button { min-width: 0; padding: 4px; }
+}
