@@ -1,3 +1,5 @@
+import { resetMobileZoom } from '../utils/mobileZoom.js';
+
 export function createAlternativePlayerModal({ load, select, renderCard }) {
   const dialog = document.createElement('dialog');
   dialog.className = 'alternative-dialog swap-player-dialog';
@@ -50,6 +52,7 @@ export function createAlternativePlayerModal({ load, select, renderCard }) {
       spinner.setAttribute('aria-hidden', 'true');
       loading.append(spinner, document.createTextNode('Calculating chemistry & finding alternatives...'));
       results.append(loading);
+      resetMobileZoom();
       dialog.showModal();
       try {
         const suggestions = await load(position, request.signal, currentCard);

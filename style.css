@@ -1769,3 +1769,19 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   .chemistry-panel .auto-build-range output { white-space: nowrap; }
   .chemistry-panel .auto-build-actions > button { padding-inline: 12px; font-size: 12px; overflow-wrap: anywhere; }
 }
+
+/* Mobile modal zoom/focus safeguards; desktop rules remain unchanged. */
+@media (width < 768px) {
+  #player-modal,
+  .alternative-dialog.swap-player-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #modal-player-search-input {
+    font-size: 16px;
+  }
+}

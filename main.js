@@ -9,6 +9,7 @@ import { createPitchChemistryBadge } from './components/PitchChemistryBadge.js';
 import { createPitchMiniCard } from './components/PitchMiniCard.js';
 import { createSquadSlots } from './components/SquadSlots.js';
 import { createAlternativePlayerModal } from './components/AlternativePlayerModal.js';
+import { resetMobileZoom } from './utils/mobileZoom.js';
 import { fetchAlternativeCards, suggestAlternativePlayers, suggestAlternativePlayersAsync, getSwapConflicts } from './utils/alternativePlayers.js';
 import { createSwapConflictModal } from './components/SwapConflictModal.js';
 import { getCardBackground } from './utils/cardBackground.js';
@@ -1340,6 +1341,7 @@ async function openPlayerModal(slot) {
   modalPlayerSearchClear.hidden = true;
   setModalPositionMode('all');
   const position = slot.dataset.position;
+  resetMobileZoom();
   modal.hidden = false;
   requestAnimationFrame(() => modalPlayerSearchInput.focus());
   modalTitle.textContent = `Select ${formatSlotPosition(position)}`;
