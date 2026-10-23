@@ -3,6 +3,7 @@ import { getCardBackground } from '../utils/cardBackground.js';
 import { loadPlayerDetail } from '../utils/playerCatalog.js';
 import { formatCardVersion } from '../utils/pitchCardLabels.js';
 import { createPlaystyleIcons } from './PlaystyleIcons.js';
+import { resetMobileZoom } from '../utils/mobileZoom.js';
 
 // Existing detail panel shared by the Players and Squad Builder tabs.
 export function createPlayerDetailModal({
@@ -64,6 +65,7 @@ export function createPlayerDetailModal({
     const requestId = ++playerDetailRequest;
     selectedPlayer = card;
     renderPlayerDetail(card);
+    resetMobileZoom();
     playerDetailModal.hidden = false;
     playerDetailModal.querySelector('.player-detail-panel').scrollTop = 0;
     document.querySelector('#player-detail-close').focus();
