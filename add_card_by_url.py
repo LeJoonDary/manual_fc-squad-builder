@@ -106,9 +106,6 @@ DETAIL_KEYS = {
     "gk_positioning": "attributeGkPositioning",
 }
 
-# -------------------------------------------------------------
-# 1. 리그 매핑 사전 (슬러그 및 명칭 불일치 완벽 방어)
-# -------------------------------------------------------------
 LEAGUE_ALIAS_MAP = {
     # 메이저 남성 리그
     "major league soccer": 7, "mls": 7, "premier league": 3,
@@ -121,12 +118,21 @@ LEAGUE_ALIAS_MAP = {
     "österreichische fußball-bundesliga": 40, "ö. bundesliga": 40, "austrian bundesliga": 40,
     "pko bank polski ekstraklasa": 46, "ekstraklasa": 46,
 
-    # ★ 여성 리그 슬러그 및 명칭 통합
+    # ★ 아르헨티나 LPF (ID: 20)
+    "lpf": 20,
+    "liga profesional de fútbol": 20,
+    "liga profesional de futbol": 20,
+    "liga-profesional-de-futbol": 20,
+    "liga-profesional-de-fútbol": 20,
+    "liga profesional": 20,
+
+    # ★ 여성 리그 슬러그 및 명칭 통합 (WSL 전 항목 완벽 복원)
     # 1. Barclays WSL (ID: 1)
     "barclays wsl": 1, "wsl": 1,
     "barclays-womens-super-league": 1, "barclays-women's-super-league": 1,
     "barclays womens super league": 1, "barclays women's super league": 1,
     "barclays women’s super league": 1, "women's super league": 1, "womens super league": 1,
+    "barclays women's super league (wsl)": 1, "barclays womens super league (wsl)": 1,
 
     # 2. Liga F Moeve (ID: 6)
     "liga f moeve": 6, "liga-f-moeve": 6, "liga f": 6, "liga-f": 6,
@@ -138,7 +144,9 @@ LEAGUE_ALIAS_MAP = {
 
     # 4. 기타 여성 리그
     "national women's soccer league": 8, "nwsl": 8,
-    "google pixel frauen-bundesliga": 9, "gpfbl": 9
+    "national-womens-soccer-league": 8, "national-women's-soccer-league": 8,
+    "google pixel frauen-bundesliga": 9, "gpfbl": 9,
+    "calcio a femminile": 15, "calcio-a-femminile": 15, "serie a femminile": 15
 }
 
 CLUB_ALIAS_MAP = {
@@ -158,6 +166,13 @@ CLUB_ALIAS_MAP = {
     "93-ol": "OL Lyonnes",
     "18-ol-lyonnes": "OL Lyonnes",
     "111400-ol": "OL Lyonnes",
+
+    # ★ 유벤투스 (Serie A Enilive: 31 / Calcio A Femminile: 76)
+    "juventus fc": "Juventus",
+    "juventus-fc": "Juventus",
+    "juventus": "Juventus",
+    "juve": "Juventus",
+    "31-juventus": "Juventus",
 
     # ★ 파리 생제르맹 (Ligue 1: 5 / Arkema PL: 24)
     "psg": "Paris SG",
@@ -180,10 +195,20 @@ CLUB_ALIAS_MAP = {
     "lech poznan": "Lech Poznań", "lech poznań": "Lech Poznań"
 }
 
-# -------------------------------------------------------------
-# 3. 국가 매핑 사전
-# -------------------------------------------------------------
 NATION_ALIAS_MAP = {
+    # ★ 콘도그비아: 중앙아프리카공화국 (ID: 90)
+    "car": "Central African Republic",
+    "central african republic": "Central African Republic",
+    "c.a.r.": "Central African Republic",
+    "central-african-republic": "Central African Republic",
+
+    # ★ 타히트 총: 네덜란드령 안틸레스 -> 퀴라소 (ID: 104)
+    "netherlands antilles": "Curaçao",
+    "netherlands-antilles": "Curaçao",
+    "curacao": "Curaçao",
+    "curaçao": "Curaçao",
+
+    # 기존 특수 국가 매핑
     "ivory coast": "Côte d'Ivoire", "cote d'ivoire": "Côte d'Ivoire",
     "cote d’ivoire": "Côte d'Ivoire", "coted'ivoire": "Côte d'Ivoire",
     "guinea bissau": "Guinea-Bissau", "guinea-bissau": "Guinea-Bissau",
@@ -195,7 +220,6 @@ NATION_ALIAS_MAP = {
     "north korea": "Korea DPR", "korea dpr": "Korea DPR",
     "dr congo": "Congo DR", "congo dr": "Congo DR",
     "democratic republic of the congo": "Congo DR", "republic of the congo": "Congo",
-    "curacao": "Curaçao", "curaçao": "Curaçao",
     "sao tome and principe": "São Tomé e Príncipe", "são tomé and príncipe": "São Tomé e Príncipe",
     "china": "China PR", "china pr": "China PR",
     "usa": "United States", "united states": "United States",
@@ -252,7 +276,7 @@ def get_or_create_club(name, league_id=None):
         return None
     clean = name.strip()
 
-    # 1. 사전 직접 매핑 또는 슬러그 숫자 제거 후 매핑
+    # 1. 사전 매핑 및 슬러그 정규화
     if clean.lower() in CLUB_ALIAS_MAP:
         clean = CLUB_ALIAS_MAP[clean.lower()]
     else:
@@ -262,13 +286,13 @@ def get_or_create_club(name, league_id=None):
         else:
             clean = unslug.title()
 
-    # 2. ★ 핵심: league_id가 주어졌다면 해당 리그에 속한 동일 이름 클럽 1순위 매칭
+    # 2. ★ 핵심: league_id가 있다면 해당 리그에 속한 동일 이름 클럽 1순위 매칭
     if league_id:
         res = supabase.table("clubs").select("id").ilike("name", clean).eq("league_id", league_id).execute()
         if res.data:
             return res.data[0]["id"]
 
-        # 드롭다운 괄호 표기 대응 (예: 'Paris SG (PSG)')
+        # 드롭다운 괄호 표기 대응 (예: 'Juventus (JUV)' 또는 'Paris SG (PSG)')
         res = supabase.table("clubs").select("id").ilike("name", f"{clean}%").eq("league_id", league_id).execute()
         if res.data:
             return res.data[0]["id"]
