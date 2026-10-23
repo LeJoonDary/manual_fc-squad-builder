@@ -22,8 +22,8 @@ test.each([['Real Madrid', 'real-madrid-femenino'], ['FC Barcelona', 'FC Barcelo
   expect(result.totalChemistry).toBe(2);
   expect(evaluateSquadBalance(cards)).toBe(40);
 });
-test('unknown and missing club names do not merge unrelated IDs', () => {
-  expect(sharedClubKey({ club: 'Unknown FC' })).toBe('');
+test('unlisted club names pool, while missing names retain separate IDs', () => {
+  expect(sharedClubKey({ club: 'Unknown FC' })).toBe('club:shared:unknown fc');
   expect(adaptChemistryPlayerCard({ club_id: 1 }).clubId).not.toBe(adaptChemistryPlayerCard({ club_id: 2 }).clubId);
 });
 test.each([['LCB', 179, -250], ['RCB', 180, 0], ['GK', 185, -250], ['GK', 186, 0], ['ST', 160, 0]])('defensive height floor for %s at %s', (position, height, expected) => {

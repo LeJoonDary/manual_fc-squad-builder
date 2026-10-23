@@ -10,15 +10,17 @@ export function normalizeClubName(value: string): string {
     'fc bayern munchen': 'bayern', 'bayern munich': 'bayern', 'bayern munchen': 'bayern',
     'lyon': 'lyon', 'olympique lyonnais': 'lyon', 'ol lyonnes': 'lyon',
   };
-  return aliases[name] ?? '';
+  const normalized = value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
+  return normalized === 'unknown club' ? '' : aliases[name] ?? normalized;
 }
 
-/** Only recognized shared clubs override IDs; unrelated/unknown clubs retain their IDs. */
+/** Club names pool men's and women's teams across database IDs. IDs are a fallback only. */
 export function sharedClubKey(card: any): string {
   for (const source of [card, card?.card, card?.raw].filter(Boolean)) {
     const club = Array.isArray(source.clubs) ? source.clubs[0] : source.clubs;
-    for (const value of [source.club?.name, source.club?.slug, source.club_name, source.clubName,
-      typeof source.club === 'string' ? source.club : null, club?.name, club?.slug, source.club_slug]) {
+    const singular = Array.isArray(source.club) ? source.club[0] : source.club;
+    for (const value of [singular?.name, source.club_name, source.clubName,
+      typeof source.club === 'string' ? source.club : null, club?.name, source.team]) {
       if (typeof value !== 'string') continue;
       const name = normalizeClubName(value);
       if (name) return `club:shared:${name}`;

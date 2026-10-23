@@ -70,7 +70,7 @@ function canonicalAffiliationKey(
 
 /**
  * Converts UI, mock, and database card shapes into one chemistry-card shape.
- * Database IDs identify affiliations; names support legacy cards without IDs.
+ * Club names pool shared teams; league and nation affiliations retain database IDs.
  */
 export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): PlayerCard {
   const relation = (value: unknown): Record<string, unknown> =>
@@ -120,6 +120,7 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
 export function calculateChemistry(squad: SquadSlot[], manager: ChemistryManager | null = null): ChemistryResult {
   const playerChemMap: Record<string, number> = {};
   const validSlots = squad.filter(isPositionMatch).map(slot => ({ ...slot, player: { ...slot.player,
+    clubId: sharedClubKey(slot.player) || slot.player.clubId,
     isIcon: isCardIcon(slot.player), isHero: isCardHero(slot.player) } }));
   const clubCounts: CountMap = new Map();
   const leagueCounts: CountMap = new Map();

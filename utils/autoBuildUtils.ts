@@ -526,7 +526,7 @@ function linkKeys(input: any): Record<LinkKind, string | null> {
   const card = input.card ?? input.raw ?? input;
   const key = (value: any) => value == null || value === '' ? null : String(value);
   return {
-    club: engineIcon(input) || isCardHero(input) ? null : key(input.clubId ?? card.clubId ?? (sharedClubKey(card) || card.club_id || relation(card.club).id)),
+    club: engineIcon(input) || isCardHero(input) ? null : key(sharedClubKey(input) || (input.clubId ?? card.clubId ?? card.club_id ?? relation(card.club).id)),
     league: engineIcon(input) ? null : key(input.leagueId ?? card.leagueId ?? card.league_id ?? relation(card.league).id),
     nation: key(input.nationId ?? card.nationId ?? card.nation_id ?? relation(card.nation).id ?? relation(card.players).nation_id),
   };
@@ -661,7 +661,7 @@ function withinSelectionQuota(players: readonly any[], limits: readonly number[]
     const icon = player.card && player.slotPosition ? player.isIcon : engineIcon(player);
     const ids = [player.nationId ?? card.nation_id ?? card.nation?.id ?? relation(card.players).nation_id,
       icon ? null : player.leagueId ?? card.league_id ?? card.league?.id,
-      icon ? null : (player.card && player.slotPosition ? player.clubId : sharedClubKey(player)) || (player.clubId ?? card.club_id ?? card.club?.id
+      icon ? null : sharedClubKey(player) || (player.clubId ?? card.club_id ?? card.club?.id
         ?? card.club?.name ?? card.club_name ?? relation(card.clubs).name)];
     for (let i = 0; i < ids.length; i++) {
       if (ids[i] == null || ids[i] === '') continue;

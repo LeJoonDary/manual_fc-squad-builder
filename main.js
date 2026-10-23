@@ -2141,6 +2141,10 @@ function renderChemistryPeopleGroups(count, groupSizes) {
 }
 
 function getChemistryEntityName(card, key) {
+  if (key === 'club') {
+    const club = unwrapRelation(card?.clubs) ?? unwrapRelation(card?.club);
+    if (typeof club?.name === 'string' && club.name.trim()) return club.name.trim();
+  }
   const candidates = key === 'nation'
     ? ['nation', 'nationName', 'nation_name', 'nationality']
     : key === 'league'
@@ -2165,7 +2169,12 @@ function getChemistryEntityLogo(card, key) {
       ? ['league_logo_url', 'leagueLogoUrl', 'league_image_url']
       : ['club_logo_url', 'clubLogoUrl', 'club_badge_url', 'team_logo_url'];
   const field = candidates.find((candidate) => typeof card?.[candidate] === 'string' && card[candidate].trim());
-  return field ? card[field].trim() : '';
+  if (field) return card[field].trim();
+  if (key === 'club') {
+    const club = unwrapRelation(card?.clubs) ?? unwrapRelation(card?.club);
+    return typeof club?.logo_url === 'string' ? club.logo_url.trim() : '';
+  }
+  return '';
 }
 
 function getChemistryGroupRows(group) {
@@ -2179,8 +2188,10 @@ function getChemistryGroupRows(group) {
     if (group.key === 'club' && (player.isIcon || player.isHero)) return;
     if (group.key === 'league' && player.isIcon) return;
     const key = String(player[group.key + 'Id']);
-    cards.set(key, card);
-    names.set(key, getChemistryEntityName(card, group.key));
+    if (group.key !== 'club' || !cards.has(key)) {
+      cards.set(key, card);
+      names.set(key, getChemistryEntityName(card, group.key));
+    }
   });
   const manager = getManagerChemistryBonus();
   if (manager && group.key !== 'club') {

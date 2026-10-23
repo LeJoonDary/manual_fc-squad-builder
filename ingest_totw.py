@@ -199,7 +199,24 @@ LEAGUE_ALIAS_MAP = {
 }
 
 CLUB_ALIAS_MAP = {
-    # ★ PSG 관련 모든 변형 명칭을 공식 명칭 'Paris SG'로 일원화
+    # ★ 맨체스터 유나이티드 (Premier League: 10 / Barclays WSL: 48)
+    "man utd": "Manchester Utd",
+    "manchester united": "Manchester Utd",
+    "manchester utd": "Manchester Utd",
+    "11-man-utd": "Manchester Utd",
+    "116012-man-utd": "Manchester Utd",
+
+    # ★ 올림피크 리옹 (Ligue 1: 93 / Arkema PL: 18)
+    "ol": "OL Lyonnes",
+    "ol lyonnes": "OL Lyonnes",
+    "olympique lyonnais": "OL Lyonnes",
+    "olympique lyon": "OL Lyonnes",
+    "lyon": "OL Lyonnes",
+    "93-ol": "OL Lyonnes",
+    "18-ol-lyonnes": "OL Lyonnes",
+    "111400-ol": "OL Lyonnes",
+
+    # ★ 파리 생제르맹 (Ligue 1: 5 / Arkema PL: 24)
     "psg": "Paris SG",
     "paris-sg": "Paris SG",
     "paris saint-germain": "Paris SG",
@@ -207,14 +224,13 @@ CLUB_ALIAS_MAP = {
     "73-paris-sg": "Paris SG",
     "111817-paris-sg": "Paris SG",
 
-    # 기존 가명 및 변형 클럽
+    # 기존 가명 및 변형 명칭
     "ss lazio": "Latium", "lazio": "Latium",
     "inter": "Lombardia FC", "inter milan": "Lombardia FC",
     "131682-lombardia-fc": "Lombardia FC", "lombardia-fc": "Lombardia FC", "lombardia fc": "Lombardia FC",
     "ac milan": "Milano FC", "milan": "Milano FC",
     "atalanta": "Bergamo Calcio", "as roma": "Roma",
     "bayern munich": "FC Bayern München", "bayern münchen": "FC Bayern München", "bayern": "FC Bayern München",
-    "manchester united": "Man Utd",
     "111657-frosinone-calcio": "Frosinone", "frosinone-calcio": "Frosinone", "frosinone": "Frosinone",
     "110374-acf-fiorentina": "Fiorentina", "acf-fiorentina": "Fiorentina", "fiorentina": "Fiorentina",
     "sturm graz": "SK Sturm Graz", "sk sturm graz": "SK Sturm Graz",
@@ -303,7 +319,7 @@ def get_or_create_club(name, league_id=None):
         else:
             clean = unslug.title()
 
-    # 2. ★ 핵심: league_id가 있다면, 해당 리그에 속한 동일 이름 클럽 1순위 검색!
+    # 2. ★ 핵심: league_id가 주어졌다면 해당 리그에 속한 동일 이름 클럽 1순위 매칭
     if league_id:
         res = supabase.table("clubs").select("id").ilike("name", clean).eq("league_id", league_id).execute()
         if res.data:

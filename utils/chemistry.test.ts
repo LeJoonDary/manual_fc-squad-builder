@@ -92,7 +92,7 @@ describe('calculateChemistry', () => {
     expect(result.playerChemMap).toEqual({ 0: 3, 1: 3, 2: 0, 3: 0 });
   });
 
-  it('keeps same-name affiliations separate by ID and boosts all represented leagues', () => {
+  it('pools same-name clubs while retaining league and nation IDs', () => {
     const players = [1, 2].map(id => adaptChemistryPlayerCard({
       id, position: 'ST', club_id: id, league_id: id, nation_id: id,
       club: 'Same name', league: 'Same name', nation: 'Same name',
@@ -100,7 +100,8 @@ describe('calculateChemistry', () => {
     const icon = adaptChemistryPlayerCard({ id: 'icon', position: 'ST', card_type: 'ICON' });
     const result = calculateChemistry([...players, icon].map(player => slot('ST', player)));
     expect(result.groupCounts.league).toEqual({ 'league:id:1': 2, 'league:id:2': 2 });
-    expect(result.groupCounts.club).toEqual({ 'club:id:1': 1, 'club:id:2': 1 });
+    expect(result.groupCounts.club).toEqual({ 'club:shared:same name': 2 });
+    expect(result.groupCounts.nation).toEqual({ 'nation:id:1': 1, 'nation:id:2': 1 });
     expect(calculateChemistry([...players.map(player => slot('ST', player)), slot('GK', icon)])
       .groupCounts.league).toEqual({ 'league:id:1': 1, 'league:id:2': 1 });
   });
