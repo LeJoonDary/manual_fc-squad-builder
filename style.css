@@ -1943,3 +1943,63 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
     visibility: hidden;
   }
 }
+
+/* Compact shared PlayStyle icons inside the pitch card's free center space. */
+.pitch-mini-content > .pitch-mini-header,
+.pitch-mini-content > .pitch-mini-position-row { flex-shrink: 0; }
+.pitch-mini-content > .pitch-mini-center {
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+}
+.pitch-mini-playstyles {
+  --pitch-trait-size: 15px;
+  --pitch-trait-gap: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--pitch-trait-gap);
+  width: 100%;
+  max-width: calc(7 * var(--pitch-trait-size) + 6 * var(--pitch-trait-gap) + 12px);
+  margin-right: auto;
+  max-height: 100%;
+  min-height: 0;
+  padding: 2px 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  /* Keep the first row reachable when unusually many traits need scrolling. */
+  align-content: flex-start;
+}
+.pitch-mini-playstyles::-webkit-scrollbar { display: none; }
+.pitch-mini-playstyles .playstyle-icon {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 min(var(--pitch-trait-size), calc((100% - 6 * var(--pitch-trait-gap)) / 7));
+  width: auto;
+  height: 15px;
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.pitch-mini-playstyles .playstyle-icon::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  z-index: -1;
+  transform: rotate(45deg);
+  border: 1px solid #94a3b8;
+  border-radius: 1px;
+  background: #1e293b;
+}
+.pitch-mini-playstyles .playstyle-icon.is-plus::before {
+  border-color: #fbbf24;
+  background: #78350f;
+  box-shadow: 0 0 4px #fcd34db3;
+}
+.pitch-mini-playstyles .playstyle-icon img { width: 100%; height: 100%; object-fit: contain; }

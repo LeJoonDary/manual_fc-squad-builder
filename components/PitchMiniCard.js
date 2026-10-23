@@ -1,8 +1,11 @@
 import { getCardFaceStats } from '../utils/cardFaceStats.js';
 import { formatCardVersion, pitchAffiliation } from '../utils/pitchCardLabels.js';
+import { createPlaystyleIcons } from './PlaystyleIcons.js';
+import { normalizePlaystyles } from '../utils/normalizePlaystyles.js';
 
 
 export function createPitchMiniCard(card, styles = [], catalog = {}, { createReviewButton } = {}) {
+  if (import.meta.env.DEV) console.log('Pitch Card Data:', card?.name, card?.playstyles, card?.card_playstyles);
   const element = (tag, className, text) => {
     const node = document.createElement(tag);
     node.className = className;
@@ -82,6 +85,14 @@ export function createPitchMiniCard(card, styles = [], catalog = {}, { createRev
   identity.append(name);
   header.append(rating, identity);
   const center = element('span', 'pitch-mini-center');
+  const raw = card.raw;
+  const nestedPlayer = Array.isArray(raw?.players) ? raw.players[0] : raw?.players;
+  const resolvedStyles = normalizePlaystyles(card, raw, nestedPlayer, { playstyles: styles });
+  const playstyles = createPlaystyleIcons(resolvedStyles, 'pitch-mini-playstyles');
+  if (playstyles.childElementCount) {
+    playstyles.setAttribute('aria-label', 'PlayStyles');
+    center.append(playstyles);
+  }
   content.append(header, positionRow, affiliationRow, center);
   if (skills.childElementCount) content.append(skills);
   content.append(stats);

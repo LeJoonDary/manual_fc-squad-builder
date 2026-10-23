@@ -1,3 +1,4 @@
+import { normalizePlaystyles } from './utils/normalizePlaystyles.js';
 import { createPlaystylesGridSelector } from './components/PlaystylesGridSelector.js';
 import { formatSlotPosition } from './utils/pitchCardLabels.js';
 import { createPlayerCard } from './components/PlayerCard.js';
@@ -1531,71 +1532,18 @@ function parsePlaystyleSource(value) {
   }
 }
 
-function normalizePlaystyles(...records) {
-  const normalized = new Map();
-
-  const addSource = (source, forcedPlus = null) => {
-    const parsed = parsePlaystyleSource(source);
-    asArray(parsed).forEach((entry) => {
-      const safeEntry = parsePlaystyleSource(entry);
-      if (Array.isArray(safeEntry)) {
-        safeEntry.forEach((item) => addSource(item, forcedPlus));
-        return;
-      }
-
-      if (typeof safeEntry === 'string') {
-        const name = safeEntry.trim();
-        const key = `${name.toLowerCase()}|${Boolean(forcedPlus)}`;
-        if (name && !normalized.has(key)) normalized.set(key, { name, isPlus: Boolean(forcedPlus) });
-        return;
-      }
-      if (!safeEntry || typeof safeEntry !== 'object') return;
-
-      const relation = unwrapRelation(
-        safeEntry.playstyles ?? safeEntry.playStyles ?? safeEntry.play_styles ?? safeEntry.playstyle ?? safeEntry.trait,
-      );
-      const sourceObject = relation && typeof relation === 'object' ? relation : safeEntry;
-      const name = sourceObject.name ?? sourceObject.playstyle_name ?? sourceObject.playStyleName
-        ?? sourceObject.trait_name ?? sourceObject.label;
-      if (typeof name !== 'string' || !name.trim()) return;
-
-      const rawLevel = safeEntry.level ?? sourceObject.level;
-      const levelIsPlus = (typeof rawLevel === 'string' && rawLevel.toLowerCase().includes('plus'))
-        || (Number.isFinite(Number(rawLevel)) && Number(rawLevel) > 0);
-      const isPlus = forcedPlus ?? Boolean(
-        safeEntry.is_plus ?? safeEntry.isPlus ?? safeEntry.plus
-        ?? sourceObject.is_plus ?? sourceObject.isPlus ?? sourceObject.plus
-        ?? levelIsPlus,
-      );
-      const cleanName = name.trim().replace(/\+$/, '').trim();
-      const plusFromName = /\+$/.test(name.trim());
-      const key = `${cleanName.toLowerCase()}|${isPlus || plusFromName}`;
-      const previous = normalized.get(key);
-      normalized.set(key, {
-        name: cleanName,
-        isPlus: isPlus || plusFromName,
-        image_url: sourceObject.image_url || previous?.image_url,
-        image_url_plus: sourceObject.image_url_plus || previous?.image_url_plus,
-      });
-    });
-  };
-
-  records.filter((record) => record && typeof record === 'object').forEach((record) => {
-    [record.card_playstyles, record.playstyles, record.playStyles, record.play_styles, record.traits, record.playstyle_ids]
-      .forEach((source) => addSource(source));
-    [record.normalPlayStyles, record.normal_playstyles, record.normal_play_styles]
-      .forEach((source) => addSource(source, false));
-    [record.playStylePlus, record.playStylesPlus, record.play_style_plus, record.play_styles_plus, record.traitsPlus]
-      .forEach((source) => addSource(source, true));
-  });
-
-  return [...normalized.values()].sort((left, right) => Number(right.isPlus) - Number(left.isPlus) || left.name.localeCompare(right.name));
-}
-
 function getPlayStyles(player) {
   const raw = player?.raw;
   const nestedPlayer = unwrapRelation(raw?.players);
-  return normalizePlaystyles(player, raw, nestedPlayer);
+  return normalizePlaystyles(player, raw, nestedPlayer).map(style => {
+    // Older saved/locked squads can contain names without image URLs.
+    const master = tacticalPlaystylesList.find(item => item.name?.toLowerCase() === style.name.toLowerCase());
+    return {
+      ...style,
+      image_url: style.image_url || master?.image_url,
+      image_url_plus: style.image_url_plus || master?.image_url_plus,
+    };
+  });
 }
 
 function getRoles(player) {
