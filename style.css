@@ -1735,3 +1735,37 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   .squad-slot-actions { flex-wrap: wrap; justify-content: center; padding: 3px; }
   .squad-slot-actions button { min-width: 0; padding: 4px; }
 }
+
+/* Control panel: mobile-only sizing, sharing the pitch's outer page gutters. */
+@media (width < 768px) {
+  .app-shell.is-squad-active .chemistry-panel { width: 100%; min-width: 0; max-width: 100%; }
+  .app-shell.is-squad-active .chemistry-panel-header { min-width: 0; grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .chemistry-panel #auto-build-settings,
+  .chemistry-panel .auto-build-settings,
+  .chemistry-panel .auto-build-budget,
+  .chemistry-panel .budget-summary { width: 100%; min-width: 0; max-width: 100%; }
+  .chemistry-panel .auto-build-settings { padding: 12px; grid-template-columns: minmax(0, 1fr); }
+  .chemistry-panel .squad-summary-bar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 6px; }
+  .chemistry-panel .squad-summary-bar p,
+  .chemistry-panel .squad-summary-bar h2 { font-size: 12px; letter-spacing: 0; overflow-wrap: anywhere; }
+  .chemistry-panel .squad-summary-bar strong { font-size: 16px; }
+  .chemistry-panel .squad-summary-bar small { font-size: 12px; }
+  .chemistry-panel .squad-summary-bar .clear-squad { padding: 4px 10px; font-size: 12px; white-space: nowrap; }
+  .chemistry-panel .budget-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 130px); gap: 8px; }
+  .chemistry-panel .budget-heading > div { min-width: 0; }
+  .chemistry-panel .budget-heading h2 { font-size: 12px; }
+  .chemistry-panel .budget-heading p { letter-spacing: .04em; }
+  .chemistry-panel .auto-build-settings .budget-input-wrap { width: 100%; min-width: 0; max-width: 130px; padding-inline: 6px; }
+  .chemistry-panel .budget-input-wrap input { min-width: 0; padding-block: 6px; font-size: 12px; }
+  .chemistry-panel .budget-input-wrap > span { flex-shrink: 0; }
+  .chemistry-panel .auto-build-settings .excluded-card-versions-toggle,
+  .chemistry-panel .auto-build-settings .tactical-roles-trigger,
+  .chemistry-panel .auto-build-settings .priority-positions-trigger { min-width: 0; padding-inline: 12px; }
+  .chemistry-panel .auto-build-settings .settings-inline-control > button:first-child { padding-right: 48px; }
+  .chemistry-panel .settings-inline-control > .settings-inline-clear { right: 12px; }
+  .chemistry-panel .auto-build-settings .settings-trigger-label { font-size: 12px; }
+  .chemistry-panel .auto-build-settings .priority-positions-chevron { flex-shrink: 0; }
+  .chemistry-panel .auto-build-range { padding-inline: 4px; font-size: 12px; }
+  .chemistry-panel .auto-build-range output { white-space: nowrap; }
+  .chemistry-panel .auto-build-actions > button { padding-inline: 12px; font-size: 12px; overflow-wrap: anywhere; }
+}
