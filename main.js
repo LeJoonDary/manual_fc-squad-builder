@@ -37,6 +37,14 @@ import { mountGuideControl } from './components/GuideModal.jsx';
 import { createLegalModal } from './components/LegalModal.js';
 import { mountAnalytics } from './components/Analytics.jsx';
 
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.log('SW registration failed: ', err);
+    });
+  });
+}
+
 mountAnalytics();
 createLegalModal();
 mountGuideControl(document.getElementById('guide-control'));
