@@ -1,4 +1,5 @@
-import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './chemistry.ts';
+import { adaptChemistryPlayerCard, calculateChemistry, prepareChemistryDelta, isPositionMatched, normalizeChemistryPosition } from './chemistry.ts';
+import { calculate_base_score } from './metaScore.js';
 import { isCardIcon, isCardHero } from './specialCardIdentity.js';
 import { PLAYER_CARD_SELECT } from './playerCards.js';
 import { calculateSquadTotalCost, getCardCoinPrice } from './squadCost.ts';
@@ -20,7 +21,8 @@ export function getPlayerTier(card) {
 }
 
 // All returned rows already meet the user's chemistry target.
-const swapOrder = (a, b) => getPlayerTier(a.card) - getPlayerTier(b.card) || Number(b.card.overall ?? 0) - Number(a.card.overall ?? 0)
+const swapOrder = (a, b) => Number(b.card.overall ?? 0) - Number(a.card.overall ?? 0)
+  || b.valueScore - a.valueScore
   || getCardCoinPrice(a.card) - getCardCoinPrice(b.card)
   || String(a.card.id).localeCompare(String(b.card.id));
 
@@ -58,6 +60,31 @@ function prepareSwap({ squad, targetPosition, manager = null, settings = {}, min
   const iconCount = fixed.filter(([, entry]) => swapIcon(entry.card)).length;
   const femaleCap = settings.maxFemalePlayers === 'exclude' ? 0 : settings.maxFemalePlayers;
   const temporary = fixed.map(([position, entry]) => ({ position, player: adaptChemistryPlayerCard(entry.card) }));
+  const currentDelta = prepareChemistryDelta(temporary, manager);
+  const unmanagedDelta = manager ? prepareChemistryDelta(temporary) : currentDelta;
+  const validPlayers = temporary.filter(slot => isPositionMatched(slot.position, slot.player)).map(slot => slot.player);
+  const fixedLeagues = [...new Set(validPlayers.map(player => player.leagueId).filter(Boolean))];
+  const fixedNations = [...new Set(validPlayers.map(player => player.nationId).filter(Boolean))];
+  const findManager = player => {
+    let result = currentDelta(player);
+    let bestManager = manager;
+    if (result.totalChemistry >= minChemistryTarget) return { result, bestManager };
+    const leagues = [...new Set([...fixedLeagues, player.leagueId].filter(Boolean))];
+    const nations = [...new Set([...fixedNations, player.nationId].filter(Boolean))];
+    for (const leagueId of leagues.length ? leagues : ['']) {
+      for (const nationId of nations.length ? nations : ['']) {
+        if (manager?.leagueId === leagueId && manager?.nationId === nationId) continue;
+        const nextManager = { leagueId, nationId, league: leagueId, nation: nationId };
+        const next = unmanagedDelta(player, nextManager);
+        if (next.totalChemistry > result.totalChemistry) {
+          result = next;
+          bestManager = nextManager;
+        }
+        if (result.totalChemistry === 33) return { result, bestManager };
+      }
+    }
+    return { result, bestManager };
+  };
   const seen = new Set();
   return {
     eligible(card) {
@@ -82,17 +109,21 @@ function prepareSwap({ squad, targetPosition, manager = null, settings = {}, min
       const player = adaptChemistryPlayerCard(card);
       if (icon) player.isIcon = true;
       const target = minChemistryTarget;
-      const { result, bestManager } = findSwapManager([...temporary, { position: targetPosition, player }], manager, target);
+      const { result, bestManager } = findManager(player);
       if (result.totalChemistry < target) return null;
       return { card, bestManager, isIcon: icon,
-        totalChemistry: result.totalChemistry, playerChemistry: result.playerChemMap[player.id] ?? 0 };
+        totalChemistry: result.totalChemistry, playerChemistry: result.playerChemistry };
     },
   };
 }
 
-function applySwapOvrFilter(candidates) {
-  const highRated = candidates.filter(({ card }) => Number(card.overall) >= 80);
-  return highRated.length >= 5 ? highRated : candidates.filter(({ card }) => Number(card.overall) >= 75);
+function rankAlternatives(candidates, position) {
+  const scored = candidates.map(row => {
+    const score = calculate_base_score(row.card, row.card, normalizeChemistryPosition(position), false);
+    return { ...row, cardScore: score.meta_score, valueScore: score.value_score };
+  });
+  // Grade first, then display the shortlist by OVR and value.
+  return scored.sort((a, b) => b.cardScore - a.cardScore || swapOrder(a, b)).slice(0, 30).sort(swapOrder);
 }
 
 export function suggestAlternativePlayers(options) {
@@ -100,11 +131,17 @@ export function suggestAlternativePlayers(options) {
   if (!prepared) return [];
   const qualified = [];
   const eligible = options.candidates.map(card => prepared.eligible(card)).filter(Boolean);
-  for (const candidate of applySwapOvrFilter(eligible)) {
+  for (const candidate of eligible.filter(({ card }) => Number(card.overall) >= 80)) {
     const row = prepared.evaluate(candidate);
     if (row) qualified.push(row);
   }
-  return qualified.sort(swapOrder);
+  if (qualified.length <= 2) {
+    for (const candidate of eligible.filter(({ card }) => Number(card.overall) >= 75 && Number(card.overall) < 80)) {
+      const row = prepared.evaluate(candidate);
+      if (row) qualified.push(row);
+    }
+  }
+  return rankAlternatives(qualified, options.targetPosition);
 }
 
 export async function suggestAlternativePlayersAsync(options, signal) {
@@ -125,12 +162,19 @@ export async function suggestAlternativePlayersAsync(options, signal) {
     if (candidate) eligible.push(candidate);
     if (performance.now() - lastYield >= 8) await yieldIfNeeded();
   }
-  for (const candidate of applySwapOvrFilter(eligible)) {
+  for (const candidate of eligible.filter(({ card }) => Number(card.overall) >= 80)) {
     const row = prepared.evaluate(candidate);
     if (row) qualified.push(row);
     if (performance.now() - lastYield >= 8) await yieldIfNeeded();
   }
-  return qualified.sort(swapOrder);
+  if (qualified.length <= 2) {
+    for (const candidate of eligible.filter(({ card }) => Number(card.overall) >= 75 && Number(card.overall) < 80)) {
+      const row = prepared.evaluate(candidate);
+      if (row) qualified.push(row);
+      if (performance.now() - lastYield >= 8) await yieldIfNeeded();
+    }
+  }
+  return rankAlternatives(qualified, options.targetPosition);
 }
 // Fetch all position candidates so the adaptive OVR cutoff uses the complete eligible pool.
 export async function fetchAlternativeCards(db, position, signal) {

@@ -6,6 +6,73 @@ const CLUB_THRESHOLDS = [2, 4, 7] as const;
 const LEAGUE_THRESHOLDS = [3, 5, 8] as const;
 const NATION_THRESHOLDS = [2, 5, 8] as const;
 
+/** Fixed-squad delta evaluator. Bit masks retain each player's remaining cap,
+ * so overlapping club/nation/league gains never award more than three points. */
+export function prepareChemistryDelta(slots: SquadSlot[], manager: ChemistryManager | null = null) {
+  const base = calculateChemistry(slots, manager);
+  const valid = slots.filter(isPositionMatch).map(slot => slot.player);
+  const icons = valid.filter(isCardIcon).length;
+  const represented = new Set(valid.filter(p => !isCardIcon(p)).map(p => normalizeEntityId(p.leagueId)).filter(Boolean));
+  const thresholds = { club: CLUB_THRESHOLDS, league: LEAGUE_THRESHOLDS, nation: NATION_THRESHOLDS };
+  type Kind = keyof typeof thresholds;
+  const groups = { club: new Map<string, number>(), league: new Map<string, number>(), nation: new Map<string, number>() };
+  const room = [0, 0, 0];
+  valid.forEach((p, index) => {
+    if (isCardIcon(p) || isCardHero(p) || isCardHallOfFut(p)) return;
+    const bit = 1 << index;
+    for (let i = 0; i < 3 - base.playerChemMap[p.id]; i++) room[i] |= bit;
+    for (const kind of ['club', 'league', 'nation'] as const) {
+      const key = normalizeEntityId(kind === 'club' ? sharedClubKey(p) || p.clubId : p[`${kind}Id`]);
+      groups[kind].set(key, (groups[kind].get(key) ?? 0) | bit);
+    }
+  });
+  const count = (kind: Kind, key: string) => base.groupCounts[kind][key] ?? 0;
+  const score = (kind: Kind, n: number) => getThresholdScore(n, thresholds[kind]);
+  let iconLeagueMask = 0;
+  represented.forEach(key => {
+    if (score('league', count('league', key) + 1) > score('league', count('league', key))) {
+      iconLeagueMask |= groups.league.get(key) ?? 0;
+    }
+  });
+  const popcount = (value: number) => {
+    value -= (value >>> 1) & 0x55555555;
+    value = (value & 0x33333333) + ((value >>> 2) & 0x33333333);
+    return (((value + (value >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+  };
+  return (player: PlayerCard, extraManager: ChemistryManager | null = null) => {
+    const icon = isCardIcon(player), hero = isCardHero(player);
+    const keys = { club: normalizeEntityId(sharedClubKey(player) || player.clubId),
+      league: normalizeEntityId(player.leagueId), nation: normalizeEntityId(player.nationId) };
+    let one = 0, two = 0, three = 0;
+    const addMask = (mask: number) => {
+      three |= two & mask;
+      two |= one & mask;
+      one |= mask;
+    };
+    if (icon) addMask(iconLeagueMask);
+    let own = 0;
+    for (const kind of ['club', 'league', 'nation'] as const) {
+      const key = keys[kind];
+      const added = kind === 'nation' ? (icon ? 2 : 1) : kind === 'league' ? (icon ? 0 : hero ? 2 : 1) : (icon || hero ? 0 : 1);
+      const managerId = kind === 'club' ? undefined : extraManager?.[`${kind}Id`];
+      const managerKey = managerId == null || String(managerId).trim() === '' ? '' : normalizeEntityId(managerId);
+      const apply = (groupKey: string, amount: number) => {
+        if (!groupKey || !amount) return;
+        const before = count(kind, groupKey) + Number(kind === 'league' && icon && represented.has(groupKey));
+        const gain = score(kind, before + amount) - score(kind, before);
+        for (let i = 0; i < gain; i++) addMask(groups[kind].get(groupKey) ?? 0);
+      };
+      apply(key, added + Number(!!managerKey && managerKey === key));
+      if (managerKey && managerKey !== key) apply(managerKey, 1);
+      const newLeagueIcons = kind === 'league' && !icon && key && !represented.has(key) ? icons : 0;
+      own += score(kind, count(kind, key) + (key ? added : 0) + Number(!!managerKey && managerKey === key) + newLeagueIcons);
+    }
+    const playerChemistry = icon || hero || isCardHallOfFut(player) ? 3 : Math.min(3, own);
+    return { totalChemistry: Math.min(33, base.totalChemistry + playerChemistry
+      + popcount(one & room[0]) + popcount(two & room[1]) + popcount(three & room[2])), playerChemistry };
+  };
+}
+
 type EntityId = PlayerCard['nationId'];
 type CountMap = Map<string, number>;
 
