@@ -107,133 +107,86 @@ DETAIL_KEYS = {
 }
 
 # -------------------------------------------------------------
-# 1. 리그 매핑 (오스트리아 40번, 폴란드 46번 추가)
+# 1. 리그 매핑 사전 (슬러그 및 명칭 불일치 완벽 방어)
 # -------------------------------------------------------------
 LEAGUE_ALIAS_MAP = {
-    # 기존 메이저 리그들
-    "major league soccer": 7,
-    "mls": 7,
-    "premier league": 3,
-    "laliga ea sports": 2,
-    "laliga": 2,
-    "la liga": 2,
-    "bundesliga": 4,
-    "ligue 1 mcdonald's": 5,
-    "ligue 1": 5,
-    "serie a enilive": 12,
-    "serie a": 12,
-    "liga portugal": 13,
-    "eredivisie": 21,
-    "bundesliga 2": 22,
-    "liga bbva mx": 23,
-    "liga mx": 23,
-    "roshn saudi league": 14,
-    "scottish premiership": 27,
-    "trendyol süper lig": 11,
-    "efl championship": 19,
-    "k league 1": 48,
-    "csl": 47,
-    "chinese super league": 47,
-    # ★ 오스트리아 분데스리가 (DB ID: 40)
-    "österreichische fußball-bundesliga": 40,
-    "osterreichische fussball-bundesliga": 40,
-    "ö. bundesliga": 40,
-    "o. bundesliga": 40,
-    "austrian bundesliga": 40,
-    # ★ 폴란드 엑스트라클라사 (DB ID: 46)
-    "pko bank polski ekstraklasa": 46,
-    "pko ekstraklasa": 46,
-    "ekstraklasa": 46,
-    # 여성 리그 변형
-    "barclays wsl": 1,
-    "wsl": 1,
-    "barclays womens super league": 1,
-    "barclays women's super league": 1,
-    "national women's soccer league": 8,
-    "nwsl": 8,
-    "google pixel frauen-bundesliga": 9,
-    "gpfbl": 9,
-    "arkema première ligue": 10,
-    "arkema pl": 10,
-    "liga f moeve": 6,
-    "liga f": 6,
+    # 메이저 남성 리그
+    "major league soccer": 7, "mls": 7, "premier league": 3,
+    "laliga ea sports": 2, "laliga": 2, "la liga": 2, "bundesliga": 4,
+    "ligue 1 mcdonald's": 5, "ligue 1": 5, "serie a enilive": 12, "serie a": 12,
+    "liga portugal": 13, "eredivisie": 21, "bundesliga 2": 22,
+    "liga bbva mx": 23, "liga mx": 23, "roshn saudi league": 14,
+    "scottish premiership": 27, "trendyol süper lig": 11,
+    "efl championship": 19, "k league 1": 48, "csl": 47, "chinese super league": 47,
+    "österreichische fußball-bundesliga": 40, "ö. bundesliga": 40, "austrian bundesliga": 40,
+    "pko bank polski ekstraklasa": 46, "ekstraklasa": 46,
+
+    # ★ 여성 리그 슬러그 및 명칭 통합
+    # 1. Barclays WSL (ID: 1)
+    "barclays wsl": 1, "wsl": 1,
+    "barclays-womens-super-league": 1, "barclays-women's-super-league": 1,
+    "barclays womens super league": 1, "barclays women's super league": 1,
+    "barclays women’s super league": 1, "women's super league": 1, "womens super league": 1,
+
+    # 2. Liga F Moeve (ID: 6)
+    "liga f moeve": 6, "liga-f-moeve": 6, "liga f": 6, "liga-f": 6,
+
+    # 3. Arkema PL (ID: 10)
+    "arkema pl": 10, "arkema-pl": 10,
+    "arkema première ligue": 10, "arkema premiere ligue": 10,
+    "arkema-première-ligue": 10, "arkema-premiere-ligue": 10,
+
+    # 4. 기타 여성 리그
+    "national women's soccer league": 8, "nwsl": 8,
+    "google pixel frauen-bundesliga": 9, "gpfbl": 9
 }
 
-# -------------------------------------------------------------
-# 2. 클럽 매핑 (DB 기준: Frosinone 로 일원화)
-# -------------------------------------------------------------
 CLUB_ALIAS_MAP = {
-    # 기존 가명/변형 클럽
-    "ss lazio": "Latium",
-    "lazio": "Latium",
-    "inter": "Lombardia FC",
-    "inter milan": "Lombardia FC",
-    "ac milan": "Milano FC",
-    "milan": "Milano FC",
-    "atalanta": "Bergamo Calcio",
-    "as roma": "Roma",
-    "bayern munich": "FC Bayern München",
-    "bayern münchen": "FC Bayern München",
-    "bayern": "FC Bayern München",
+    # ★ PSG 관련 모든 변형 명칭을 공식 명칭 'Paris SG'로 일원화
+    "psg": "Paris SG",
+    "paris-sg": "Paris SG",
+    "paris saint-germain": "Paris SG",
+    "paris saint germain": "Paris SG",
+    "73-paris-sg": "Paris SG",
+    "111817-paris-sg": "Paris SG",
+
+    # 기존 가명 및 변형 클럽
+    "ss lazio": "Latium", "lazio": "Latium",
+    "inter": "Lombardia FC", "inter milan": "Lombardia FC",
+    "131682-lombardia-fc": "Lombardia FC", "lombardia-fc": "Lombardia FC", "lombardia fc": "Lombardia FC",
+    "ac milan": "Milano FC", "milan": "Milano FC",
+    "atalanta": "Bergamo Calcio", "as roma": "Roma",
+    "bayern munich": "FC Bayern München", "bayern münchen": "FC Bayern München", "bayern": "FC Bayern München",
     "manchester united": "Man Utd",
-    # ★ 프로시노네 -> 무조건 우리 DB 공식 명칭인 'Frosinone' (206)으로 매핑
-    "111657-frosinone-calcio": "Frosinone",
-    "frosinone-calcio": "Frosinone",
-    "frosinone calcio": "Frosinone",
-    "frosinone": "Frosinone",
-    # ★ 슈투름 그라츠 (DB ID: 318)
-    "sturm graz": "SK Sturm Graz",
-    "sk sturm graz": "SK Sturm Graz",
-    # ★ 레흐 포즈난 (DB ID: 300)
-    "lech poznan": "Lech Poznań",
-    "lech poznań": "Lech Poznań",
+    "111657-frosinone-calcio": "Frosinone", "frosinone-calcio": "Frosinone", "frosinone": "Frosinone",
+    "110374-acf-fiorentina": "Fiorentina", "acf-fiorentina": "Fiorentina", "fiorentina": "Fiorentina",
+    "sturm graz": "SK Sturm Graz", "sk sturm graz": "SK Sturm Graz",
+    "lech poznan": "Lech Poznań", "lech poznań": "Lech Poznań"
 }
 
 # -------------------------------------------------------------
-# 3. 국가명 매핑 (DB 정식 명칭 기준)
+# 3. 국가 매핑 사전
 # -------------------------------------------------------------
 NATION_ALIAS_MAP = {
-    # 코트디부아르 & 기니비사우
-    "ivory coast": "Côte d'Ivoire",
-    "cote d'ivoire": "Côte d'Ivoire",
-    "cote d’ivoire": "Côte d'Ivoire",
-    "coted'ivoire": "Côte d'Ivoire",
-    "guinea bissau": "Guinea-Bissau",
-    "guinea-bissau": "Guinea-Bissau",
-    # 네덜란드 & 튀르키예
-    "netherlands": "Holland",
-    "holland": "Holland",
-    "türkiye": "Turkey",
-    "turkey": "Turkey",
-    # 기타 국가 사전 방어
-    "cape verde": "Cape Verde Islands",
-    "cabo verde": "Cape Verde Islands",
+    "ivory coast": "Côte d'Ivoire", "cote d'ivoire": "Côte d'Ivoire",
+    "cote d’ivoire": "Côte d'Ivoire", "coted'ivoire": "Côte d'Ivoire",
+    "guinea bissau": "Guinea-Bissau", "guinea-bissau": "Guinea-Bissau",
+    "netherlands": "Holland", "holland": "Holland",
+    "türkiye": "Turkey", "turkey": "Turkey",
+    "cape verde": "Cape Verde Islands", "cabo verde": "Cape Verde Islands",
     "cape verde islands": "Cape Verde Islands",
-    "south korea": "Korea Republic",
-    "korea": "Korea Republic",
-    "korea republic": "Korea Republic",
-    "north korea": "Korea DPR",
-    "korea dpr": "Korea DPR",
-    "dr congo": "Congo DR",
-    "congo dr": "Congo DR",
-    "democratic republic of the congo": "Congo DR",
-    "republic of the congo": "Congo",
-    "curacao": "Curaçao",
-    "curaçao": "Curaçao",
-    "sao tome and principe": "São Tomé e Príncipe",
-    "são tomé and príncipe": "São Tomé e Príncipe",
-    "china": "China PR",
-    "china pr": "China PR",
-    "usa": "United States",
-    "united states": "United States",
-    "ireland": "Republic of Ireland",
-    "republic of ireland": "Republic of Ireland",
-    "bosnia": "Bosnia and Herzegovina",
-    "bosnia-herzegovina": "Bosnia and Herzegovina",
-    "macedonia": "North Macedonia",
-    "north macedonia": "North Macedonia",
-    "czechia": "Czech Republic",
-    "czech republic": "Czech Republic",
+    "south korea": "Korea Republic", "korea": "Korea Republic", "korea republic": "Korea Republic",
+    "north korea": "Korea DPR", "korea dpr": "Korea DPR",
+    "dr congo": "Congo DR", "congo dr": "Congo DR",
+    "democratic republic of the congo": "Congo DR", "republic of the congo": "Congo",
+    "curacao": "Curaçao", "curaçao": "Curaçao",
+    "sao tome and principe": "São Tomé e Príncipe", "são tomé and príncipe": "São Tomé e Príncipe",
+    "china": "China PR", "china pr": "China PR",
+    "usa": "United States", "united states": "United States",
+    "ireland": "Republic of Ireland", "republic of ireland": "Republic of Ireland",
+    "bosnia": "Bosnia and Herzegovina", "bosnia-herzegovina": "Bosnia and Herzegovina",
+    "macedonia": "North Macedonia", "north macedonia": "North Macedonia",
+    "czechia": "Czech Republic", "czech republic": "Czech Republic"
 }
 
 def get_table_columns(table_name):
@@ -241,65 +194,89 @@ def get_table_columns(table_name):
     return set(res.data[0].keys()) if res.data else set()
 
 def get_or_create_league(name):
-    if not name: return None
+    if not name:
+        return None
     clean = name.strip()
     alias_id = LEAGUE_ALIAS_MAP.get(clean.lower())
-    if alias_id: return alias_id
+    if not alias_id:
+        unslug = clean.replace("-", " ")
+        alias_id = LEAGUE_ALIAS_MAP.get(unslug.lower())
+    if alias_id:
+        return alias_id
+
     res = supabase.table("leagues").select("id").ilike("name", clean).execute()
-    if res.data: return res.data[0]["id"]
+    if res.data:
+        return res.data[0]["id"]
     try:
         max_res = supabase.table("leagues").select("id").order("id", desc=True).limit(1).execute()
         next_id = (max_res.data[0]["id"] + 1) if max_res.data else 100
         supabase.table("leagues").insert({"id": next_id, "name": clean}).execute()
         return next_id
-    except Exception: return None
+    except Exception:
+        return None
 
 def get_or_create_nation(name):
-  if not name:
-    return None
-  clean_name = name.strip()
-  canonical_name = NATION_ALIAS_MAP.get(clean_name.lower(), clean_name)
-
-  res = (
-      supabase.table("nations")
-      .select("id")
-      .ilike("name", canonical_name)
-      .execute()
-  )
-  if res.data:
-    return res.data[0]["id"]
-
-  try:
-    max_res = (
-        supabase.table("nations")
-        .select("id")
-        .order("id", desc=True)
-        .limit(1)
-        .execute()
-    )
-    next_id = (max_res.data[0]["id"] + 1) if max_res.data else 300
-    supabase.table("nations").insert(
-        {"id": next_id, "name": canonical_name}
-    ).execute()
-    return next_id
-  except Exception:
-    return None
+    if not name:
+        return None
+    clean = name.strip()
+    canonical_name = NATION_ALIAS_MAP.get(clean.lower(), clean)
+    res = supabase.table("nations").select("id").ilike("name", canonical_name).execute()
+    if res.data:
+        return res.data[0]["id"]
+    try:
+        max_res = supabase.table("nations").select("id").order("id", desc=True).limit(1).execute()
+        next_id = (max_res.data[0]["id"] + 1) if max_res.data else 300
+        supabase.table("nations").insert({"id": next_id, "name": canonical_name}).execute()
+        return next_id
+    except Exception:
+        return None
 
 def get_or_create_club(name, league_id=None):
-    if not name: return None
+    if not name:
+        return None
     clean = name.strip()
-    if clean.lower() in CLUB_ALIAS_MAP: clean = CLUB_ALIAS_MAP[clean.lower()]
+
+    # 1. 사전 직접 매핑 또는 슬러그 숫자 제거 후 매핑
+    if clean.lower() in CLUB_ALIAS_MAP:
+        clean = CLUB_ALIAS_MAP[clean.lower()]
+    else:
+        unslug = re.sub(r"^\d+-", "", clean).replace("-", " ")
+        if unslug.lower() in CLUB_ALIAS_MAP:
+            clean = CLUB_ALIAS_MAP[unslug.lower()]
+        else:
+            clean = unslug.title()
+
+    # 2. ★ 핵심: league_id가 있다면, 해당 리그에 속한 동일 이름 클럽 1순위 검색!
+    if league_id:
+        res = supabase.table("clubs").select("id").ilike("name", clean).eq("league_id", league_id).execute()
+        if res.data:
+            return res.data[0]["id"]
+
+        # 드롭다운 괄호 표기 대응 (예: 'Paris SG (PSG)')
+        res = supabase.table("clubs").select("id").ilike("name", f"{clean}%").eq("league_id", league_id).execute()
+        if res.data:
+            return res.data[0]["id"]
+
+    # 3. league_id 조건 없이 전체 이름 매칭 검색 (폴백)
     res = supabase.table("clubs").select("id").ilike("name", clean).execute()
-    if res.data: return res.data[0]["id"]
+    if not res.data:
+        res = supabase.table("clubs").select("id").ilike("name", f"{clean}%").execute()
+
+    if res.data:
+        return res.data[0]["id"]
+
+    # 4. 신규 클럽 생성 (기존에 없을 때만 실행)
     try:
         club_cols = get_table_columns("clubs")
         max_res = supabase.table("clubs").select("id").order("id", desc=True).limit(1).execute()
         next_id = (max_res.data[0]["id"] + 1) if max_res.data else 1000
         payload = {"id": next_id, "name": clean}
-        if league_id and "league_id" in club_cols: payload["league_id"] = league_id
+        if league_id and "league_id" in club_cols:
+            payload["league_id"] = league_id
         supabase.table("clubs").insert(payload).execute()
         return next_id
-    except Exception: return None
+    except Exception:
+        return None
 
 def player_def_fields(text, card_api_id, player_id=None):
     candidates = []

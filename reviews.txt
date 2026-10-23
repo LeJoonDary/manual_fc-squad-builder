@@ -63,3 +63,6 @@
 #alvaro carreras, 81, gold, https://www.youtube.com/shorts/ZjqrSnPQ1zA
 
 #tsakiris, 84, future, https://www.youtube.com/shorts/R3oBJ79c58Q
+
+#diomande, 85, totw, https://www.youtube.com/shorts/6xVo7tDhET8
+#adeyemi, 84, watch, https://www.youtube.com/shorts/nh0pF_pWnQk
