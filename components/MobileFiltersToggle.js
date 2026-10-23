@@ -9,7 +9,7 @@ export function createMobileFiltersToggle({ button, panel, closePopovers }) {
     panel.classList.toggle('is-mobile-collapsed', collapsed);
     panel.inert = collapsed;
     button.setAttribute('aria-expanded', String(!collapsed));
-    button.textContent = `Filters${count ? ` (${count})` : ''} ${collapsed ? '▼ (열기)' : '▲ (접기)'}`;
+    button.textContent = `Filters${count ? ` (${count})` : ''} ${collapsed ? '▼ (Show)' : '▲ (Hide)'}`;
   }
 
   button.addEventListener('click', () => {

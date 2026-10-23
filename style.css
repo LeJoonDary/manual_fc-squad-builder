@@ -1866,8 +1866,30 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   }
 }
 
+.mobile-filter-actions,
 #mobile-filters-toggle { display: none; }
 @media (width < 768px) {
+  .mobile-filter-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  #players-filters > .filters-header { display: none; }
+  #mobile-clear-all-filters {
+    flex: none;
+    padding: 6px 12px;
+    border: 1px solid rgba(244, 63, 94, .3);
+    border-radius: 8px;
+    color: #fda4af;
+    background: transparent;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  #mobile-clear-all-filters:hover { background: rgba(244, 63, 94, .1); }
+  #mobile-clear-all-filters:focus-visible { outline: 2px solid #fda4af; outline-offset: 2px; }
   .app-shell.is-players-active,
   .app-shell.is-players-active .players-page,
   .app-shell.is-players-active .players-layout,
@@ -1901,7 +1923,7 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   #mobile-filters-toggle {
     display: inline-flex;
     align-items: center;
-    margin: 0 0 10px;
+    margin: 0;
     padding: 6px 10px;
     border: 1px solid #475569;
     border-radius: 8px;

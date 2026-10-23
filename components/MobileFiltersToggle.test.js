@@ -21,11 +21,11 @@ it('starts expanded and toggles access to filters without clearing selected filt
   expect(button.getAttribute('aria-expanded')).toBe('true');
   toggle.updateCount(2);
   button.click();
-  expect(button.textContent).toBe('Filters (2) ▼ (열기)');
+  expect(button.textContent).toBe('Filters (2) ▼ (Show)');
   expect(panel.inert).toBe(true);
   expect(closePopovers).toHaveBeenCalledOnce();
   toggle.updateCount(0);
-  expect(button.textContent).toBe('Filters ▼ (열기)');
+  expect(button.textContent).toBe('Filters ▼ (Show)');
   button.click();
   expect(panel.inert).toBe(false);
   expect(panel.classList.contains('is-mobile-collapsed')).toBe(false);

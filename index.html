@@ -136,7 +136,10 @@
                 <input id="player-name-search" type="search" placeholder="Search players..." autocomplete="off" />
               </label>
             </div>
-            <button id="mobile-filters-toggle" type="button" aria-expanded="true" aria-controls="players-filters">Filters ▲ (접기)</button>
+            <div class="mobile-filter-actions">
+              <button id="mobile-filters-toggle" type="button" aria-expanded="true" aria-controls="players-filters">Filters ▲ (Hide)</button>
+              <button id="mobile-clear-all-filters" type="button">Clear All</button>
+            </div>
             <div id="filter-bar-mount" aria-live="off"></div>
             </div>
             <div id="players-grid" class="players-grid" aria-live="polite"></div>

@@ -585,6 +585,7 @@ document.querySelectorAll('[data-filter-accordion]').forEach((button) => {
 });
 
 clearAllFiltersButton.addEventListener('click', clearAllFilters);
+document.querySelector('#mobile-clear-all-filters').addEventListener('click', clearAllFilters);
 
 document.querySelectorAll('[data-close-modal]').forEach((button) => {
   button.addEventListener('click', closeModal);
