@@ -56,12 +56,13 @@ test('slot portrait is created synchronously with priority hints before src', ()
   }
 });
 
-test('missing portraits are omitted and shared portraits fade in after load', () => {
+test('missing portraits are omitted and shared portraits mount without waiting for load', () => {
   expect(createPitchMiniCard({ name: 'No photo' }).querySelector('.ea-card-portrait')).toBeNull();
   const portrait = PlayerCard({ card: { image_url: '/catalog.png' } }).querySelector('.ea-card-portrait');
   expect(portrait?.getAttribute('fetchpriority')).toBe('high');
   expect(portrait?.getAttribute('decoding')).toBe('async');
-  expect(portrait?.classList.contains('is-loading')).toBe(true);
+  expect(portrait?.getAttribute('loading')).toBe('eager');
+  expect(portrait?.classList.contains('is-loading')).toBe(false);
   portrait!.dispatchEvent(new Event('load'));
   expect(portrait?.classList.contains('is-loading')).toBe(false);
 });

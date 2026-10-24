@@ -22,21 +22,18 @@ const element = (tag: string, className: string, text?: unknown): any => {
   if (text != null) node.textContent = String(text);
   return node;
 };
-const image = (className: string, url: string, alt: string, priority = false, fadeIn = false) => {
+const image = (className: string, url: string, alt: string, priority = false, eager = false) => {
   const node = element('img', className);
   node.referrerPolicy = 'no-referrer';
   // Set request hints before src starts the download.
-  if (priority) {
+  if (priority || eager) {
     node.setAttribute('loading', 'eager');
+  }
+  if (priority) {
     node.setAttribute('fetchpriority', 'high');
   }
-  if (fadeIn) {
-    node.setAttribute('decoding', 'async');
-    node.classList.add('is-loading');
-    node.addEventListener('load', () => node.classList.remove('is-loading'), { once: true });
-  }
+  if (priority || eager) node.setAttribute('decoding', 'async');
   node.src = url;
-  if (fadeIn && node.complete && node.naturalWidth > 0) node.classList.remove('is-loading');
   node.alt = alt;
   node.draggable = false;
   return node;
@@ -62,16 +59,15 @@ type PlayerCardProps = {
   card: Record<string, any>;
   styles?: any[];
   catalog?: Record<string, any[]>;
-  prioritizePortrait?: boolean;
   createReviewButton?: (card: any, options: { compact: boolean }) => HTMLButtonElement;
 };
-export function PlayerCard({ card, styles = [], catalog = {}, createReviewButton, prioritizePortrait = true }: PlayerCardProps): HTMLElement {
+export function PlayerCard({ card, styles = [], catalog = {}, createReviewButton }: PlayerCardProps): HTMLElement {
   const frame = element('player-card-frame', 'ea-card-frame');
   const canvas = element('span', 'ea-card-canvas');
   const face = element('span', 'ea-card-face');
   const backgroundUrl = getCardBackground(card);
   if (backgroundUrl) {
-    const background = image('ea-card-background', backgroundUrl, '');
+    const background = image('ea-card-background', backgroundUrl, card.name || 'player card', false, true);
     background.addEventListener('error', () => background.remove(), { once: true });
     face.append(background);
   }
@@ -114,7 +110,7 @@ export function PlayerCard({ card, styles = [], catalog = {}, createReviewButton
   }
   if (card.image_url) {
     const portrait = image(`ea-card-portrait${isHeadshotCard(card) ? ' ea-card-portrait--headshot' : ''}`,
-      card.image_url, card.name || 'Player', prioritizePortrait, true);
+      card.image_url, card.name || 'Player', true);
     portrait.addEventListener('error', () => portrait.remove(), { once: true });
     // Anchor to the entire face so the portrait can extend behind the name.
     face.append(portrait);

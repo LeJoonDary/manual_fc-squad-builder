@@ -9,7 +9,7 @@ export function createPitchMiniCard(
   catalog: MasterProps['catalog'] = {},
   { createReviewButton }: Pick<MasterProps, 'createReviewButton'> = {},
 ) {
-  const cardView = PlayerCard({ card, styles, catalog, createReviewButton, prioritizePortrait: true });
+  const cardView = PlayerCard({ card, styles, catalog, createReviewButton });
   cardView.classList.add('pitch-card-frame');
   return cardView;
 }

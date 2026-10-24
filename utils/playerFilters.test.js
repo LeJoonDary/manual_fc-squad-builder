@@ -71,7 +71,7 @@ test('default and name queries are bounded, and repeats use the result cache', a
   expect(requests.every(request => !request.url.pathname.includes('/rpc/'))).toBe(true);
 });
 
-test('advanced filters use 40-card pages and preserve inner stat filters', async () => {
+test('advanced filters use 15-card pages and preserve inner stat filters', async () => {
   const card = { id: 1, players: { name: 'Mbappé' } };
   const { db, requests } = database([[{ id: 100, name: 'Mbappé' }], [card], [card]]);
   const filters = { ...createDefaultFilters(), name: 'mbappe', minOvr: 80 };
@@ -81,7 +81,7 @@ test('advanced filters use 40-card pages and preserve inner stat filters', async
   expect(requests[1].url.pathname).toBe('/rest/v1/rpc/filter_player_cards');
   expect(requests[1].body.filters.name).toBe('');
   expect(requests[1].url.searchParams.get('player_id')).toBe('in.(100)');
-  expect(requests[1].url.searchParams.get('limit')).toBe('40');
+  expect(requests[1].url.searchParams.get('limit')).toBe('15');
   expect(requests[1].url.searchParams.get('select')).toContain('player_stats!inner');
   expect(requests[1].url.searchParams.get('select')).not.toContain('player_stats!inner(pac');
   expect(requests[2].url.pathname).toBe('/rest/v1/card_versions');
@@ -115,13 +115,13 @@ test.each([false, true])('counted pages preserve OVR order and load past 50 with
   });
   const filters = { ...createDefaultFilters(), ...(advanced ? { minOvr: 80 } : {}) };
   const pages = [];
-  for (const offset of [0, 40, 80]) pages.push(await fetchPlayersPage(db, filters, { offset }));
-  expect(pages.map(page => page.total)).toEqual([93, 93, 93]);
-  expect(pages.map(page => page.rows.length)).toEqual([40, 40, 13]);
+  for (const offset of [0, 15, 30, 45, 60, 75, 90]) pages.push(await fetchPlayersPage(db, filters, { offset }));
+  expect(pages.map(page => page.total)).toEqual([93, 93, 93, 93, 93, 93, 93]);
+  expect(pages.map(page => page.rows.length)).toEqual([15, 15, 15, 15, 15, 15, 3]);
   expect(pages.flatMap(page => page.rows.map(row => row.id))).toEqual(all.map(row => row.id));
   const queries = requests.filter(request => !request.url.searchParams.has('id'));
-  expect(queries.map(request => request.url.searchParams.get('offset'))).toEqual(['0', '40', '80']);
-  expect(queries.every(request => request.url.searchParams.get('limit') === '40')).toBe(true);
+  expect(queries.map(request => request.url.searchParams.get('offset'))).toEqual(['0', '15', '30', '45', '60', '75', '90']);
+  expect(queries.every(request => request.url.searchParams.get('limit') === '15')).toBe(true);
   expect(queries.every(request => request.options.headers.get('prefer').includes('count=exact'))).toBe(true);
 });
 
@@ -130,18 +130,18 @@ test('broad name totals exclude regex false positives and reuse matching IDs acr
   const matches = Array.from({ length: 43 }, (_, id) => ({ id: id + 1, players: { name: 'Groß' } }));
   const { db, requests } = database([names,
     [...matches.slice(0, 20), { id: 999, players: { name: 'Cross' } }, ...matches.slice(20)],
-    matches.slice(0, 40), matches.slice(40),
+    matches.slice(0, 15), matches.slice(30),
   ]);
   const filters = { ...createDefaultFilters(), name: 'gross' };
   const first = await fetchPlayersPage(db, filters);
-  const last = await fetchPlayersPage(db, filters, { offset: 40 });
+  const last = await fetchPlayersPage(db, filters, { offset: 30 });
   expect(first.total).toBe(43);
   expect(last.total).toBe(43);
-  expect(first.rows).toHaveLength(40);
-  expect(last.rows.map(row => row.id)).toEqual([41, 42, 43]);
+  expect(first.rows).toHaveLength(15);
+  expect(last.rows.map(row => row.id)).toEqual(matches.slice(30).map(row => row.id));
   expect(requests).toHaveLength(4);
   expect(requests[1].url.searchParams.get('select')).toBe('id,players!inner(id,name,long_name)');
-  expect(requests[3].url.searchParams.get('id')).toBe('in.(41,42,43)');
+  expect(requests[3].url.searchParams.get('id')).toBe('in.(' + matches.slice(30).map(row => row.id).join(',') + ')');
 });
 
 test.each([false, true])('catalog role eligibility follows strict toggle %s', async isStrictRoleMode => {

@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { fetchModalPlayerPage } from './modalPlayers.js';
 import { PLAYER_LIST_SELECT } from './playerCatalog.js';
 
-test('ST default page fetches only 30 detailed cards and more uses the next offset', async () => {
+test('ST default page fetches only 15 detailed cards and more uses the next offset', async () => {
   const requests = [];
   const db = createClient('https://example.supabase.co', 'test', {
     auth: { persistSession: false }, global: { fetch: async url => {
@@ -12,7 +12,7 @@ test('ST default page fetches only 30 detailed cards and more uses the next offs
     } },
   });
   expect(await fetchModalPlayerPage(db, { position: 'ST' })).toHaveLength(1);
-  await fetchModalPlayerPage(db, { position: 'ST', offset: 30 });
+  await fetchModalPlayerPage(db, { position: 'ST', offset: 15 });
   expect(requests).toHaveLength(2);
   expect(requests[0].pathname).toBe('/rest/v1/card_versions');
   expect(requests[0].searchParams.get('select')).toBe(
@@ -20,8 +20,8 @@ test('ST default page fetches only 30 detailed cards and more uses the next offs
   );
   expect(requests[0].searchParams.get('slot_positions.is_primary')).toBeNull();
   expect(requests[0].searchParams.get('slot_positions.positions.name')).toBe('eq.ST');
-  expect(requests[0].searchParams.get('limit')).toBe('30');
-  expect(requests[1].searchParams.get('offset')).toBe('30');
+  expect(requests[0].searchParams.get('limit')).toBe('15');
+  expect(requests[1].searchParams.get('offset')).toBe('15');
   await fetchModalPlayerPage(db, { position: 'ST' });
   expect(requests).toHaveLength(2);
 });
@@ -47,7 +47,7 @@ test('slot eligibility modes apply before pagination and keep separate search ca
   expect(cards.every(url => url.searchParams.get('player_id') === 'in.(10)')).toBe(true);
   await fetchModalPlayerPage(db, { position: 'LW', keyword: 'Mbappe', positionMode: 'all' });
   expect(requests).toHaveLength(4);
-  await fetchModalPlayerPage(db, { position: 'RW', positionMode: 'secondary', offset: 30 });
+  await fetchModalPlayerPage(db, { position: 'RW', positionMode: 'secondary', offset: 15 });
   expect(requests.at(-1).searchParams.get('slot_positions.is_primary')).toBe('eq.false');
-  expect(requests.at(-1).searchParams.get('offset')).toBe('30');
+  expect(requests.at(-1).searchParams.get('offset')).toBe('15');
 });

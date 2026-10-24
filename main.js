@@ -9,7 +9,7 @@ import { excludedCardVersionsStore } from './utils/excludedCardVersions.js';
 import { createPitchChemistryBadge } from './components/PitchChemistryBadge.js';
 import { createPitchMiniCard } from './components/PitchMiniCard.tsx';
 import { createSquadSlots } from './components/SquadSlots.js';
-import { preloadImages } from './utils/preloadImages.ts';
+import { preloadImages, preloadCardImages } from './utils/preloadImages.ts';
 import { createAlternativePlayerModal } from './components/AlternativePlayerModal.js';
 import { createMobileFiltersToggle } from './components/MobileFiltersToggle.js';
 import { resetMobileZoom } from './utils/mobileZoom.js';
@@ -630,6 +630,28 @@ function setActiveTab(tabName) {
   if (tabName === 'players') searchPlayers();
 }
 
+// Completed raw pages only: reapply current squad exclusions when rendering.
+const searchResultCache = new Map();
+function searchResultKey(kind, context, offset = 0) {
+  return JSON.stringify([kind, context, offset], (_, value) => value instanceof Set ? [...value].sort() : value);
+}
+function playersResultKey(offset = 0) {
+  return searchResultKey('players', { ...filters, name: filters.name.trim() }, offset);
+}
+function modalResultKey(offset = 0) {
+  return searchResultKey('modal', [normalizePosition(activeSlot?.dataset.position ?? ''), modalPositionMode, modalPlayerSearchInput.value.trim()], offset);
+}
+function cacheSearchResult(key, result) {
+  searchResultCache.delete(key);
+  searchResultCache.set(key, result);
+  if (searchResultCache.size > 100) searchResultCache.delete(searchResultCache.keys().next().value);
+}
+
+function isSearchTermReady(value) {
+  // Empty input restores the unfiltered list; a single character never queries.
+  return Array.from(value.trim()).length !== 1;
+}
+
 function schedulePlayerSearch() {
   window.clearTimeout(playerSearchTimer);
   ++playerSearchRequest;
@@ -638,11 +660,21 @@ function schedulePlayerSearch() {
   playerLoadMore.disabled = true;
   playerLoadMore.hidden = true;
   playerPaginationStatus.textContent = '';
+  if (!isSearchTermReady(filters.name)) {
+    playerGrid.setAttribute('aria-busy', 'false');
+    playerResultCount.textContent = 'Enter at least 2 characters to search.';
+    renderPlayerGridMessage('Enter at least 2 characters to search.');
+    return;
+  }
+  if (searchResultCache.has(playersResultKey())) {
+    searchPlayers();
+    return;
+  }
   playerGrid.replaceChildren();
   resetPlayerResultsScroll();
   playerGrid.setAttribute('aria-busy', 'true');
   setPlayerGridLoading();
-  playerSearchTimer = window.setTimeout(searchPlayers, 200);
+  playerSearchTimer = window.setTimeout(searchPlayers, 180);
 }
 
 function setupDualRangeControls() {
@@ -853,6 +885,7 @@ function resetPlayerResultsScroll() {
 }
 
 async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions(), append = false) {
+  if (!isSearchTermReady(filters.name)) return;
   if (append && (playersPager.state.loading || !playersPager.state.hasMore)) return;
   window.clearTimeout(playerSearchTimer);
   playerSearchAbort?.abort();
@@ -866,24 +899,40 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
   const requestId = ++playerSearchRequest;
   playerSearchAbort = new AbortController();
   const signal = playerSearchAbort.signal;
+  const cacheKey = playersResultKey(ticket.offset);
+  const cached = searchResultCache.get(cacheKey);
   updateCommandSummaries();
-  playerLoadMore.hidden = false;
-  playerLoadMore.disabled = true;
-  playerLoadMore.textContent = 'Loading players...';
-  playerGrid.setAttribute('aria-busy', 'true');
-  if (!append || !playersPager.state.cards.length) {
-    playerGrid.replaceChildren();
-    playerPaginationStatus.textContent = '';
-    setPlayerGridLoading();
+  if (!cached) {
+    playerLoadMore.hidden = false;
+    playerLoadMore.disabled = true;
+    playerLoadMore.textContent = 'Loading players...';
+    playerGrid.setAttribute('aria-busy', 'true');
+    if (!append || !playersPager.state.cards.length) {
+      playerGrid.replaceChildren();
+      playerPaginationStatus.textContent = '';
+      setPlayerGridLoading();
+    }
   }
   try {
-    const { rows, total } = await fetchPlayersPage(supabase, filters, { offset: ticket.offset, signal });
+    const result = cached ?? await fetchPlayersPage(supabase, filters, { offset: ticket.offset, signal });
+    cacheSearchResult(cacheKey, result);
+    const { rows, total } = result;
     if (requestId !== playerSearchRequest) return;
     const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean);
+    const portraitsReady = preloadCardImages(cards);
+    if (portraitsReady) {
+      playerGrid.setAttribute('aria-busy', 'true');
+      playerLoadMore.disabled = true;
+      playerLoadMore.textContent = 'Loading players...';
+      if (!append) {
+        playerGrid.replaceChildren();
+        setPlayerGridLoading();
+      }
+      await portraitsReady;
+    }
+    if (requestId !== playerSearchRequest || signal.aborted) return;
     const previousCount = playersPager.state.cards.length;
     if (!playersPager.complete(ticket, rows, cards, total)) return;
-    // Warm the first visible rows before creating any result card DOM.
-    preloadImages(playersPager.state.cards.slice(previousCount, previousCount + 8).map(card => ({ card })));
     if (append && previousCount) {
       for (const card of playersPager.state.cards.slice(previousCount)) {
         playerGrid.append(buildPlayerCard(card, { onActivate: playerDetail.open }));
@@ -1375,30 +1424,43 @@ function resetModalSearch() {
   modalPager.reset();
   modalPlayerCards = [];
   modalLoadMore.hidden = true;
-  renderMessage('Loading players…');
+  const ready = isSearchTermReady(modalPlayerSearchInput.value);
+  if (!ready || !searchResultCache.has(modalResultKey())) {
+    renderMessage(ready ? 'Loading players…' : 'Enter at least 2 characters to search.');
+  }
+  if (!ready) modalDescription.textContent = 'Enter at least 2 characters to search.';
 }
 
 async function loadModalPlayerPage() {
-  if (modal.hidden || !activeSlot) return;
+  if (modal.hidden || !activeSlot || !isSearchTermReady(modalPlayerSearchInput.value)) return;
   const ticket = modalPager.begin();
   if (!ticket) return;
   const requestId = modalRequest;
   const position = activeSlot.dataset.position;
+  const cacheKey = modalResultKey(ticket.offset);
+  const cached = searchResultCache.get(cacheKey);
   modalAbort = new AbortController();
   modalLoadMore.disabled = true;
-  modalLoadMore.textContent = 'Loading…';
+  if (!cached) modalLoadMore.textContent = 'Loading…';
   try {
-    const rows = await fetchModalPlayerPage(supabase, {
+    const rows = cached ?? await fetchModalPlayerPage(supabase, {
       position: normalizePosition(position), keyword: modalPlayerSearchInput.value,
       positionMode: modalPositionMode,
       offset: ticket.offset, signal: modalAbort.signal,
     });
+    cacheSearchResult(cacheKey, rows);
     if (requestId !== modalRequest || modal.hidden) return;
     const selectedCardIds = getSelectedCardIds(position);
     const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean)
       .filter(card => !selectedCardIds.has(String(card.id)));
+    const portraitsReady = preloadCardImages(cards);
+    if (portraitsReady) {
+      modalLoadMore.textContent = 'Loading…';
+      if (!ticket.offset) renderMessage('Loading players…');
+      await portraitsReady;
+    }
+    if (requestId !== modalRequest || modal.hidden) return;
     if (!modalPager.complete(ticket, rows, cards)) return;
-    preloadImages(cards.slice(0, 8).map(card => ({ card })));
     modalDescription.textContent = `${normalizePosition(position)} · ${modalPager.state.cards.length} Players · ${modalPositionLabels[modalPositionMode]}`;
     renderPlayerList(modalPager.state.cards);
     if (!modalPager.state.cards.length) renderMessage(modalPager.state.hasMore
@@ -1413,7 +1475,7 @@ async function loadModalPlayerPage() {
     if (requestId === modalRequest && !modal.hidden) {
       modalLoadMore.hidden = !modalPager.state.hasMore;
       modalLoadMore.disabled = false;
-      modalLoadMore.textContent = 'Load More (30 Players)';
+      modalLoadMore.textContent = `Load More (${MODAL_PAGE_SIZE} Players)`;
     }
   }
 }
@@ -1611,7 +1673,12 @@ function renderPlayerList(cards) {
 function updateModalPlayerSearch() {
   modalPlayerSearchClear.hidden = !modalPlayerSearchInput.value;
   resetModalSearch();
-  modalSearchTimer = setTimeout(() => loadModalPlayerPage(), 200);
+  if (!isSearchTermReady(modalPlayerSearchInput.value)) return;
+  if (searchResultCache.has(modalResultKey())) {
+    loadModalPlayerPage();
+    return;
+  }
+  modalSearchTimer = setTimeout(() => loadModalPlayerPage(), 180);
 }
 
 function buildPlayerCard(card, options) {

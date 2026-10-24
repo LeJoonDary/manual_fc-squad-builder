@@ -1,14 +1,14 @@
 import { expect, test, vi } from 'vitest';
 import { createPlayerPagination, fetchPlayerPage } from './playerPagination.js';
 
-const rows = (start, count = 40) => Array.from({ length: count }, (_, index) => ({ id: start + index }));
+const rows = (start, count = 15) => Array.from({ length: count }, (_, index) => ({ id: start + index }));
 
-test('each action fetches exactly one bounded 40-row page', async () => {
+test('each action fetches exactly one bounded 15-row page', async () => {
   const query = { limit: vi.fn().mockReturnThis(), range: vi.fn().mockResolvedValue({ data: rows(1) }) };
   await fetchPlayerPage(query, 0);
-  await fetchPlayerPage(query, 40);
-  expect(query.limit.mock.calls).toEqual([[40], [40]]);
-  expect(query.range.mock.calls).toEqual([[0, 39], [40, 79]]);
+  await fetchPlayerPage(query, 15);
+  expect(query.limit.mock.calls).toEqual([[15], [15]]);
+  expect(query.range.mock.calls).toEqual([[0, 14], [15, 29]]);
 });
 
 test('details are restricted to the current page IDs and preserve page order', async () => {
@@ -33,10 +33,10 @@ test('appends unique cards and blocks double clicks while loading', () => {
   expect(pager.begin()).toBeNull();
   pager.complete(first, rows(1), rows(1));
   const second = pager.begin();
-  expect(second.offset).toBe(40);
-  pager.complete(second, rows(40), rows(40));
-  expect(pager.state.cards).toEqual(rows(1, 79));
-  expect(pager.state.offset).toBe(80);
+  expect(second.offset).toBe(15);
+  pager.complete(second, rows(15), rows(15));
+  expect(pager.state.cards).toEqual(rows(1, 29));
+  expect(pager.state.offset).toBe(30);
 });
 
 test('client-filtered empty pages still allow fetching the next page', () => {
@@ -44,7 +44,7 @@ test('client-filtered empty pages still allow fetching the next page', () => {
   pager.complete(pager.begin(), rows(1), []);
   expect(pager.state.cards).toEqual([]);
   expect(pager.state.hasMore).toBe(true);
-  expect(pager.begin().offset).toBe(40);
+  expect(pager.begin().offset).toBe(15);
 });
 
 test('a failed next page preserves cards and retries the same offset', async () => {
@@ -55,8 +55,8 @@ test('a failed next page preserves cards and retries the same offset', async () 
   const query = { limit: vi.fn().mockReturnThis(), range: vi.fn().mockResolvedValue({ error }) };
   await expect(fetchPlayerPage(query, ticket.offset)).rejects.toThrow('timeout');
   pager.fail(ticket);
-  expect(pager.state.cards).toHaveLength(40);
-  expect(pager.begin().offset).toBe(40);
+  expect(pager.state.cards).toHaveLength(15);
+  expect(pager.begin().offset).toBe(15);
 });
 
 test('filter reset rejects stale results and resets pagination', () => {
@@ -76,10 +76,10 @@ test('filter reset rejects stale results and resets pagination', () => {
 
 test('an exact total hides Load More even when the last page is full', () => {
   const pager = createPlayerPagination();
-  pager.complete(pager.begin(), rows(1), rows(1), 80);
+  pager.complete(pager.begin(), rows(1), rows(1), 30);
   expect(pager.state.hasMore).toBe(true);
-  pager.complete(pager.begin(), rows(41), rows(41), 80);
-  expect(pager.state.total).toBe(80);
+  pager.complete(pager.begin(), rows(16), rows(16), 30);
+  expect(pager.state.total).toBe(30);
   expect(pager.state.hasMore).toBe(false);
   expect(pager.begin()).toBeNull();
   pager.reset();

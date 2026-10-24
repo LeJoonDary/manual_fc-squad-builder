@@ -2058,11 +2058,7 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .ea-card-emblem-label { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 3px; border: 1px solid #cbd5e144; border-radius: 3px; background: #020617a6; font-size: .8em; line-height: 1; }
 /* Size from width and the source aspect ratio, never a contain-fit height box.
    The face clips the enlarged shoulders while foreground text stays above it. */
-.ea-card-portrait { opacity: 1; transition: opacity 150ms ease; }
-.ea-card-portrait.is-loading { opacity: 0; }
-@media (prefers-reduced-motion: reduce) {
-  .ea-card-portrait { transition: none; }
-}
+.ea-card-portrait { opacity: 1; }
 .ea-card-face .ea-card-portrait { position: absolute; top: -62px; left: -2.5%; right: auto; bottom: auto; z-index: 10; width: 105%; max-width: none; height: auto; max-height: none; transform: scale(1.15); transform-origin: center top; pointer-events: none; filter: drop-shadow(0 10px 16px rgba(0,0,0,.85)); }
 .ea-card-face .ea-card-portrait--headshot { top: 5px; left: 54%; width: 82%; max-width: 82%; height: auto; max-height: 82%; object-fit: contain; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(0,0,0,.7)); }
 .ea-card-secondary { position: absolute; top: 0; right: 0; z-index: 20; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; max-width: 65%; }

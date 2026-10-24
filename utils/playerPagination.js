@@ -1,4 +1,4 @@
-export const PLAYER_PAGE_SIZE = 40;
+export const PLAYER_PAGE_SIZE = 15;
 
 // A page may contain no visible matches after client-side filters. Advance by
 // fetched rows, not visible rows, and keep the next-page action available.
