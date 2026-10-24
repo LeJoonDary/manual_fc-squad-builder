@@ -2106,9 +2106,9 @@ function renderChemistryPeopleGroups(count, groupSizes) {
 }
 
 function getChemistryEntityName(card, key) {
-  if (key === 'club') {
-    const club = unwrapRelation(card?.clubs) ?? unwrapRelation(card?.club);
-    if (typeof club?.name === 'string' && club.name.trim()) return club.name.trim();
+  if (key === 'club' || key === 'league') {
+    const entity = unwrapRelation(card?.[`${key}s`]) ?? unwrapRelation(card?.[key]);
+    if (typeof entity?.name === 'string' && entity.name.trim()) return entity.name.trim();
   }
   const candidates = key === 'nation'
     ? ['nation', 'nationName', 'nation_name', 'nationality']
@@ -2127,7 +2127,7 @@ function getChemistryEntityKey(card, groupKey, entityId) {
     : `${groupKey}:name:${name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US')}`;
 }
 
-function getChemistryEntityLogo(card, key) {
+function getChemistryEntityLogo(card, key, entityId) {
   const candidates = key === 'nation'
     ? ['nation_flag_url', 'nationFlagUrl', 'flag_url', 'flagUrl']
     : key === 'league'
@@ -2135,9 +2135,13 @@ function getChemistryEntityLogo(card, key) {
       : ['club_logo_url', 'clubLogoUrl', 'club_badge_url', 'team_logo_url'];
   const field = candidates.find((candidate) => typeof card?.[candidate] === 'string' && card[candidate].trim());
   if (field) return card[field].trim();
-  if (key === 'club') {
-    const club = unwrapRelation(card?.clubs) ?? unwrapRelation(card?.club);
-    return typeof club?.logo_url === 'string' ? club.logo_url.trim() : '';
+  if (key === 'club' || key === 'league') {
+    const entities = [
+      unwrapRelation(card?.[`${key}s`]), unwrapRelation(card?.[key]),
+      affiliationCatalog[`${key}s`].find(entity => String(entity.id) === String(entityId)),
+    ];
+    const entity = entities.find(entity => typeof entity?.logo_url === 'string' && entity.logo_url.trim());
+    return entity?.logo_url.trim() ?? '';
   }
   return '';
 }
@@ -2146,6 +2150,7 @@ function getChemistryGroupRows(group) {
   const result = calculateChemistry(getChemistrySquad(), getManagerChemistryBonus());
   const cards = new Map();
   const names = new Map();
+  const logos = new Map();
   [...document.querySelectorAll('.slot')].forEach((slot) => {
     const card = squad[slot.dataset.position]?.card;
     if (!card || !isCardInSlotPosition(card, slot.dataset.position)) return;
@@ -2153,6 +2158,8 @@ function getChemistryGroupRows(group) {
     if (group.key === 'club' && (player.isIcon || player.isHero)) return;
     if (group.key === 'league' && player.isIcon) return;
     const key = String(player[group.key + 'Id']);
+    const logo = getChemistryEntityLogo(card, group.key, key);
+    if (logo) logos.set(key, logo);
     if (group.key !== 'club' || !cards.has(key)) {
       cards.set(key, card);
       names.set(key, getChemistryEntityName(card, group.key));
@@ -2166,7 +2173,7 @@ function getChemistryGroupRows(group) {
   return Object.entries(result.groupCounts[group.key])
     .map(([id, count]) => ({
       id, count, name: names.get(id) ?? id,
-      logo: getChemistryEntityLogo(cards.get(id), group.key),
+      logo: logos.get(id) || getChemistryEntityLogo(cards.get(id), group.key, id),
       level: group.thresholds.filter((threshold) => count >= threshold).length,
     }))
     .sort((a, b) => b.level - a.level || b.count - a.count || a.name.localeCompare(b.name, 'ko'));
@@ -2202,10 +2209,13 @@ function renderChemistryBreakdown() {
           item.innerHTML = `<span class="chemistry-identity"><span class="chemistry-mark">${group.key === 'nation' ? '⚑' : group.key === 'league' ? '◉' : '⬢'}</span><span><span class="chemistry-row-name" title="${escapeHtml(row.name)}">${escapeHtml(row.name)}</span><small>${row.count} players</small></span></span><span class="chemistry-people-groups" aria-label="${group.groupSizes.join('-')} player groups, ${Math.min(row.count, group.groupSizes.reduce((total, size) => total + size, 0))} active">${peopleGroups}</span><span class="chemistry-diamonds is-level-${row.level}" aria-label="${row.level} chemistry points">${diamonds}</span>`;
           if (row.logo) {
             const mark = item.querySelector('.chemistry-mark');
+            const fallback = mark.textContent;
             const image = document.createElement('img');
+            image.alt = row.name;
+            image.loading = 'lazy';
+            if (group.key !== 'nation') image.className = 'chemistry-entity-logo w-full h-full max-w-[26px] max-h-[26px] object-contain filter drop-shadow';
+            image.addEventListener('error', () => { mark.textContent = fallback; }, { once: true });
             image.src = row.logo;
-            image.alt = '';
-            image.addEventListener('error', () => image.remove());
             mark.replaceChildren(image);
           }
         }

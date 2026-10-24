@@ -2,10 +2,10 @@ import { expect, test } from 'vitest';
 import { fetchPlayerCards, PLAYER_CARD_SELECT } from './playerCards.js';
 import { PLAYER_LIST_SELECT } from './playerCatalog.js';
 
-test('card queries only request supported club and league columns', () => {
+test('card queries include club and league logos', () => {
   for (const select of [PLAYER_CARD_SELECT, PLAYER_LIST_SELECT]) {
-    expect(select.match(/clubs\s*\(([^)]+)\)/)[1].replace(/\s/g, '')).toBe('id,name');
-    expect(select.match(/leagues\s*\(([^)]+)\)/)[1].replace(/\s/g, '')).toBe('id,name');
+    expect(select.match(/clubs\s*\(([^)]+)\)/)[1].replace(/\s/g, '')).toBe('id,name,logo_url');
+    expect(select.match(/leagues\s*\(([^)]+)\)/)[1].replace(/\s/g, '')).toBe('id,name,logo_url');
   }
 });
 

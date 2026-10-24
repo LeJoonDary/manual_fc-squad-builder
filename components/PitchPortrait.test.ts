@@ -7,10 +7,10 @@ import { createSquadEntry } from '../utils/squadLock';
 
 test.each([
   ['special_base_icon', true], ['special_base_hero', true], ['special_base_hall_of_fut', true],
-  ['special_hall_of_fut', true], ['special_base_hall_of_fut_promo', false],
+  ['special_hall_of_fut', true], ['special_base_hall_of_fut_promo', true],
   ['gold', true], ['silver', true], ['bronze', true], ['  GOLD  ', true],
   ['special_future_icon', false], ['special_future_hero', false],
-  ['special_base_icon_promo', false], ['special_base_hero_promo', false],
+  ['special_base_icon_promo', true], ['special_base_hero_promo', true],
   ['special_world_tour', false], ['', false], [undefined, false],
 ])('portrait layout for %s is consistent on master and pitch cards', (version, headshot) => {
   const card = { version, image_url: '/player.png' };
@@ -20,6 +20,16 @@ test.each([
     expect(portrait.getAttribute('loading')).toBe('eager');
     expect(portrait.getAttribute('decoding')).toBe('async');
     expect(portrait.getAttribute('fetchpriority')).toBe('high');
+  }
+});
+
+test.each([
+  ['SPECIAL_HEADSHOT', true], ['special_headshot', true], ['HEADSHOT', true],
+  ['SPECIAL', false], [undefined, false], [null, false], [123, false],
+])('DB card type %s selects the same portrait layout on both surfaces', (card_type, headshot) => {
+  const card = { version: 'special_world_tour', card_type, image_url: '/player.png' };
+  for (const node of [PlayerCard({ card }), createPitchMiniCard(card)]) {
+    expect(node.querySelector('.ea-card-portrait')!.classList.contains('ea-card-portrait--headshot')).toBe(headshot);
   }
 });
 

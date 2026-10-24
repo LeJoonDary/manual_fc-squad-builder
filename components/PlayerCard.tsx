@@ -4,11 +4,16 @@ import { normalizePlaystyles } from '../utils/normalizePlaystyles.js';
 import { createPlaystyleIcons } from './PlaystyleIcons.js';
 import { getCardBackground } from '../utils/cardBackground.js';
 
-// Exact versions only: promo Icons/Heroes must retain the action-shot layout.
-const HEADSHOT_VERSIONS = [
-  'special_base_icon', 'special_base_hero', 'special_base_hall_of_fut', 'special_hall_of_fut',
-  'gold', 'silver', 'bronze',
-];
+// Shared by catalog and pitch cards; preserve the base families alongside DB-tagged headshots.
+function isHeadshotCard(card: Record<string, any>): boolean {
+  const version = typeof card.version === 'string' ? card.version.toLowerCase().trim() : '';
+  const cardType = typeof card.card_type === 'string' ? card.card_type.toUpperCase() : '';
+  return ['gold', 'silver', 'bronze'].includes(version)
+    || version.includes('base_icon')
+    || version.includes('base_hero')
+    || version.includes('hall_of_fut')
+    || cardType.includes('HEADSHOT');
+}
 
 const unwrap = (value: any) => Array.isArray(value) ? value[0] : value;
 const element = (tag: string, className: string, text?: unknown): any => {
@@ -108,10 +113,7 @@ export function PlayerCard({ card, styles = [], catalog = {}, createReviewButton
     canvas.append(positions);
   }
   if (card.image_url) {
-    const isHeadshotCard = HEADSHOT_VERSIONS.includes(
-      typeof card.version === 'string' ? card.version.toLowerCase().trim() : '',
-    );
-    const portrait = image(`ea-card-portrait${isHeadshotCard ? ' ea-card-portrait--headshot' : ''}`,
+    const portrait = image(`ea-card-portrait${isHeadshotCard(card) ? ' ea-card-portrait--headshot' : ''}`,
       card.image_url, card.name || 'Player', prioritizePortrait, true);
     portrait.addEventListener('error', () => portrait.remove(), { once: true });
     // Anchor to the entire face so the portrait can extend behind the name.
