@@ -1137,7 +1137,7 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 .alternative-player:disabled { opacity: .4; cursor: not-allowed; }
 .alternative-dialog { width: min(1100px, 92vw); max-height: 80vh; overflow: auto; background: #101b24; color: #eef6ff; border: 1px solid #385365; border-radius: 16px; padding: 24px; }
 .alternative-dialog::backdrop { background: #000a; }
-.alternative-dialog.swap-player-dialog { padding: 0; background: #0b111e; }
+.alternative-dialog.swap-player-dialog { padding: 0; background: #0b111e; scrollbar-gutter: stable; }
 .swap-modal-header { position: sticky; top: 0; z-index: 30; padding: 24px; background: #0b111e; border-bottom: 1px solid #1e293bcc; }
 .swap-modal-header h2 { margin-bottom: 0; }
 .swap-modal-body { padding: 24px; }
@@ -1158,8 +1158,14 @@ body.is-squad-active .app-header-inner { height: 52px; min-height: 0; }
 .alternative-loading { grid-column: 1 / -1; min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; }
 .alternative-spinner { width: 40px; height: 40px; border: 4px solid #385365; border-top-color: #34d399; border-radius: 50%; animation: alternative-spin .8s linear infinite; }
 @keyframes alternative-spin { to { transform: rotate(360deg); } }
-.alternative-results > .browser-player-card { animation: alternative-appear .2s ease-out; }
-@keyframes alternative-appear { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+/* Keep the hit target and scroll extent stationary, including during entry. */
+.alternative-results > .browser-player-card { animation: alternative-appear .2s ease-out; transform: none; border: 1px solid transparent; box-shadow: inset 0 0 0 2px transparent; transition: box-shadow .15s ease-out; }
+.alternative-results > .browser-player-card:hover,
+.alternative-results > .browser-player-card:focus-visible { transform: none; border: 1px solid transparent; box-shadow: inset 0 0 0 2px #22d3ee; outline: none; }
+@keyframes alternative-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .alternative-results > .browser-player-card { animation: none; transition: none; }
+}
 .alternative-result { display: block; position: relative; min-height: 210px; width: 100%; text-align: left; padding: 12px; background: #1b303e center / cover; color: inherit; border: 1px solid #426077; border-radius: 8px; cursor: pointer; }
 .alternative-result .pitch-mini-content { width: 100%; height: 100%; min-height: 185px; }
 .alternative-result:hover, .alternative-result:focus-visible { border-color: #8eeac0; background: #244439; }
@@ -1640,13 +1646,18 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .browser-player-card .browser-player-stat-value { color: #f8fafc; }
 
 /* Footer stays outside the pitch/sidebar area and reserves its own viewport space. */
-.site-footer { display: flex; flex: 0 0 auto; flex-direction: column; align-items: center; justify-content: center; gap: 8px; width: 100%; max-width: 1600px; margin: 16px auto 0; padding: 12px 0 8px; border-top: 1px solid rgb(31 41 55 / 50%); text-align: center; line-height: 1.5; }
-.site-footer nav { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 24px; color: #9ca3af; font-size: 12px; }
-.site-footer-notice { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; color: #6b7280; font-size: 11px; }
-.site-footer nav > span, .site-footer .footer-separator { color: #374151; }
+/* Reserve the reclaimed vertical space for the squad, not page-bottom padding. */
+.app-shell.is-squad-active { padding-bottom: 4px; }
+.app-shell.is-squad-active .squad-content,
+.app-shell.is-squad-active .pitch-column { margin-bottom: 0; padding-bottom: 0; }
+.app-shell.is-squad-active .squad-workspace { margin-bottom: 4px; padding-bottom: 0; }
+.site-footer { display: flex; flex: 0 0 auto; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; margin: 6px auto 0; padding: 4px 16px 6px; border-top: 1px solid rgb(255 255 255 / 5%); text-align: center; line-height: 1.5; }
+.site-footer nav { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; color: #71717a; font-size: 10px; font-weight: 400; line-height: 1; }
+.site-footer .footer-disclaimer { min-width: 0; max-width: 42rem; margin: 0 auto; color: #71717a; font-size: 9.5px; line-height: 1.25; overflow-wrap: break-word; user-select: none; }
+.site-footer .footer-copyright { margin: 0; padding-top: 2px; color: #71717a; font-size: 9.5px; line-height: 1; letter-spacing: -.05em; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; user-select: none; }
+.site-footer nav > span { color: #3f3f46; user-select: none; }
 .site-footer button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; transition: color 150ms ease; }
-.site-footer button:hover { color: #fff; }
-.site-footer button[data-legal-tab="contact"]:hover { color: #00df82; }
+.site-footer button:hover { color: #d4d4d8; }
 .site-footer button:focus-visible, .legal-modal :focus-visible { outline: 2px solid #38bdf8; outline-offset: 4px; }
 .legal-modal { position: fixed; inset: 0; z-index: 50; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 16px; border: 0; background: transparent; color: #d1d5db; }
 .legal-modal[open] { display: flex; align-items: center; justify-content: center; }
@@ -1681,7 +1692,6 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .legal-modal-body.custom-scrollbar { scrollbar-width: thin; scrollbar-color: #374151 #0b131e; }
 .legal-modal-body.custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .legal-modal-body.custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
-@media (max-width: 767px) { .site-footer nav > span, .site-footer .footer-separator { display: none; } }
 
 @media (min-width: 768px) {
   .app-shell.is-squad-active .pitch { height: var(--pitch-height, 1040px); }
@@ -2003,3 +2013,200 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   box-shadow: 0 0 4px #fcd34db3;
 }
 .pitch-mini-playstyles .playstyle-icon img { width: 100%; height: 100%; object-fit: contain; }
+
+/* One master canvas; only the flexible portrait row is shortened (15px).
+   The fixed identity/info/stats rows and 48px external dock keep their sizing. */
+.ea-card-frame { display: block; position: relative; width: 100%; aspect-ratio: 250 / 361.2; min-width: 0; }
+.ea-card-frame > .ea-card-canvas { position: absolute; inset: 0 auto auto 0; width: 250px; height: 361.2px; transform: scale(var(--card-scale, 1)); transform-origin: top left; }
+.ea-card-face {
+  --face-height: 313.2px;
+  --face-font: 14px;
+  --face-name: 18px;
+  --face-rating: 38px;
+  --face-emblem: 28.75px;
+  --face-trait: 24px;
+  --face-gap: 6px;
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 28px 24px var(--stats-row-height, 48px);
+  width: 100%;
+  height: var(--face-height);
+  min-width: 0;
+  padding: 6px 0 0;
+  color: #f8fafc;
+  font-size: var(--face-font);
+  line-height: 1.15;
+}
+.ea-card-top { position: relative; z-index: 20; isolation: isolate; min-height: 0; width: 100%; }
+.ea-card-column { position: absolute; inset: 12px auto auto 6px; z-index: 20; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 18%; min-width: 0; }
+.ea-card-rating { font-size: var(--face-rating); font-weight: 900; line-height: 1; color: #fde68a; }
+/* Keep the larger master type, with a 13/14px screen-size floor on scaled cards. */
+.ea-card-position { font-size: max(16px, calc(13px / var(--card-scale, 1))); font-weight: 900; letter-spacing: -.025em; color: #fff; line-height: 1; white-space: nowrap; }
+@media (min-width: 640px) {
+  .ea-card-position { font-size: max(18px, calc(14px / var(--card-scale, 1))); }
+}
+.ea-card-emblem { display: block; width: var(--face-emblem); height: var(--face-emblem); object-fit: contain; flex-shrink: 0; }
+.ea-card-column > .ea-card-emblem { margin-top: 2px; }
+.ea-card-emblem--nation { width: var(--face-flag, var(--face-emblem)); height: auto; border-radius: 2px; box-shadow: 0 1px 2px #0003; }
+/* Compensate for the pitch canvas scale: these are visible screen pixels. */
+.pitch-card-frame .ea-card-face { --face-emblem: calc(16px / var(--card-scale, 1)); --face-flag: calc(18px / var(--card-scale, 1)); }
+.pitch-card-frame .ea-card-column > .ea-card-emblem { margin-top: calc(4px / var(--card-scale, 1) - 2px); }
+@media (min-width: 640px) {
+  .pitch-card-frame .ea-card-face { --face-emblem: calc(18px / var(--card-scale, 1)); --face-flag: calc(20px / var(--card-scale, 1)); }
+}
+.ea-card-emblem-label { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 3px; border: 1px solid #cbd5e144; border-radius: 3px; background: #020617a6; font-size: .8em; line-height: 1; }
+/* Size from width and the source aspect ratio, never a contain-fit height box.
+   The face clips the enlarged shoulders while foreground text stays above it. */
+.ea-card-portrait { opacity: 1; transition: opacity 150ms ease; }
+.ea-card-portrait.is-loading { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .ea-card-portrait { transition: none; }
+}
+.ea-card-face .ea-card-portrait { position: absolute; top: -62px; left: -2.5%; right: auto; bottom: auto; z-index: 10; width: 105%; max-width: none; height: auto; max-height: none; transform: scale(1.15); transform-origin: center top; pointer-events: none; filter: drop-shadow(0 10px 16px rgba(0,0,0,.85)); }
+.ea-card-face .ea-card-portrait--headshot { top: 5px; left: 54%; width: 82%; max-width: 82%; height: auto; max-height: 82%; object-fit: contain; transform: translateX(-50%); filter: drop-shadow(0 6px 10px rgba(0,0,0,.7)); }
+.ea-card-secondary { position: absolute; top: 0; right: 0; z-index: 20; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px; max-width: 65%; }
+.ea-card-secondary > span { padding: 2px 4px; border: 1px solid #2dd4bf99; border-radius: 3px; background: #042f2ee6; color: #99f6e4; font-size: .85em; font-weight: 700; }
+.ea-card-face .ea-card-name { text-shadow: 0 2px 4px rgba(0,0,0,.9); color: #fff; display: block; align-self: center; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; font-size: var(--face-name); font-weight: 800; }
+.ea-card-trait-dock .ea-card-playstyles { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: center; justify-items: center; gap: 4px; width: 100%; min-width: 0; padding: 0; margin: 0; }
+.ea-card-playstyles .playstyle-icon { position: relative; isolation: isolate; width: 28px; height: 28px; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.ea-card-playstyles .playstyle-icon::before { content: ''; position: absolute; inset: 4px; z-index: -1; transform: rotate(45deg); border: 1px solid #94a3b8; border-radius: 1px; background: #1e293b; }
+.ea-card-playstyles .playstyle-icon.is-plus::before { border-color: #fbbf24; background: #78350f; }
+.ea-card-playstyles .playstyle-icon.is-empty { pointer-events: none; }
+.ea-card-playstyles .playstyle-icon.is-empty::before { border: 1px solid #ffffff33; background: transparent; box-shadow: none; }
+.ea-card-playstyles .playstyle-icon img, .ea-card-playstyles .playstyle-icon svg { width: 100%; height: 100%; object-fit: contain; opacity: 1; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
+.ea-card-info { display: flex; align-items: center; justify-content: space-between; gap: 3px; width: 100%; min-width: 0; white-space: nowrap; font-weight: 700; }
+.ea-card-info { color: #f1f5f9; padding: 2px 8px; font-size: 11px; }
+.ea-card-star { color: #fbbf24; }
+.ea-card-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: center; width: 94%; margin: 0 auto 4px; padding: 4px; gap: 2px; border: 1px solid #33415599; border-radius: 8px; background: #0a1128e6; }
+.ea-card-stats > span { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.ea-card-stats small { color: #94a3b8; font-size: var(--stat-label-size, 10px); font-weight: 600; }
+.ea-card-frame .ea-card-stats b { color: #fff; font-size: var(--stat-value-size, 20px); font-weight: 900; letter-spacing: -.025em; filter: drop-shadow(0 1px 1px #0008); }
+.ea-card-top > .ea-card-review { position: absolute; bottom: 2px; right: 0; z-index: 20; }
+.browser-player-card > .browser-player-content { padding: 4px; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.browser-player-card > .browser-player-footer,
+.browser-player-card.has-card-background > .browser-player-footer { gap: 0; padding: 0 10px 6px; margin-top: 0; }
+.browser-player-metadata { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 6px; }
+
+/* Pitch framing shares the master; stat text compensates for canvas scaling. */
+.pitch .slot.occupied { width: 130px; min-width: 130px; height: auto; gap: 0; }
+.pitch .slot.occupied > .slot-card-body { box-sizing: content-box; width: 130px; min-width: 0; height: auto; min-height: 0; aspect-ratio: auto; padding: 0; }
+@media (min-width: 640px) {
+  .pitch .slot.occupied { width: 136px; min-width: 136px; }
+  .pitch .slot.occupied > .slot-card-body { width: 136px; }
+}
+/* Clear inherited pitch shadows so both surfaces use the master styling. */
+.ea-card-frame .ea-card-face, .ea-card-frame .ea-card-face * { text-shadow: none; }
+.ea-card-frame .ea-card-face .ea-card-name { text-shadow: 0 2px 4px rgba(0,0,0,.9); }
+
+/* Background belongs only to the card box; the trait dock is its sibling. */
+.ea-card-face { isolation: isolate; overflow: hidden; border: 1px solid #ffffff26; border-radius: 12px; background: #172744; }
+.ea-card-background { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; object-position: center top; pointer-events: none; }
+.ea-card-face::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(#0003, #0001 55%, #020617a6); pointer-events: none; }
+.ea-card-secondary { right: 6px; }
+.ea-card-trait-dock { display: flex; align-items: center; justify-content: center; width: 94%; margin: 3px auto; padding: 6px; border: 1px solid #ffffff26; border-radius: 8px; background: #0a0f1de6; backdrop-filter: none; }
+.browser-player-card, .browser-player-card.has-card-background { min-height: 0; background: transparent; border-color: transparent; box-shadow: none; }
+.pitch .slot.occupied > .slot-card-body { border-width: 0; background: transparent; }
+.ea-card-canvas, .ea-card-canvas * { text-shadow: none; }
+.ea-card-canvas .ea-card-face .ea-card-name { text-shadow: 0 2px 4px rgba(0,0,0,.9); }
+/* Keep all readable foreground content above the full-face portrait. */
+.ea-card-face > .ea-card-name,
+.ea-card-face > .ea-card-info,
+.ea-card-face > .ea-card-stats { position: relative; z-index: 20; }
+.ea-card-trait-dock,
+.ea-card-trait-dock .ea-card-playstyles,
+.ea-card-trait-dock .playstyle-icon { opacity: 1; filter: none; backdrop-filter: none; }
+/* The 48px dock includes its borders and margins; price follows immediately. */
+.browser-player-card > .browser-player-content { padding-bottom: 0; }
+.pitch .slot.occupied > .card-price-badge { margin-top: 4px; align-self: center; }
+/* Screen-size stat typography remains readable after the master is scaled. */
+.ea-card-stats { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-variant-numeric: tabular-nums; }
+.ea-card-stats > span { line-height: 1.1; }
+.pitch-card-frame {
+  --stat-label-size: calc(7px / var(--card-scale, .46));
+  --stat-value-size: calc(10.5px / var(--card-scale, .46));
+  --stats-row-height: 52px;
+  backface-visibility: hidden;
+}
+.pitch-card-frame > .ea-card-canvas { transform: translateZ(0) scale(var(--card-scale, 1)); backface-visibility: hidden; }
+@media (min-width: 640px) {
+  .pitch-card-frame {
+    --stat-label-size: calc(7px / var(--card-scale, .5));
+    --stat-value-size: calc(11px / var(--card-scale, .5));
+  }
+}
+
+/* Pitch overlays: keep the shared master face and its data unchanged. */
+.pitch .slot.occupied > .slot-card-top { width: 100%; margin-bottom: 3px; align-items: center; }
+.pitch .slot.occupied > .slot-card-top .slot-card-actions { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); width: 100%; justify-items: center; }
+.pitch .slot.occupied > .slot-card-top .slot-card-actions > button { justify-self: center; width: 100%; max-width: 22px; height: 24px; }
+.pitch-card-frame .ea-card-secondary { top: calc(6px / var(--card-scale, .52) - 6px); right: calc(6px / var(--card-scale, .52)); z-index: 20; }
+.pitch-card-frame .ea-card-secondary > span {
+  padding: calc(2px / var(--card-scale, .52)) calc(6px / var(--card-scale, .52));
+  font-size: calc(8.5px / var(--card-scale, .52)); font-weight: 900; line-height: 1.1; letter-spacing: -.025em;
+  color: #fff; border: 1px solid #ffffff33; border-radius: 4px; background: #020617cc; box-shadow: 0 1px 2px #0005;
+}
+.pitch .slot-card-body > .pitch-chemistry-badge {
+  left: -6px; right: auto; top: auto; bottom: calc(100% * 48 / 361.2 + 12px); transform: translate(-50%, 50%); z-index: 30;
+  width: 24px; height: 24px; padding: 3px; border-radius: 50%; border: 1px solid #334155cc;
+  background: #020617d9; box-shadow: 0 4px 6px #0005; display: flex; align-items: center; justify-content: center;
+}
+@media (min-width: 640px) {
+  .pitch-card-frame .ea-card-secondary > span { font-size: calc(9.5px / var(--card-scale, .544)); }
+  .pitch .slot-card-body > .pitch-chemistry-badge { left: -8px; bottom: calc(100% * 48 / 361.2 + 13px); width: 26px; height: 26px; }
+}
+/* Secondary positions use a narrow right rail on every master card. */
+.ea-card-face .ea-card-secondary { flex-direction: column; flex-wrap: nowrap; align-items: flex-end; gap: 2px; max-width: none; top: 2px; right: 6px; }
+.ea-card-face .ea-card-secondary > span { color: #fff; font-weight: 900; letter-spacing: -.025em; border-color: #ffffff33; background: #020617cc; }
+.ea-card-face > .ea-card-identity { position: relative; z-index: 20; display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-width: 0; padding: 0 6px; }
+.ea-card-face .ea-card-identity .ea-card-name { width: auto; min-width: 0; flex: 0 1 auto; font-weight: 900; letter-spacing: -.025em; text-shadow: 0 2px 4px rgba(0,0,0,.95); filter: drop-shadow(0 2px 4px rgba(0,0,0,.95)); }
+.ea-card-identity > .ea-card-review.is-compact { position: static; flex: 0 0 auto; margin: 0; width: 14px; height: 14px; min-width: 14px; min-height: 14px; padding: 0; border-radius: 3px; font-size: 9px; }
+.ea-card-short-info { display: none; }
+.ea-card-skills { color: #fff; font-weight: 900; }
+.pitch-card-frame .ea-card-identity .ea-card-name { font-size: calc(12px / var(--card-scale, .52)); }
+.pitch-card-frame .ea-card-identity > .ea-card-review { width: calc(14px / var(--card-scale, .52)); height: calc(14px / var(--card-scale, .52)); }
+.pitch-card-frame .ea-card-info { font-size: calc(10px / var(--card-scale, .52)); color: #e2e8f0; line-height: 1.1; }
+.pitch-card-frame .ea-card-full-info { display: none; }
+.pitch-card-frame .ea-card-short-info { display: inline; }
+@media (min-width: 640px) {
+  .pitch-card-frame .ea-card-identity .ea-card-name { font-size: calc(13px / var(--card-scale, .544)); }
+  .pitch-card-frame .ea-card-info { font-size: calc(11px / var(--card-scale, .544)); }
+}
+/* Edge badges are siblings of the clipped face, centered on its right border. */
+.ea-card-frame .ea-card-canvas > .ea-card-secondary {
+  position: absolute; top: calc(var(--secondary-top, 14px) / var(--card-scale, 1)); right: 0; left: auto;
+  transform: translateX(50%); z-index: 30; display: flex; flex-direction: column; flex-wrap: nowrap;
+  align-items: center; gap: calc(4px / var(--card-scale, 1)); max-width: none;
+}
+.ea-card-frame .ea-card-canvas > .ea-card-secondary > span {
+  padding: calc(2px / var(--card-scale, 1)) calc(var(--secondary-padding, 10px) / var(--card-scale, 1));
+  font-size: calc(var(--secondary-font, 12.5px) / var(--card-scale, 1)); line-height: 1.1; font-weight: 900;
+  letter-spacing: -.025em; color: #fff; border: 1px solid var(--secondary-border, #34d399cc);
+  border-radius: var(--secondary-radius, 6px); background: #020617e6; box-shadow: var(--secondary-shadow, 0 4px 8px #0008);
+}
+/* Only the portrait face clips artwork; list shells must expose edge badges. */
+.browser-player-card { overflow: visible; }
+@media (min-width: 640px) {
+  .ea-card-frame { --secondary-font: 13px; }
+  .ea-card-frame.pitch-card-frame { --secondary-font: 9px; }
+}
+/* Change only edge-badge sizing in pitch mode; preserve the common anchor. */
+.ea-card-frame.pitch-card-frame {
+  --secondary-top: 8px;
+  --secondary-padding: 6px;
+  --secondary-border: #34d399b3;
+  --secondary-radius: 4px;
+  --secondary-shadow: 0 2px 4px #0006;
+}
+@media (max-width: 639px) {
+  .ea-card-frame.pitch-card-frame { --secondary-font: 8.5px; }
+}
+/* Contrast treatment adds no padding or size to the left identity column. */
+.ea-card-face .ea-card-column { isolation: isolate; }
+.ea-card-column::before {
+  content: ''; position: absolute; inset: -4px -8px -4px -6px; z-index: -1;
+  border-radius: 8px 0 0 8px; pointer-events: none;
+  background: linear-gradient(to right, #0006, #00000026 55%, transparent);
+}
+.ea-card-frame .ea-card-column .ea-card-rating { filter: drop-shadow(0 2px 4px rgba(0,0,0,.95)); }
+.ea-card-frame .ea-card-column .ea-card-position { filter: drop-shadow(0 2px 3px rgba(0,0,0,.95)); }
+.ea-card-frame .ea-card-column .ea-card-emblem { filter: brightness(1.05) drop-shadow(0 2px 4px rgba(0,0,0,.95)); }

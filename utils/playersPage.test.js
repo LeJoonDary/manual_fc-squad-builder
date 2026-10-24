@@ -2,14 +2,18 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, expect, test, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ fetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ fetch: vi.fn(), preload: vi.fn() }));
+vi.mock('./preloadImages.ts', () => ({ preloadImages: mocks.preload }));
 vi.mock('./playerFilters.js', async original => ({ ...(await original()), fetchPlayersPage: mocks.fetch }));
 vi.mock('./playstyleFilters.js', async original => ({ ...(await original()), fetchPlaystyleOptions: async () => [] }));
 vi.mock('./affiliations.js', async original => ({ ...(await original()), fetchAffiliations: async () => ({ leagues: [], nations: [], clubs: [] }) }));
 vi.mock('../components/AutoBuildSettings.jsx', () => ({ mountAutoBuildSettings: () => () => {} }));
+vi.mock('../components/GuideModal.jsx', () => ({ mountGuideControl: () => {} }));
+vi.mock('../components/Analytics.jsx', () => ({ mountAnalytics: () => {} }));
 
 const rows = (offset, count) => Array.from({ length: count }, (_, i) => ({
   id: offset + i + 1, overall: 90, price: 1000, version: 'Gold',
+  image_url: `/player-${offset + i + 1}.png`,
   players: { name: `Player ${offset + i + 1}` }, card_positions: [{ is_primary: true, positions: { name: 'ST' } }],
 }));
 const button = () => document.querySelector('#players-load-more');
@@ -17,6 +21,7 @@ const count = () => document.querySelector('#players-result-count').textContent;
 
 beforeAll(async () => {
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   vi.stubEnv('VITE_SUPABASE_URL', '');
   vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
   document.documentElement.innerHTML = readFileSync('index.html', 'utf8');
@@ -27,6 +32,11 @@ test('appends 40 at a time, retries in place, resets search and ignores stale pa
   mocks.fetch.mockImplementation(async (_db, _filters, { offset }) => ({ rows: rows(offset, Math.min(40, 93 - offset)), total: 93 }));
   document.querySelector('[data-tab="players"]').click();
   await vi.waitFor(() => expect(count()).toBe('Showing 40 of 93'));
+  expect(mocks.preload).toHaveBeenLastCalledWith(expect.arrayContaining([
+    expect.objectContaining({ card: expect.objectContaining({ image_url: '/player-1.png' }) }),
+    expect.objectContaining({ card: expect.objectContaining({ image_url: '/player-8.png' }) }),
+  ]));
+  expect(mocks.preload.mock.calls.at(-1)[0]).toHaveLength(8);
   const firstCard = document.querySelector('#players-grid').firstElementChild;
   expect(button().textContent).toBe('Load More (40 Players)');
   let resolvePage;

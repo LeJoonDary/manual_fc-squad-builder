@@ -98,7 +98,7 @@ export const STAGE_TIMEOUT_MS = 9500;
 export const MAX_BACKTRACK_ITERATIONS = 50000;
 // Explicit solver and pitch display fields; omit full card-detail joins.
 export const AUTO_BUILD_CANDIDATE_SELECT = `
-  id,player_id,overall,price,version,card_type,club_id,league_id,background_url,sm,wf,preferred_foot,body_type,
+  id,player_id,overall,price,version,card_type,club_id,league_id,image_url,background_url,sm,wf,preferred_foot,body_type,
   players!inner(id,name,long_name,nation_id,gender,height,nations(name,flag_url)),
   clubs(id,name),leagues(id,name),card_positions(is_primary,positions(name)),
   card_roles(role_level,roles(position,role_name)),

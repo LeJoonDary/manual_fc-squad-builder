@@ -19,11 +19,14 @@ const setup = extra => createSquadSlots({ mount, getCurrent: () => current, load
 const click = action => mount.querySelector(`[data-action="${action}"]`).click();
 
 test('saves detached snapshots, survives remount and loads all state', () => {
+  current.players.LW.card.image_url = '/saved-portrait.png';
   setup(); click('slot-1');
   current.players.LW.card.name = 'Changed';
+  current.players.LW.card.image_url = '/changed-portrait.png';
   setup(); click('slot-1');
   expect(loadSquad).toHaveBeenCalledOnce();
   expect(current.players.LW.card.name).toBe('Player 0');
+  expect(current.players.LW.card.image_url).toBe('/saved-portrait.png');
   expect(current.players.LW.isLocked).toBe(true);
   expect(current.manager.nation).toBe('Brazil');
   expect(mount.querySelector('[data-action="slot-1"]').getAttribute('aria-pressed')).toBe('true');

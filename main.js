@@ -7,14 +7,14 @@ import { createCardReviewButtons } from './components/CardReviewButton.js';
 import { createPitchExcludeButton, syncPitchExclusions } from './components/PitchExcludeButton.js';
 import { excludedCardVersionsStore } from './utils/excludedCardVersions.js';
 import { createPitchChemistryBadge } from './components/PitchChemistryBadge.js';
-import { createPitchMiniCard } from './components/PitchMiniCard.js';
+import { createPitchMiniCard } from './components/PitchMiniCard.tsx';
 import { createSquadSlots } from './components/SquadSlots.js';
+import { preloadImages } from './utils/preloadImages.ts';
 import { createAlternativePlayerModal } from './components/AlternativePlayerModal.js';
 import { createMobileFiltersToggle } from './components/MobileFiltersToggle.js';
 import { resetMobileZoom } from './utils/mobileZoom.js';
 import { fetchAlternativeCards, suggestAlternativePlayers, suggestAlternativePlayersAsync, getSwapConflicts } from './utils/alternativePlayers.js';
 import { createSwapConflictModal } from './components/SwapConflictModal.js';
-import { getCardBackground } from './utils/cardBackground.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { loadPlayerDetail } from './utils/playerCatalog.js';
 import { createPlayerPagination, PLAYER_PAGE_SIZE } from './utils/playerPagination.js';
@@ -316,6 +316,7 @@ function applyAutoBuildResult(result, request) {
     return { slot, card, isOwned: player.isOwned === true, isLocked: previous?.isLocked === true };
   });
   const nextManager = autoBuildManagerState(result.manager, affiliationCatalog, placements.map(item => item.card));
+  preloadImages(placements);
   closeModal();
   managerModal.hidden = true;
   dragOriginPosition = null;
@@ -334,6 +335,7 @@ function applyAutoBuildResult(result, request) {
 function applyFormation(formation, savedPlayers = null) {
   closeModal();
   const nextSquad = savedPlayers ?? reassignFormation(squad, formation.slots);
+  preloadImages(Object.values(nextSquad));
   Object.keys(squad).forEach(key => delete squad[key]);
   const pitch = document.querySelector('.pitch');
   pitch.querySelectorAll('.slot').forEach(slot => slot.remove());
@@ -880,6 +882,8 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
     const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean);
     const previousCount = playersPager.state.cards.length;
     if (!playersPager.complete(ticket, rows, cards, total)) return;
+    // Warm the first visible rows before creating any result card DOM.
+    preloadImages(playersPager.state.cards.slice(previousCount, previousCount + 8).map(card => ({ card })));
     if (append && previousCount) {
       for (const card of playersPager.state.cards.slice(previousCount)) {
         playerGrid.append(buildPlayerCard(card, { onActivate: playerDetail.open }));
@@ -1394,6 +1398,7 @@ async function loadModalPlayerPage() {
     const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean)
       .filter(card => !selectedCardIds.has(String(card.id)));
     if (!modalPager.complete(ticket, rows, cards)) return;
+    preloadImages(cards.slice(0, 8).map(card => ({ card })));
     modalDescription.textContent = `${normalizePosition(position)} · ${modalPager.state.cards.length} Players · ${modalPositionLabels[modalPositionMode]}`;
     renderPlayerList(modalPager.state.cards);
     if (!modalPager.state.cards.length) renderMessage(modalPager.state.hasMore
@@ -1692,6 +1697,7 @@ function resetSlot(slot, shouldUpdate = true) {
 }
 
 function placeCard(slot, card, shouldUpdate = true, state = {}) {
+  preloadImages([{ card }]);
   const name = getCardName(card);
   const chemistryCard = toChemistryPlayerCard(card);
   slot.dataset.card = name;
@@ -1700,14 +1706,12 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   squad[slot.dataset.position].isOwned = state.isOwned === true;
   slot.draggable = true;
   slot.classList.add('occupied');
-  const backgroundUrl = getCardBackground(card);
   slot.style.removeProperty('background-image');
   slot.classList.remove('is-locked');
   slot.replaceChildren();
   const body = document.createElement('span');
   body.className = 'slot-card-body';
-  body.style.backgroundImage = backgroundUrl
-    ? `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)), url(${JSON.stringify(backgroundUrl)})` : 'none';
+
   const top = document.createElement('span');
   top.className = 'slot-card-top';
   slot.append(top, body);

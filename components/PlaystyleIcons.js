@@ -49,6 +49,7 @@ export function createPlaystyleIcons(styles, className = '', maxCount = Infinity
     button.className = `playstyle-icon${style.isPlus ? ' is-plus' : ''}`;
     button.setAttribute('aria-label', label);
     const img = document.createElement('img');
+    img.referrerPolicy = 'no-referrer';
     img.src = url;
     img.alt = '';
     img.width = 32;
