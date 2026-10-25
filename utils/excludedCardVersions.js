@@ -6,7 +6,6 @@ export function validateMaxFemalePlayers(value = 'any') {
 
 export const EXCLUDED_CARD_VERSIONS_STORAGE_KEY = 'fc-squad-builder:excluded-card-versions:v1';
 
-// A separate storage key prevents legacy player IDs from becoming card bans.
 // Normalized cards retain the original card_versions row in raw.
 export function getCardVersionId(card) {
   const raw = card?.raw ?? card;
@@ -62,20 +61,14 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
       [id, typeof names?.[id] === 'string' && names[id].trim() ? names[id] : `Card ${id}`]))),
   });
   let state = makeState();
-  try {
-    const saved = JSON.parse(getStorage()?.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY) ?? 'null');
-    if (saved) state = makeState(saved.excludedCardVersionIds, saved.excludedCardVersionNames, saved.squadOvrRange, saved.maxIcons, saved.maxHeroes, saved.maxFemalePlayers ?? (saved.genderFilter === 'men' ? 'exclude' : 'any'));
-  } catch { /* Invalid or unavailable storage must not prevent the app from opening. */ }
+  // Exclusions live only in memory. Remove old persisted values at app startup.
+  for (const key of [EXCLUDED_CARD_VERSIONS_STORAGE_KEY, 'fc-squad-builder:excluded-players:v1']) {
+    try { getStorage()?.removeItem(key); }
+    catch { /* Blocked storage must not prevent in-memory exclusions from working. */ }
+  }
 
   function update(ids, names, range = state.squadOvrRange, maxIcons = state.maxIcons, maxHeroes = state.maxHeroes, maxFemalePlayers = state.maxFemalePlayers) {
     const next = makeState(ids, names, range, maxIcons, maxHeroes, maxFemalePlayers);
-    try {
-      const storage = getStorage();
-      if (!storage) throw new Error('Storage unavailable');
-      storage.setItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      throw new Error('Unable to save exclusions. Check your browser storage and settings.');
-    }
     state = next;
     listeners.forEach(listener => listener());
   }

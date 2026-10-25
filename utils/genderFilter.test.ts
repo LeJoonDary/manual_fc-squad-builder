@@ -10,14 +10,15 @@ it.each([["Men's Football", false], ['male', false], ["Women's Football", true],
   }
 });
 
-it('persists, validates, clears and migrates female limits without changing other settings', () => {
+it('validates and clears female limits in memory and starts fresh after reload', () => {
   let saved = JSON.stringify({ genderFilter: 'men', maxIcons: 0, maxHeroes: 2 });
   const storage = () => ({ getItem: () => saved, setItem: (_key, value) => { saved = value; } });
   const store = createExcludedCardVersionsStore(storage);
-  expect(store.getState()).toMatchObject({ maxFemalePlayers: 'exclude', maxIcons: 0, maxHeroes: 2 });
+  expect(store.getState()).toMatchObject({ maxFemalePlayers: 'any', maxIcons: null, maxHeroes: null });
   for (const value of ['exclude', 1, 2, 3, 4, 5, 'any']) {
     store.setMaxFemalePlayers(value);
-    expect(createExcludedCardVersionsStore(storage).getState().maxFemalePlayers).toBe(value);
+    expect(store.getState().maxFemalePlayers).toBe(value);
+    expect(createExcludedCardVersionsStore(storage).getState().maxFemalePlayers).toBe('any');
   }
   expect(() => store.setMaxFemalePlayers(6)).toThrow();
   store.setMaxFemalePlayers(1);

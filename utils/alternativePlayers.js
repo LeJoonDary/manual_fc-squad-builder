@@ -176,22 +176,68 @@ export async function suggestAlternativePlayersAsync(options, signal) {
   }
   return rankAlternatives(qualified, options.targetPosition);
 }
-// Fetch all position candidates so the adaptive OVR cutoff uses the complete eligible pool.
-export async function fetchAlternativeCards(db, position, signal) {
+// One joined request per OVR band; chemistry and manager evaluation never fetch.
+export async function fetchAlternativeCards(db, position, signal, {
+  minOverall = 80, maxOverallExclusive, maxPrice = Infinity, minPrice = '',
+} = {}) {
   if (!db) throw new Error('Supabase connection is not configured.');
-  const rows = [];
-  for (let offset = 0; ; offset += 500) {
-    signal?.throwIfAborted();
-    let query = db.from('card_versions').select(`${PLAYER_CARD_SELECT},
+  signal?.throwIfAborted();
+  if (maxPrice < 0) return [];
+  let query = db.from('card_versions').select(`${PLAYER_CARD_SELECT},
       slot_positions:card_positions!inner(positions!inner(name))
-    `).eq('slot_positions.positions.name', normalizeChemistryPosition(position))
-      .order('id').range(offset, offset + 499);
-    if (signal) query = query.abortSignal(signal);
-    const { data, error } = await query;
-    if (error) throw error;
-    rows.push(...(data ?? []));
-    if (!data?.length || data.length < 500) return rows;
+    `, { count: 'exact' }).eq('slot_positions.positions.name', normalizeChemistryPosition(position))
+    .gte('overall', minOverall);
+  if (maxOverallExclusive != null) query = query.lt('overall', maxOverallExclusive);
+  // Preserve the existing convention that a missing price costs zero.
+  if (Number.isFinite(maxPrice)) query = query.or(`price.lte.${maxPrice},price.is.null`);
+  if (minPrice !== '' && minPrice != null && Number(minPrice) > 0) query = query.gte('price', Number(minPrice));
+  query = query.order('overall', { ascending: false }).order('id');
+  if (signal) query = query.abortSignal(signal);
+  const { data, error, count } = await query;
+  if (error) throw error;
+  signal?.throwIfAborted();
+  // Never silently lose manager-compatible candidates at the server row cap.
+  if (count != null && count > (data?.length ?? 0)) {
+    throw new Error('Alternative candidates exceed the API row limit. Narrow the price filters and retry.');
   }
+  return data ?? [];
 }
 
+export async function loadAlternativePlayers(db, options, normalizeCard, signal) {
+  signal?.throwIfAborted();
+  const prepared = prepareSwap(options);
+  if (!prepared) return [];
+  const fixed = Object.fromEntries(Object.entries(options.squad).filter(([position]) => position !== options.targetPosition));
+  const remaining = options.maxBudget > 0
+    ? options.maxBudget - calculateSquadTotalCost(fixed) : Infinity;
+  const maxPrice = Math.min(remaining, options.maxPrice !== '' && options.maxPrice != null
+    ? Number(options.maxPrice) : Infinity);
+  const queryOptions = { maxPrice, minPrice: options.minPrice };
+  const qualified = [];
+  // Reuse the same fixed-squad deltas and manager search for both candidate bands.
+  const evaluateBatch = async rows => {
+    let lastYield = performance.now();
+    for (const raw of rows) {
+      signal?.throwIfAborted();
+      const card = normalizeCard(raw);
+      const candidate = card && prepared.eligible(card);
+      const row = candidate && prepared.evaluate(candidate);
+      if (row) qualified.push(row);
+      if (performance.now() - lastYield >= 8) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        lastYield = performance.now();
+      }
+    }
+    signal?.throwIfAborted();
+  };
+  const high = await fetchAlternativeCards(db, options.targetPosition, signal, queryOptions);
+  await evaluateBatch(high);
+  if (qualified.length <= 2) {
+    const lower = await fetchAlternativeCards(db, options.targetPosition, signal, {
+      ...queryOptions, minOverall: 75, maxOverallExclusive: 80,
+    });
+    await evaluateBatch(lower);
+  }
+  return rankAlternatives(qualified, options.targetPosition);
+}
 

@@ -68,12 +68,12 @@ test.each(['exclude', 1, 2, 3, 4, 5])('counts %s everywhere and removes only the
   expect(excludedCardVersionsStore.getState()).toMatchObject({ maxFemalePlayers: 'any', excludedCardVersionIds: ['123'], maxIcons: 0, maxHeroes: 2 });
 });
 
-test.each(['.modal-header .exclusion-clear', '.exclusion-bulk-actions .exclusion-clear', '.settings-inline-clear'])('clears gender-only exclusions with %s and persists Any', async selector => {
+test.each(['.modal-header .exclusion-clear', '.exclusion-bulk-actions .exclusion-clear', '.settings-inline-clear'])('clears gender-only exclusions with %s without persistence', async selector => {
   await act(async () => excludedCardVersionsStore.setMaxFemalePlayers(3));
   if (selector.includes('bulk')) await click($('#exclusion-tab-excluded'));
   await click($(selector));
   expect(excludedCardVersionsStore.getState().maxFemalePlayers).toBe('any');
-  expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).maxFemalePlayers).toBe('any');
+  expect(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).toBeNull();
   expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (0)');
   expect($('.excluded-card-versions-toggle').textContent).toContain('Excluded Cards (0)');
   expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (0)');
@@ -95,7 +95,7 @@ test('debounces independent name search and toggles only the selected version wi
   expect(buttons[0].textContent).toBe('✅ Excluded');
   expect(buttons[1].textContent).toBe('🚫 Exclude');
   expect($('#exclusion-tab-excluded').textContent).toContain('(1)');
-  expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).excludedCardVersionIds).toEqual(['100']);
+  expect(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).toBeNull();
   await click($('#exclusion-tab-excluded'));
   expect(fetchExcludedCardDetails).not.toHaveBeenCalled(); // Reuse search details.
   expect($('#excluded-card-versions-list').textContent).toContain('TOTY');
@@ -173,11 +173,11 @@ test('loads saved details, supports partial/all selection, bulk unban and reset'
   expect($('.exclusion-bulk-actions button').disabled).toBe(true);
   await click($('.exclusion-clear'));
   expect($('#exclusion-tab-excluded').textContent).toContain('(0)');
-  expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).excludedCardVersionIds).toEqual([]);
+  expect(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).toBeNull();
   expect($('#excluded-card-versions-list').textContent).toContain('No cards currently excluded.');
 });
 
-test('database failures still allow removal and storage failures retain selected cards', async () => {
+test('database and storage failures do not prevent in-memory removal', async () => {
   await act(async () => excludedCardVersionsStore.ban(100, 'Saved card'));
   fetchExcludedCardDetails.mockRejectedValue(new Error('offline'));
   await click($('#exclusion-tab-excluded'));
@@ -185,10 +185,9 @@ test('database failures still allow removal and storage failures retain selected
   await click($('.exclusion-select-all input'));
   const storage = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('quota'); });
   await click($('.exclusion-clear'));
-  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual(['100']);
-  expect($('.exclusion-action-message[role="alert"]').textContent).toContain('Unable to save exclusions');
+  expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
+  expect(storage).not.toHaveBeenCalled();
   storage.mockRestore();
-  await click($('.exclusion-bulk-actions button'));
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
 });
 
@@ -275,7 +274,7 @@ test.each([
   expect($('.exclusion-ovr-rule')).toBeNull();
   expect(excludedCardVersionsStore.getState().squadOvrRange).toEqual({ min: 45, max: 99 });
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual(['123']);
-  expect(JSON.parse(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).squadOvrRange).toEqual({ min: 45, max: 99 });
+  expect(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).toBeNull();
   expect([...document.querySelectorAll('.exclusion-ovr-chips button[aria-pressed]')].every(button => button.getAttribute('aria-pressed') === 'false')).toBe(true);
 });
 

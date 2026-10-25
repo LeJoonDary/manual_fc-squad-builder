@@ -13,7 +13,7 @@ import { preloadImages, preloadCardImages } from './utils/preloadImages.ts';
 import { createAlternativePlayerModal } from './components/AlternativePlayerModal.js';
 import { createMobileFiltersToggle } from './components/MobileFiltersToggle.js';
 import { resetMobileZoom } from './utils/mobileZoom.js';
-import { fetchAlternativeCards, suggestAlternativePlayers, suggestAlternativePlayersAsync, getSwapConflicts } from './utils/alternativePlayers.js';
+import { loadAlternativePlayers, suggestAlternativePlayers, getSwapConflicts } from './utils/alternativePlayers.js';
 import { createSwapConflictModal } from './components/SwapConflictModal.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { loadPlayerDetail } from './utils/playerCatalog.js';
@@ -160,13 +160,12 @@ const swapConflictModal = createSwapConflictModal({ rebuild: () => document.quer
 const alternativeModal = createAlternativePlayerModal({
   renderCard: (card, onActivate) => buildPlayerCard(card, { actionLabel: 'Swap Player', onActivate, showMetaScore: false }),
   async load(position, signal) {
-    const rows = await fetchAlternativeCards(supabase, position, signal);
-    return suggestAlternativePlayersAsync({
-      squad, targetPosition: position, candidates: rows.map(normalizeBrowserPlayerCard).filter(Boolean),
+    return loadAlternativePlayers(supabase, {
+      squad, targetPosition: position,
       manager: getManagerChemistryBonus(), settings: excludedCardVersionsStore.getState(),
       minChemistryTarget: getSwapChemistryTarget(),
       maxBudget: targetBudget, minPrice: filters.minPrice, maxPrice: filters.maxPrice,
-    }, signal);
+    }, normalizeBrowserPlayerCard, signal);
   },
   async select(position, card, signal, bestManager) {
     if (getSwapConflicts(squad, position, excludedCardVersionsStore.getState()).length) throw new Error('Squad settings conflict. Close and reopen Swap.');

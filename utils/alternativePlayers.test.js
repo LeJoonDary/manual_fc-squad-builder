@@ -7,16 +7,16 @@ const squad = { LCB: { card: card('current') }, RCB: { card: card('fixed') } };
 const suggest = (candidates, extra = {}) => suggestAlternativePlayers({ squad, targetPosition: 'LCB', candidates, minChemistryTarget: 0, limit: 10, ...extra });
 
 describe('alternative players', () => {
-  it('lowers OVR to 75 only below five eligible 80+ cards, after position and budget filters', async () => {
+  it('lowers OVR to 75 only at two or fewer qualified 80+ cards, after position and budget filters', async () => {
     const high = Array.from({ length: 5 }, (_, i) => card(`high${i}`, { overall: 80, price: 100 }));
     const lower = [card('lower', { overall: 75, price: 100 }), card('silver', { overall: 74, price: 100 })];
     const options = { squad, targetPosition: 'LCB', minChemistryTarget: 0, maxBudget: 100 };
     for (const run of [suggestAlternativePlayers, suggestAlternativePlayersAsync]) {
       expect((await run({ ...options, candidates: [...high, ...lower] })).map(row => row.card.id))
         .toEqual(high.map(row => row.id));
-      const result = await run({ ...options, candidates: [...high.slice(0, 4), ...lower,
+      const result = await run({ ...options, candidates: [...high.slice(0, 2), ...lower,
         card('expensive', { overall: 99, price: 101 }), card('wrong', { overall: 99, position: 'GK' })] });
-      expect(result.map(row => row.card.id)).toEqual([...high.slice(0, 4).map(row => row.id), 'lower']);
+      expect(result.map(row => row.card.id)).toEqual([...high.slice(0, 2).map(row => row.id), 'lower']);
     }
   });
   it('sorts regular cards before both heroes and icons, then OVR descending and price ascending', () => {
@@ -108,13 +108,13 @@ describe('alternative players', () => {
     budgetSquad.RCB.isOwned = true;
     expect(suggest(candidates, { squad: budgetSquad, maxBudget: 1000 })).toHaveLength(3);
   });
-  it('does not lower OVR based on chemistry failures when five high-rated candidates exist', async () => {
+  it('falls back when the high-rated pool fails chemistry', async () => {
     const candidates = Array.from({ length: 210 }, (_, i) => card(`unlinked${i}`, {
       overall: 99, pac: 99, nation_id: 2, league_id: 2, club_id: 2,
     }));
     candidates.push(card('late', { overall: 75, pac: 60 }));
     const result = await suggestAlternativePlayersAsync({ squad, targetPosition: 'LCB', candidates, minChemistryTarget: 4 });
-    expect(result).toEqual([]);
+    expect(result.map(row => row.card.id)).toEqual(['late']);
     const controller = new AbortController();
     controller.abort();
     await expect(suggestAlternativePlayersAsync({ squad, targetPosition: 'LCB', candidates }, controller.signal)).rejects.toThrow();
@@ -161,16 +161,17 @@ describe('alternative players', () => {
     const fixedSquad = { ...squad, RCB: { card: card('fixed', { version: 'Icon' }) } };
     expect(suggest([card('new', { version: 'Icon' })], { squad: fixedSquad, settings: { maxIcons: 1 } })).toEqual([]);
   });
-  it('loads beyond the first page before ranking', async () => {
-    const ranges = [];
+  it('fetches one OVR-filtered joined candidate batch without a pagination loop', async () => {
+    const calls = [];
     const db = { from: () => {
       const query = {
         select: () => query, eq: () => query, order: () => query,
-        range: (start, end) => { ranges.push([start, end]); return Promise.resolve({ data: start === 0 ? Array.from({ length: 500 }, (_, i) => card(String(i))) : [card('last')] }); },
+        gte: (...args) => { calls.push(args); return query; },
+        then: resolve => { calls.push('fetch'); return Promise.resolve(resolve({ data: [card('candidate')], count: 1 })); },
       };
       return query;
     } };
-    expect(await fetchAlternativeCards(db, 'LCB')).toHaveLength(501);
-    expect(ranges).toEqual([[0, 499], [500, 999]]);
+    expect(await fetchAlternativeCards(db, 'LCB')).toHaveLength(1);
+    expect(calls).toEqual([['overall', 80], 'fetch']);
   });
 });
