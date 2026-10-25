@@ -325,7 +325,9 @@ def parse_card_page(url):
 
     overall = int(card.get("overall") or 80)
     preferred_foot = get_info("Foot") or {1: "Right", 2: "Left"}.get(card.get("foot"), "Right")
-    accele_type = get_info("AcceleRATE") or "Controlled"
+    clean_full = soup.get_text(separator=" ", strip=True)
+    m_acc = re.search(r"AcceleRATE(?:\s*2\.0)?\s*[:\n\s\-]*(Mostly\s+Explosive|Controlled\s+Explosive|Explosive|Mostly\s+Lengthy|Controlled\s+Lengthy|Lengthy|Controlled)", clean_full, re.IGNORECASE)
+    accele_type = " ".join(w.capitalize() for w in m_acc.group(1).split()) if m_acc else "Controlled"
     body_type = get_info("Body Type") or "Average Medium"
 
     raw_wf = get_info("Weak Foot") or ""

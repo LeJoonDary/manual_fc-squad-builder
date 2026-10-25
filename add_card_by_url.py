@@ -431,6 +431,10 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None, 
         soup, card, custom_version, custom_bg, custom_type, is_force_headshot=force_headshot
     )
 
+    body_type = get_info("Body Type") or "Average Medium"
+    clean_full = soup.get_text(separator=" ", strip=True)
+    m_acc = re.search(r"AcceleRATE(?:\s*2\.0)?\s*[:\n\s\-]*(Mostly\s+Explosive|Controlled\s+Explosive|Explosive|Mostly\s+Lengthy|Controlled\s+Lengthy|Lengthy|Controlled)", clean_full, re.IGNORECASE)
+    accele_type = " ".join(w.capitalize() for w in m_acc.group(1).split()) if m_acc else "Controlled"
     return {
         "player_id": player_id,
         "api_id": card_api_id,
@@ -453,8 +457,8 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None, 
         "preferred_foot": preferred_foot,
         "skill_moves": sm,
         "weak_foot": wf,
-        "body_type": "High & Average+",
-        "accele_type": "Controlled",
+        "body_type": body_type,
+        "accele_type": accele_type,
         "face_stats": face_stats,
         "detail_stats": detail_stats,
     }
