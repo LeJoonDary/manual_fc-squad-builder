@@ -1,3 +1,5 @@
+import { getPlaystyleName } from './playstyleNames.js';
+
 function unwrapRelation(value) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -23,14 +25,15 @@ export function normalizePlaystyles(...records) {
   const addSource = (source, forcedPlus = null) => {
     const parsed = parsePlaystyleSource(source);
     asArray(parsed).forEach((entry) => {
-      const safeEntry = parsePlaystyleSource(entry);
+      let safeEntry = parsePlaystyleSource(entry);
       if (Array.isArray(safeEntry)) {
         safeEntry.forEach((item) => addSource(item, forcedPlus));
         return;
       }
 
+      if (typeof safeEntry === 'number') safeEntry = { id: safeEntry };
       if (typeof safeEntry === 'string') {
-        const name = safeEntry.trim();
+        const name = getPlaystyleName(safeEntry);
         const key = `${name.toLowerCase()}|${Boolean(forcedPlus)}`;
         if (name && !normalized.has(key)) normalized.set(key, { name, isPlus: Boolean(forcedPlus) });
         return;
@@ -41,9 +44,13 @@ export function normalizePlaystyles(...records) {
         safeEntry.playstyles ?? safeEntry.playStyles ?? safeEntry.play_styles ?? safeEntry.playstyle ?? safeEntry.trait,
       );
       const sourceObject = relation && typeof relation === 'object' ? relation : safeEntry;
-      const name = sourceObject.name ?? sourceObject.playstyle_name ?? sourceObject.playStyleName
-        ?? sourceObject.trait_name ?? sourceObject.label;
-      if (typeof name !== 'string' || !name.trim()) return;
+      const playstyleId = safeEntry.playstyle_id ?? safeEntry.id ?? safeEntry.playstyleId
+        ?? sourceObject.playstyle_id ?? sourceObject.id ?? sourceObject.playstyleId;
+      const name = getPlaystyleName({
+        playstyle_id: playstyleId,
+        name: sourceObject.name ?? sourceObject.playstyle_name ?? sourceObject.playStyleName
+          ?? sourceObject.trait_name ?? sourceObject.label,
+      });
 
       const rawLevel = safeEntry.level ?? sourceObject.level;
       const levelIsPlus = (typeof rawLevel === 'string' && rawLevel.toLowerCase().includes('plus'))
@@ -55,7 +62,7 @@ export function normalizePlaystyles(...records) {
       );
       const cleanName = name.trim().replace(/\+$/, '').trim();
       const plusFromName = /\+$/.test(name.trim());
-      const key = `${cleanName.toLowerCase()}|${isPlus || plusFromName}`;
+      const key = `${cleanName === 'PlayStyle' ? playstyleId ?? cleanName : cleanName.toLowerCase()}|${isPlus || plusFromName}`;
       const previous = normalized.get(key);
       normalized.set(key, {
         name: cleanName,
