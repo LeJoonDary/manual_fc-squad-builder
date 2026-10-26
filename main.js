@@ -13,7 +13,7 @@ import { preloadImages, preloadCardImages } from './utils/preloadImages.ts';
 import { createAlternativePlayerModal } from './components/AlternativePlayerModal.js';
 import { createMobileFiltersToggle } from './components/MobileFiltersToggle.js';
 import { resetMobileZoom } from './utils/mobileZoom.js';
-import { loadAlternativePlayers, suggestAlternativePlayers, getSwapConflicts } from './utils/alternativePlayers.js';
+import { loadAlternativePlayers, suggestAlternativePlayers, getSwapConflicts, assertUniqueSwapPlayer } from './utils/alternativePlayers.js';
 import { createSwapConflictModal } from './components/SwapConflictModal.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { loadPlayerDetail } from './utils/playerCatalog.js';
@@ -181,6 +181,7 @@ const alternativeModal = createAlternativePlayerModal({
     });
     const slot = document.querySelector(`.slot[data-position="${position}"]`);
     if (!slot || !valid.length) throw new Error('This player is no longer eligible');
+    assertUniqueSwapPlayer(squad, position, detail);
     const chosenManager = valid[0].bestManager;
     if (chosenManager) {
       managerState = autoBuildManagerState({
@@ -1502,6 +1503,7 @@ function normalizePlayerCard(row) {
 
   return {
     id: cardVersion.id,
+    player_id: cardVersion.player_id ?? player.id,
     version: cardVersion.version,
     card_type: cardVersion.card_type,
     overall: cardVersion.overall,

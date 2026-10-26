@@ -8,6 +8,31 @@ const female = card => /women|female|^f$|^0$/i.test(String(card.gender ?? ''));
 const swapIcon = card => isCardIcon(card) || [card?.league, card?.club, card?.leagues?.name, card?.clubs?.name]
   .some(name => /^icons?$/i.test(String(name ?? '').trim()));
 
+// Card version IDs must never be used as person IDs.
+export function getSwapPlayerId(card) {
+  for (const source of [card, card?.raw]) {
+    const player = Array.isArray(source?.players) ? source.players[0] : source?.players;
+    for (const value of [source?.player_id, source?.playerId, source?.player?.id, player?.id]) {
+      if (value != null && String(value).trim() !== '') return String(value).trim();
+    }
+  }
+  return null;
+}
+
+export function getOccupiedSwapPlayerIds(squad, targetPosition) {
+  return new Set(Object.entries(squad)
+    .filter(([position, entry]) => position !== targetPosition && entry?.card)
+    .map(([, entry]) => getSwapPlayerId(entry.card))
+    .filter(id => id !== null));
+}
+
+export function assertUniqueSwapPlayer(squad, targetPosition, card) {
+  const playerId = getSwapPlayerId(card);
+  if (playerId !== null && getOccupiedSwapPlayerIds(squad, targetPosition).has(playerId)) {
+    throw new Error('This player is already in another squad slot. Choose a different player.');
+  }
+}
+
 export function getSwapConflicts(squad, targetPosition, settings = {}) {
   const fixed = Object.entries(squad).filter(([position, entry]) => position !== targetPosition && entry?.card);
   return [['Hero', settings.maxHeroes, isCardHero], ['Icon', settings.maxIcons, swapIcon]]
@@ -53,6 +78,7 @@ function prepareSwap({ squad, targetPosition, manager = null, settings = {}, min
   if (!squad[targetPosition]?.card) return null;
   const entries = Object.entries(squad).filter(([, entry]) => entry?.card);
   const fixed = entries.filter(([position]) => position !== targetPosition);
+  const occupiedPlayerIds = getOccupiedSwapPlayerIds(squad, targetPosition);
   const used = new Set(entries.map(([, entry]) => String(entry.card.id)));
   const excluded = new Set((settings.excludedCardVersionIds ?? []).map(String));
   const remaining = maxBudget > 0 ? maxBudget - calculateSquadTotalCost(Object.fromEntries(fixed)) : Infinity;
@@ -88,6 +114,8 @@ function prepareSwap({ squad, targetPosition, manager = null, settings = {}, min
   const seen = new Set();
   return {
     eligible(card) {
+      const playerId = getSwapPlayerId(card);
+      if (playerId !== null && occupiedPlayerIds.has(playerId)) return null;
       // Lightweight eligibility and affordability run before chemistry or scoring.
       const positions = card.alt_positions ?? card.secondary_positions ?? card.altPositions ?? [];
       const altPositions = Array.isArray(positions) ? positions : String(positions).replace(/[{}"\[\]]/g, '').split(',');

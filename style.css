@@ -1523,44 +1523,36 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .excluded-card-versions-manager .settings-inline-clear:hover { color: #fb7185; background: #f43f5e1a; }
 .settings-inline-clear:focus-visible { outline: 2px solid #6ee7b7; outline-offset: 2px; }
 
-.priority-positions { margin-top: 8px; border: 1px solid #334155; border-radius: 10px; background: #0f172a99; padding: 10px; }
-.priority-positions-trigger { width: 100%; text-align: left; }
-.priority-positions-header { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; color: #fcd34d; font-size: 12px; }
-.priority-position-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.priority-position-chips button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; background: #1e293b; color: #cbd5e1; border: 1px solid #475569; border-radius: 6px; font-weight: 700; }
-.priority-position-chips button[aria-pressed="true"] { background: #f59e0b; color: #0f172a; border-color: #fbbf24; }
-.priority-position-rank { border-radius: 50%; background: #0f172a; color: #fbbf24; min-width: 16px; text-align: center; font-size: 10px; }
-.priority-positions p { color: #94a3b8; font-size: 11px; line-height: 1.5; margin: 10px 0 0; }
-.priority-positions button:disabled { opacity: .5; cursor: not-allowed; }
+
+
+
+
+
+
+
+
+
 
 .auto-build-settings .tactical-roles-trigger,
-.auto-build-settings .priority-positions-trigger {
-  width: 100%; background: rgb(30 41 59 / .8); color: #fff; font-weight: 500;
-  padding: 10px 16px; border: 1px solid rgb(51 65 85 / .6); border-radius: 8px;
-  display: flex; align-items: center; justify-content: space-between; transition: background .15s;
-}
+
 .auto-build-settings .tactical-roles-trigger:hover,
-.auto-build-settings .priority-positions-trigger:hover { background: #1e293b; }
+
 .auto-build-settings .settings-trigger-label { color: #fff; }
-.priority-positions-header button { color: #cbd5e1; background: #1e293b; border: 1px solid #334155; border-radius: 6px; padding: 4px 8px; }
+
 
 .auto-build-settings .auto-build-modal-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; margin-bottom: 0; }
-.auto-build-settings .priority-positions { margin-top: 10px; padding: 0; border: 0; background: transparent; }
+
 .auto-build-settings .excluded-card-versions-toggle,
 .auto-build-settings .tactical-roles-trigger,
-.auto-build-settings .priority-positions-trigger {
- width: 100%; min-height: 42px; padding: 10px 16px; border: 1px solid rgb(51 65 85 / .6); border-radius: 8px;
- background: rgb(30 41 59 / .8); color: #fff; font-size: 14px; font-weight: 500; text-align: left;
- display: flex; align-items: center; justify-content: space-between; transition: background .15s;
-}
+
 .auto-build-settings .excluded-card-versions-toggle:hover,
 .auto-build-settings .tactical-roles-trigger:hover,
-.auto-build-settings .priority-positions-trigger:hover { background: rgb(51 65 85 / .8); }
+
 .auto-build-settings .settings-trigger-content { display: flex; align-items: center; justify-content: flex-start; gap: 10px; min-width: 0; }
 .auto-build-settings .settings-trigger-icon { font-size: 16px; flex: none; }
 .auto-build-settings .settings-trigger-label { color: #fff; font-size: 14px; font-weight: 500; text-align: left; }
-.auto-build-settings .priority-positions-chevron { color: #94a3b8; font-size: 12px; }
-.auto-build-settings #priority-position-chips { margin-top: 10px; padding: 12px; background: #0f172a99; border: 1px solid #334155; border-radius: 8px; }
+
+
 .tactical-active-tooltip { position: fixed; transform: translate(-50%,-100%); z-index: 50; padding: 4px 10px; background: #020617f2; color: #fff; font-size: 11px; font-weight: 700; border-radius: 6px; box-shadow: 0 8px 20px #0008; border: 1px solid #334155; pointer-events: none; user-select: none; white-space: nowrap; }
 
 .auto-build-settings .settings-inline-control > button:first-child { padding-right: 48px; }
@@ -1576,16 +1568,16 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .auto-build-settings > .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .auto-build-settings .budget-summary { padding: 0; border: 0; background: transparent; }
 .auto-build-divider { width: 100%; border: 0; border-top: 1px solid #1e293b; margin: 4px 0; }
-.auto-build-settings .priority-positions { margin-top: 0; }
+
 .auto-build-settings .auto-build-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px; }
-.priority-position-rank { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: none; font-weight: 800; background: var(--rank-color); color: #fff; box-shadow: 0 1px 3px color-mix(in srgb, var(--rank-color) 30%, transparent); }
-.priority-position-rank.rank-rose { --rank-color: #f43f5e; }
-.priority-position-rank.rank-orange { --rank-color: #f97316; }
-.priority-position-rank.rank-amber { --rank-color: #fbbf24; color: #020617; }
-.priority-position-rank.rank-emerald { --rank-color: #10b981; }
-.priority-position-rank.rank-sky { --rank-color: #0ea5e9; }
-.priority-position-rank.rank-indigo { --rank-color: #4f46e5; }
-.priority-position-rank.rank-purple { --rank-color: #9333ea; }
+
+
+
+
+
+
+
+
 
 /* Keep dense card metadata in normal flow, above the reserved stats footer. */
 .browser-player-positions, .pitch-mini-position-group { display: flex; flex-wrap: nowrap; align-items: center; gap: 3px; flex: 0 0 auto; min-width: 0; }
@@ -1771,11 +1763,11 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   .chemistry-panel .budget-input-wrap > span { flex-shrink: 0; }
   .chemistry-panel .auto-build-settings .excluded-card-versions-toggle,
   .chemistry-panel .auto-build-settings .tactical-roles-trigger,
-  .chemistry-panel .auto-build-settings .priority-positions-trigger { min-width: 0; padding-inline: 12px; }
+
   .chemistry-panel .auto-build-settings .settings-inline-control > button:first-child { padding-right: 48px; }
   .chemistry-panel .settings-inline-control > .settings-inline-clear { right: 12px; }
   .chemistry-panel .auto-build-settings .settings-trigger-label { font-size: 12px; }
-  .chemistry-panel .auto-build-settings .priority-positions-chevron { flex-shrink: 0; }
+
   .chemistry-panel .auto-build-range { padding-inline: 4px; font-size: 12px; }
   .chemistry-panel .auto-build-range output { white-space: nowrap; }
   .chemistry-panel .auto-build-actions > button { padding-inline: 12px; font-size: 12px; overflow-wrap: anywhere; }

@@ -1,26 +1,16 @@
 import { expect, test } from 'vitest';
 import { FORMATIONS } from './formations.js';
-import { effectivePriorityGroups } from './priorityGroups.js';
 import { normalizeChemistryPosition } from './chemistry';
 import { calculateMetaScore, fetchCandidatePlayers, generateOptimalSquad, getDynamicCandidatesForSlot,
-  getPositionBudgetGroup, getPriorityPriceCap, passesNewCandidateFilter } from './autoBuildUtils';
+  getPositionBudgetGroup, calculateDynamicSlotCap, buildDynamicFillOrder, passesNewCandidateFilter } from './autoBuildUtils';
 import { createCandidateMockDb } from '../scripts/mocks/candidateDb.js';
 
 const positions = FORMATIONS.find(f => f.name === '4-3-1-2')!.slots.map(s => s.position);
-test('wingless formation compresses priorities and expands the first three open anchors', () => {
-  expect(effectivePriorityGroups([], positions)).toEqual(['ST','CAM','CM','CB','FB','GK']);
-  const caps = { LS: .525, RS: .455, CAM: .275, LCM: .20, CM: .20, RCM: .20,
-    LB: .13, RB: .13, LCB: .16, RCB: .16, GK: .10 };
-  for (const [slot, ratio] of Object.entries(caps)) {
-    const cap = getPriorityPriceCap(slot, 1000000, [], positions);
-    expect(cap).toBeCloseTo(ratio * 1000000);
-    expect(passesNewCandidateFilter({ price: cap, pac: 90, phy: 70, def: 70 }, slot, 1000000, [], positions)).toBe(true);
-    expect(passesNewCandidateFilter({ price: cap + 1, pac: 90, phy: 70, def: 70 }, slot, 1000000, [], positions)).toBe(false);
-  }
-  expect(effectivePriorityGroups(['WING','MID','ST','CB'], positions)).toEqual(['CM','ST','CB']);
-  expect(getPriorityPriceCap('LCM', 1000000, ['WING','MID','ST','CB'], positions)).toBe(525000);
-  expect(getPriorityPriceCap('LS', 1000000, ['WING','MID','ST','CB'], positions)).toBe(250000);
-  expect(getPriorityPriceCap('GK', 1000000, ['MID'], positions)).toBe(180000);
+test('fixed spine preserves every formation slot, with midfield before defenders', () => {
+  expect(buildDynamicFillOrder(positions.map(position => ({ position }))).map(s => s.position))
+    .toEqual(['LS', 'RS', 'CAM', 'LCM', 'CM', 'RCM', 'LCB', 'RCB', 'LB', 'RB', 'GK']);
+  expect(buildDynamicFillOrder(['GK', 'CB', 'CM', 'LW', 'CAM', 'ST'].map(position => ({ position }))).map(s => s.position))
+    .toEqual(['ST', 'CAM', 'LW', 'CM', 'CB', 'GK']);
 });
 
 test.each(['ST','CF','LS','RS'])('striker %s needs physicality 70 from 500k', pos => {
@@ -44,17 +34,17 @@ test('primary and alternate positions receive identical scores in the assigned s
 test('candidate query uses compressed caps and the largest open repeated-slot cap', async () => {
   const db = createCandidateMockDb([]);
   await fetchCandidatePlayers(1000000, '4-3-1-2', false, db as any);
-  expect(db.calls.find(c => c.positions.includes('CM')).max).toBe(200000);
-  expect(db.calls.find(c => c.positions.includes('CB')).max).toBe(160000);
+  expect(db.calls.find(c => c.positions.includes('CM')).max).toBe(1000000);
+  expect(db.calls.find(c => c.positions.includes('CB')).max).toBe(1000000);
   const locked = { LS: { card: { id: 1, price: 1000 }, isLocked: true, isOwned: true } };
   const second = createCandidateMockDb([]);
   await fetchCandidatePlayers(1000000, '4-3-1-2', false, second as any, { currentSquad: locked });
-  expect(second.calls.find(c => c.positions.includes('ST')).max).toBeCloseTo(525000);
+  expect(second.calls.find(c => c.positions.includes('ST')).max).toBe(1000000);
 });
 
-test('dynamic pool retains 100 eligible candidates', () => {
+test('dynamic pool retains 25 base candidates', () => {
   const pool = Array.from({ length: 110 }, (_, i) => ({ id: String(i), playerKey: String(i), price: 1000, metaScore: 110 - i }));
-  expect(getDynamicCandidatesForSlot('ST', [], pool as any, 100000)).toHaveLength(100);
+  expect(getDynamicCandidatesForSlot('ST', [], pool as any, 100000)).toHaveLength(25);
 });
 
 test('wingless 4-3-1-2 builds 33 chemistry with physical strikers and all per-slot caps intact', async () => {
@@ -70,7 +60,7 @@ test('wingless 4-3-1-2 builds 33 chemistry with physical strikers and all per-sl
   expect(result.totalChemistry).toBe(33);
   expect(result.squad).toHaveLength(11);
   for (const player of result.squad) {
-    expect(player.price).toBeLessThanOrEqual(getPriorityPriceCap(player.slotPosition, 1000000, [], positions));
+    expect(player.price).toBeLessThanOrEqual(calculateDynamicSlotCap(player.slotPosition, positions, 1000000, false, 1000000, positions));
     expect(Number(player.id)).toBeLessThan(100);
   }
 });
@@ -86,6 +76,6 @@ test('second striker becomes the first open anchor with locked teammates', async
     1000000, 33, false, { currentSquad });
   expect(result.success).toBe(true);
   expect(result.totalChemistry).toBe(33);
-  expect(result.squad.find(p => p.slotPosition === 'RS')?.id).toBe('101');
+  expect(result.squad.find(p => p.slotPosition === 'RS')?.id).toBe('100');
   expect(result.squad.filter(p => p.isLocked)).toHaveLength(10);
 });

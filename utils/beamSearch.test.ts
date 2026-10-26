@@ -210,7 +210,7 @@ test('dynamic synergy promotes a partner beyond the old static top thirty', () =
   const pool = Array.from({ length: 110 }, (_, i) => prepared(100 + i, 200, 99));
   const partner = { ...prepared(300, 100, 80), clubId: anchor.clubId };
   expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)[0].id).toBe('300');
-  expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)).toHaveLength(100);
+  expect(getDynamicCandidatesForSlot('ST', [anchor] as any, [...pool, partner] as any, 5000)).toHaveLength(25);
 });
 
 

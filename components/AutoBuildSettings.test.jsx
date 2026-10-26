@@ -33,16 +33,12 @@ describe('Auto Build UI workflow', () => {
     expect(fetchCandidatePlayers.mock.lastCall[4]).not.toHaveProperty('focus');
   });
 
-  it('passes click-ordered priorities to fetching and generation', async () => {
-    await act(async () => container.querySelector('.priority-positions-trigger').click());
-    const chips = [...container.querySelectorAll('.priority-position-chips button')];
-    for (const pos of ['CB','ST','CM','GK']) await act(async () => chips.find(b => b.textContent === pos || b.textContent.startsWith(pos + ' (')).click());
+  it('removes priority controls and options', async () => {
+    expect(container.querySelector('.priority-positions')).toBeNull();
+    expect(container.textContent).not.toContain('Priority Order');
     await act(async () => button().click());
-    expect(fetchCandidatePlayers.mock.lastCall[4].keyPositions).toEqual(['CB','ST','CM','GK']);
-    expect(generateOptimalSquad.mock.lastCall[5].keyPositions).toEqual(['CB','ST','CM','GK']);
-    await act(async () => root.render(<AutoBuildSettings {...props} formation="4-2-3-1" />));
-    expect([...container.querySelectorAll('.priority-position-chips button[aria-pressed="true"]')].map(b=>b.textContent)).toEqual(expect.arrayContaining(['1CB','2ST (CF)','3CM (CDM)','4GK']));
-    expect(container.textContent).toContain('4 Selected');
+    expect(fetchCandidatePlayers.mock.lastCall[4]).not.toHaveProperty('keyPositions');
+    expect(generateOptimalSquad.mock.lastCall[5]).not.toHaveProperty('keyPositions');
   });
 
   it('passes locked owned cards unchanged and rejects an over-budget fallback', async () => {
@@ -92,7 +88,7 @@ describe('Auto Build UI workflow', () => {
     await act(async () => root.render(<AutoBuildSettings {...props} budgetSection={budgetSection} />));
     expect(container.querySelector('.auto-build-heading')).toBeNull();
     expect(container.querySelector('#auto-build-details')).toBeNull();
-    const ordered = ['.auto-build-budget', '.auto-build-range', '.excluded-card-versions-manager', '.tactical-roles-trigger', '.priority-positions', '.auto-build-actions'].map(selector => container.querySelector(selector));
+    const ordered = ['.auto-build-budget', '.auto-build-range', '.excluded-card-versions-manager', '.tactical-roles-trigger', '.auto-build-actions'].map(selector => container.querySelector(selector));
     for (let i = 1; i < ordered.length; i++) expect(ordered[i - 1].compareDocumentPosition(ordered[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(ordered[0].contains(input)).toBe(true);
     expect(budgetSection.hidden).toBe(false);
@@ -100,7 +96,6 @@ describe('Auto Build UI workflow', () => {
     expect(container.querySelector('#min-chemistry').min).toBe('20');
     input.value = '123'; input.dispatchEvent(new Event('input', { bubbles: true }));
     expect(onInput).toHaveBeenCalledOnce();
-    await act(async () => container.querySelector('.priority-positions-trigger').click());
     expect(container.querySelector('.auto-build-budget input')).toBe(input);
     expect(input.value).toBe('123');
   });
@@ -132,8 +127,8 @@ describe('Auto Build UI workflow', () => {
     await act(async () => button().click());
     expect(fetchCandidatePlayers).toHaveBeenCalledTimes(1);
     await act(async () => resolve([{ id: 1 }]));
-    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, '4-3-3', false, props.supabase, { maxFemalePlayers: 'any', currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
-    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { maxFemalePlayers: 'any', currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], keyPositions: [], squadOvrRange: { min: 45, max: 99 } });
+    expect(fetchCandidatePlayers).toHaveBeenCalledWith(1000000, '4-3-3', false, props.supabase, { maxFemalePlayers: 'any', currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 } });
+    expect(generateOptimalSquad).toHaveBeenCalledWith('4-3-3', [{ id: 1 }], 1000000, 33, true, { maxFemalePlayers: 'any', currentSquad: {}, maxIcons: null, maxHeroes: null, excludeZeroPriceCards: true, excludedCardVersionIds: [], squadOvrRange: { min: 45, max: 99 } });
     expect(props.applyAutoBuildResult).toHaveBeenCalledWith(result, { snapshot: 'snapshot', formation: '4-3-3', totalBudget: 1000000 });
     expect(button().disabled).toBe(false);
     expect(container.querySelector('[role="status"]').textContent).toContain('Squad built successfully!');

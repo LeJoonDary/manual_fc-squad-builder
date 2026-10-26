@@ -1,5 +1,4 @@
 import { safeBudgetNumber, formatBudgetNumber } from '../utils/budget.ts';
-import { PriorityPositionsSelector } from './PriorityPositionsSelector.jsx';
 import { TrashIcon } from './TrashIcon.jsx';
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -8,7 +7,6 @@ import { excludedCardVersionsStore } from '../utils/excludedCardVersions.js';
 import { fetchCandidatePlayers, generateOptimalSquad, getRemainingAutoBuildBudget } from '../utils/autoBuildUtils.ts';
 
 export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {}, getRoleOptions = () => ({}), openTacticalRoles = () => {}, clearRolesAndPlaystyles = () => {} }) {
-  const [keyPositions, setKeyPositions] = useState([]);
   const budgetHost = useRef(null);
   useEffect(() => {
     // Retain the existing input node and its budget/progress event listeners.
@@ -53,7 +51,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       const snapshot = getSquadSnapshot();
       const exclusionSnapshot = excludedCardVersionsStore.getState();
       const roleOptions = structuredClone(getRoleOptions());
-      const options = { ...roleOptions, maxFemalePlayers: exclusionSnapshot.maxFemalePlayers, maxIcons: exclusionSnapshot.maxIcons, maxHeroes: exclusionSnapshot.maxHeroes, currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], keyPositions: [...keyPositions], excludeZeroPriceCards: true };
+      const options = { ...roleOptions, maxFemalePlayers: exclusionSnapshot.maxFemalePlayers, maxIcons: exclusionSnapshot.maxIcons, maxHeroes: exclusionSnapshot.maxHeroes, currentSquad, squadOvrRange: { ...exclusionSnapshot.squadOvrRange }, excludedCardVersionIds: [...exclusionSnapshot.excludedCardVersionIds], excludeZeroPriceCards: true };
       const candidates = await fetchCandidatePlayers(totalBudget, formation, isThreeBack, supabase, options);
       const result = await generateOptimalSquad(formation, candidates, totalBudget, minChemistry, true, options);
       if (JSON.stringify(getRoleOptions()) !== JSON.stringify(roleOptions)) throw new Error('Advanced settings changed during the build. Try again.');
@@ -81,7 +79,6 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
     clearRolesAndPlaystyles();
     resetTargetBudget();
     setMinChemistry(33);
-    setKeyPositions([]);
     setFeedback(null);
   }
 
@@ -100,7 +97,6 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
       </div>
       <hr className="auto-build-divider" />
       <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><div className="settings-inline-control"><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🎯</span><span className="settings-trigger-label">Advanced Settings ({totalActivePreferences})</span></span></button>{<button disabled={totalActivePreferences === 0} type="button" className="settings-inline-clear" aria-label="Reset All Preferences" title="Reset All Preferences" onClick={event => { event.stopPropagation(); clearRolesAndPlaystyles(); refreshContext(value => value + 1); }}><TrashIcon /></button>}</div></div>
-      <PriorityPositionsSelector selectedPositions={keyPositions} onChange={setKeyPositions} disabled={isAutoBuilding} />
       <hr className="auto-build-divider" />
       <div className="auto-build-actions">
         <button type="button" className="auto-build-reset" disabled={isAutoBuilding} onClick={resetSettings}>Reset Settings</button>
