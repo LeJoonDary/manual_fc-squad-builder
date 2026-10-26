@@ -13,7 +13,7 @@ export function createPlaystyleIcons(styles, className = '', maxCount = Infinity
     const label = `${getPlaystyleName(style)}${style.isPlus ? '+' : ''}`;
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `playstyle-icon group relative inline-flex items-center justify-center${style.isPlus ? ' is-plus' : ''}`;
+    button.className = `playstyle-icon group relative inline-flex items-center justify-center cursor-default${style.isPlus ? ' is-plus' : ''}`;
     button.setAttribute('aria-label', label);
     const img = document.createElement('img');
     img.referrerPolicy = 'no-referrer';
@@ -24,7 +24,7 @@ export function createPlaystyleIcons(styles, className = '', maxCount = Infinity
     img.loading = 'lazy';
     img.addEventListener('error', () => button.remove());
     const tooltip = document.createElement('span');
-    tooltip.className = 'playstyle-icon-tooltip pointer-events-none absolute opacity-0 group-hover:opacity-100 transition-opacity duration-100';
+    tooltip.className = 'playstyle-icon-tooltip pointer-events-none absolute bottom-full mb-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-100 z-[9999] px-2 py-0.5 text-[11px] font-medium tracking-normal';
     tooltip.id = `playstyle-tooltip-${++nextId}`;
     tooltip.setAttribute('role', 'tooltip');
     tooltip.textContent = label;
