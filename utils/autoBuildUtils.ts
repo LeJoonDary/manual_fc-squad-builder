@@ -339,6 +339,7 @@ export interface GeneratedPlayer extends AutoBuildPlayer {
   card: RawCandidate;
 }
 export interface GeneratedSquad {
+  remainingBudget?: number;
   finalScore: number;
   squad: GeneratedPlayer[];
   manager: BestManagerResult | null;
@@ -1266,21 +1267,80 @@ async function generateOptimalSquadPass(
     };
     visit(initial, 0);
   }
-  // Upgrades share the search deadline and preserve chemistry and dynamic slot budgets.
+  // Refine against the full prepared pools, independently of the search-stage cutoff.
   if (bestComplete && bestComplete.totalChemistry >= minChemistry) {
-    const upgraded = upgradeSquadToTargetBudgetRatio(bestComplete.squad, totalBudget,
-      Object.fromEntries(layout.slots.map((slot, index) => [slot.position, resolverPools[index] ?? []])),
-      considerManager, options, minChemistry, searchDeadline);
-    if (upgraded !== bestComplete.squad) {
-      const slots = layout.slots.map(slot => upgraded.find(p => p.slotPosition === slot.position));
-      bestComplete = evaluate({ slots, cost: upgraded.reduce((sum, p) => sum + p.price, 0) });
-    }
+    const refined = refineCompletedSquad(bestComplete.squad, spendingLimit - bestComplete.totalCost,
+      totalBudget, rawPools.flat(), considerManager, minChemistry, options);
+    const slots = layout.slots.map(slot => refined.squad.find(p => p.slotPosition === slot.position));
+    bestComplete = evaluate({ slots, cost: refined.squad.reduce((sum, p) => sum + p.price, 0) });
   }
   const result = bestComplete ?? evaluate(bestPartial);
   const complete = result.squad.length === 11;
   const success = complete && result.totalChemistry >= minChemistry && withinFemaleLimit(result.squad, options) && isNewSelectionValid(result.squad, options);
-  return { ...result, success, minChemistryTarget: minChemistry, status: success ? 'success' : complete ? 'chemistry_unmet' : 'incomplete', iterations, searchLimitReached: pruned,
+  return { ...result, remainingBudget: spendingLimit - result.totalCost, success, minChemistryTarget: minChemistry, status: success ? 'success' : complete ? 'chemistry_unmet' : 'incomplete', iterations, searchLimitReached: pruned,
     searchStage, stageAttempts };
+}
+
+/** One cheapest-first pass using the shared remaining balance, without construction slot caps. */
+export function refineCompletedSquad(
+  squad: GeneratedPlayer[], remainingBudget: number, totalBudget: number,
+  pool: GeneratedPlayer[], considerManager: boolean, minChemistryTarget = 33,
+  options: AutoBuildOptions = {},
+): { squad: GeneratedPlayer[]; remainingBudget: number } {
+  const refinedSquad = [...squad];
+  const initialChemistry = calculateSquadChemistry(squad, considerManager).totalChemistry;
+  if (squad.length !== 11 || initialChemistry < minChemistryTarget) {
+    return { squad: refinedSquad, remainingBudget };
+  }
+  const cost = squad.reduce((sum, player) => sum + player.price, 0);
+  let currentRemaining = Math.max(0, Math.min(remainingBudget,
+    totalBudget === 0 ? Infinity : totalBudget - cost));
+  const chemistryFloor = Math.max(minChemistryTarget, initialChemistry);
+  const excluded = new Set(normalizeExcludedCardVersionIds(options.excludedCardVersionIds));
+  const ovrRange = validateSquadOvrRange(options.squadOvrRange);
+  const maxSpecial = specialLimit(options);
+  const positions = squad.map(player => player.slotPosition);
+  const upgradeTargets = squad.map((player, index) => ({ player, index }))
+    .filter(({ player }) => !player.isLocked)
+    .sort((a, b) => a.player.price - b.player.price
+      || getCardMetaScore(a.player, a.player.slotPosition) - getCardMetaScore(b.player, b.player.slotPosition));
+
+  for (const { player, index } of upgradeTargets) {
+    if (currentRemaining < 3000) break;
+    const targetSlot = player.slotPosition;
+    const maxAffordablePrice = player.price + currentRemaining;
+    const others = refinedSquad.filter((_, i) => i !== index);
+    const currentScore = getCardMetaScore(player, targetSlot);
+    const candidates = pool.filter(candidate => {
+      const card = candidate.card;
+      return !candidate.isLocked && isPositionMatched(targetSlot, candidate)
+        && !refinedSquad.some(p => p.id === candidate.id)
+        && !others.some(p => p.playerKey === candidate.playerKey)
+        && Number.isFinite(candidate.price) && candidate.price > player.price && candidate.price <= maxAffordablePrice
+        && !excluded.has(getCardVersionId(card))
+        && passesMarketPriceFilter(card, options)
+        && card.overall != null && card.overall >= ovrRange.min && card.overall <= ovrRange.max
+        && meetsRoleRequirement(card, targetSlot, options)
+        && passesNewCandidateFilter(card, targetSlot, totalBudget, positions, { maxPriceCap: Infinity })
+        && getCardMetaScore(candidate, targetSlot) > currentScore;
+    }).sort((a, b) => getCardMetaScore(b, targetSlot) - getCardMetaScore(a, targetSlot)
+      || a.price - b.price || a.id.localeCompare(b.id));
+
+    for (const candidate of candidates) {
+      const replacement = { ...candidate, slotPosition: targetSlot,
+        metaScore: getCardMetaScore(candidate, targetSlot) };
+      const trial = [...refinedSquad];
+      trial[index] = replacement;
+      if (!withinFemaleLimit(trial, options) || !withinCardLimits(trial, options)
+        || !isNewSelectionValid(trial, options)
+        || trial.filter(p => !p.isLocked && (engineIcon(p) || isCardHero(p))).length > maxSpecial
+        || calculateSquadChemistry(trial, considerManager).totalChemistry < chemistryFloor) continue;
+      currentRemaining -= candidate.price - player.price;
+      refinedSquad[index] = replacement;
+      break; // Descending DB score guarantees the best legal upgrade for this slot.
+    }
+  }
+  return { squad: refinedSquad, remainingBudget: currentRemaining };
 }
 
 /** Strictly stronger replacements at any affordable price; at most 12 accepted swaps. */
