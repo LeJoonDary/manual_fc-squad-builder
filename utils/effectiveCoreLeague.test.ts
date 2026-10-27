@@ -37,13 +37,14 @@ test.each([[5, 4, 2, '300'], [5, 3, 3, '200'], [4, 4, 3, '100']])(
   },
 );
 
-test('Kuyt receives natural core priority inside the base 25 instead of only a reserve slot', () => {
+test('core bonus cannot displace much stronger cards but a rescue Hero remains available', () => {
   const pool = Array.from({ length: 25 }, (_, i) => make(`candidate${i}`, { metaScore: 1000 - i }));
   const kuyt = make('kuyt', { isHero: true, nationId: 1, leagueId: 200, metaScore: 80 });
   const squad = [...pl, juste];
   const ranked = getDynamicCandidatesForSlot('CAM', squad, [...pool, kuyt], 100, null, 25, '100');
-  expect(ranked).toHaveLength(25);
-  expect(ranked[0].id).toBe('kuyt');
+  expect(ranked).toHaveLength(26);
+  expect(ranked[0].id).toBe('candidate0');
+  expect(ranked.at(-1)?.id).toBe('kuyt');
 });
 
 test('missing leagues and wrong-position cards never create a core', () => {

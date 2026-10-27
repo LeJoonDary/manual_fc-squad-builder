@@ -11,7 +11,7 @@ test('per-card ratios use total budget and retain the remaining-balance constrai
  const priorities=['ST','CAM','CM','CB','FB','GK'];
  const pending=['LS','RS','LCM','CM','RCM','LCB','RCB','LB','RB','GK'];
  const cap=calculateDynamicSlotCap('LS',pending,200000);
- expect(cap).toBe(45500);
+ expect(cap).toBe(70000);
  expect(cap).toBeGreaterThan(0);
  expect(calculateDynamicSlotCap('GK',['GK'],170000)).toBe(17680);
  expect(calculateDynamicSlotCap('GK',['GK'],0)).toBe(0);
@@ -48,9 +48,9 @@ test('over-budget locks fail before any candidate query with explicit costs',asy
 test('a final goalkeeper uses savings from locked slots',async()=>{
  const currentSquad=lockedExcept(['GK']);
  const paid=Object.values(currentSquad)[0];paid.isOwned=false;paid.card.price=300000;
- const result=await generateOptimalSquad('4-3-1-2',{FW:[],MF:[],DF:[make(100,'GK',150000)]},500000,33,false,{currentSquad});
+ const result=await generateOptimalSquad('4-3-1-2',{FW:[],MF:[],DF:[make(100,'GK',130000),make(101,'GK',150000,99)]},500000,33,false,{currentSquad});
  expect(result.success).toBe(true);
- expect(result.totalCost).toBe(450000);
+ expect(result.totalCost).toBe(430000);
 });
 
 test('zero remaining budget cannot buy new cards, while owned locks keep their zero purchase cost',async()=>{

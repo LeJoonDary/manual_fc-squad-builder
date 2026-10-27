@@ -76,6 +76,7 @@ test('second striker becomes the first open anchor with locked teammates', async
     1000000, 33, false, { currentSquad });
   expect(result.success).toBe(true);
   expect(result.totalChemistry).toBe(33);
+  // Capped carryover cannot fund the 525k alternatives.
   expect(result.squad.find(p => p.slotPosition === 'RS')?.id).toBe('100');
   expect(result.squad.filter(p => p.isLocked)).toHaveLength(10);
 });

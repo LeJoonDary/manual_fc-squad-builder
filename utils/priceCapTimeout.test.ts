@@ -35,12 +35,12 @@ test('search can finish after the old 450ms cutoff', async () => {
   } finally { clock.mockRestore(); }
 });
 
-test('fallback prioritizes legal core links up to five and then releases that preference', () => {
+test('core bonus does not override a stronger alternative', () => {
   const make = (id, leagueId, score) => ({ id: String(id), playerKey: String(id), leagueId,
     nationId: id, clubId: id, metaScore: score, price: 1000, isLocked: false });
   const core = make(100, 100, 80), alternative = make(101, 101, 99);
   const squad = Array.from({ length: 4 }, (_, i) => make(i, 100, 90));
-  expect(getDynamicCandidatesForSlot('CM', squad as any, [alternative, core] as any, 10000, null, 175, '100')[0].id).toBe('100');
+  expect(getDynamicCandidatesForSlot('CM', squad as any, [alternative, core] as any, 10000, null, 175, '100')[0].id).toBe('101');
   const saturated = [...squad, make(4, 100, 90)].map(p => ({ ...p, isLocked: true }));
   expect(getDynamicCandidatesForSlot('CM', saturated as any, [core, alternative] as any, 10000, null, 175, '100')[0].id).toBe('101');
 });
