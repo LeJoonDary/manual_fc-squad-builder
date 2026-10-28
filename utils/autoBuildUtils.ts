@@ -844,6 +844,40 @@ export function calculateDynamicSlotCap(position: string, unfilledPositions: rea
 export interface AnchorBudgetContext { anchorStepIndex?: number; remainingBudget?: number; remainingSlotsCount?: number; maxPriceCap?: number; }
 export function passesNewCandidateFilter(card: any, position: string, budget: number, formationPositions?: readonly string[], context: AnchorBudgetContext = {}): boolean {
   if (!card) return false;
+  const getNormalizedSlot = (slot: string): string => {
+    const normalized = normalizeChemistryPosition(slot);
+    const aliases: Record<string, string> = {
+      CCM: 'CM', LST: 'ST', RST: 'ST', CF: 'ST', LWB: 'LB', RWB: 'RB',
+    };
+    return aliases[normalized] ?? normalized;
+  };
+  const normSlot = getNormalizedSlot(position);
+  const primaryPos = getNormalizedSlot(primaryCardPosition(card));
+  const cardObj = card.card ?? card.raw ?? card;
+  const cardPrice = Number(cardObj.price ?? card.price ?? 0);
+  const totalBudget = budget;
+
+  // CB 슬롯은 순수 주포지션 CB만 허용.
+  if (normSlot === 'CB' && primaryPos !== 'CB') {
+    return false;
+  }
+
+  // CM/CDM 슬롯에 주포지션 수비수 진입 차단.
+  if (['CM', 'CDM'].includes(normSlot) && ['CB', 'LB', 'RB'].includes(primaryPos)) {
+    return false;
+  }
+
+  // 풀백 슬롯에 주포지션 CB 진입 차단.
+  if (['LB', 'RB'].includes(normSlot) && primaryPos === 'CB') {
+    return false;
+  }
+
+  // 풀백 단일 카드 가격은 총예산의 6.5% 이내로 제한.
+  if (['LB', 'RB'].includes(normSlot)
+    && totalBudget > 0 && cardPrice > totalBudget * 0.065) {
+    return false;
+  }
+
   const pos = normalizeChemistryPosition(position);
   const sourceCard = card.card ?? card.raw ?? card;
   if ((!budget || budget >= 5000000) && Number(sourceCard.overall ?? 80) < 85) return false;
