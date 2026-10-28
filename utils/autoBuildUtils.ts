@@ -932,6 +932,12 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
   const cardPrice = Number(cardObj.price ?? card.price ?? 0);
   const totalBudget = budget;
 
+  // Attack slots must not replace specialist attackers with primary defenders.
+  if (['LW', 'RW', 'LM', 'RM', 'ST'].includes(normSlot)
+    && ['LB', 'RB', 'CB', 'LWB', 'RWB'].includes(primaryPos)) {
+    return false;
+  }
+
   // CB 슬롯은 순수 주포지션 CB만 허용.
   if (normSlot === 'CB' && primaryPos !== 'CB') {
     return false;
@@ -1569,8 +1575,11 @@ export function refineCompletedSquad(
       || a.price - b.price || a.id.localeCompare(b.id));
 
     for (const candidate of candidates) {
+      const currentPlayer = refinedSquad[index];
+      const candidateScore = getCardMetaScore(candidate, targetSlot);
+      if (candidateScore <= getCardMetaScore(currentPlayer, targetSlot)) continue;
       const replacement = { ...candidate, slotPosition: targetSlot,
-        metaScore: getCardMetaScore(candidate, targetSlot) };
+        metaScore: candidateScore };
       const trial = [...refinedSquad];
       trial[index] = replacement;
       if (!withinFemaleLimit(trial, options) || !withinCardLimits(trial, options)
