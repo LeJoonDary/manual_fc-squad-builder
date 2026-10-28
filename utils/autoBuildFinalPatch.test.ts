@@ -12,14 +12,14 @@ function fixture() {
   [s.position, { card: card(i, s.position), isLocked: true, isOwned: true }]));
  return { open, currentSquad };
 }
-test.each([151, 201, 251, 300])('expands the wingless search to reach candidate %i without changing the anchor', async rank => {
+test.each([151, 201, 251, 300])('prioritizes locked-player links before truncating candidate %i', async rank => {
  const { open, currentSquad } = fixture();
  const keepers = Array.from({ length: rank - 1 }, (_, i) => card(1000+i, 'GK', { nationId: 'x', leagueId: 'y', clubId: 'z' }));
  keepers.push(card(5000, 'GK', { overall: 85 }));
  const result = await generateOptimalSquad('4-3-1-2', { FW: [card(100, 'ST')], MF: [], DF: keepers }, 0, 33, false, { currentSquad });
  expect(result.success).toBe(true);
  expect(result.totalChemistry).toBe(33);
- expect(result.searchStage).toBe(rank === 151 ? 2 : 3);
+ expect(result.searchStage).toBe(1);
  expect(result.stageAttempts.slice(0, result.searchStage).every(n => n > 0)).toBe(true);
  expect(result.iterations).toBeLessThanOrEqual(50000);
  expect(result.squad.find(p => p.slotPosition === open)?.id).toBe('100');
@@ -100,14 +100,14 @@ test.each([['ST','FW',2],['CM','MF',3],['CB','DF',2]] as const)('%s repeated slo
  expect(result.squad.filter(p=>!p.isLocked).map(p=>p.id).sort()).toEqual(candidates.slice(0,count).map(p=>String(p.id)).sort());
  expect(new Set(result.squad.map(p=>p.playerKey)).size).toBe(11);
 });
-test('free backtracking can reach an ace beyond the top five sets', async () => {
+test('affinity brings a connected ace into the first anchor sets', async () => {
  const { currentSquad } = fixture();
  const isolated = Array.from({length:10},(_,i)=>card(100+i,'ST',{overall:99-i/10,nationId:'x',leagueId:'y',clubId:'z'}));
  const result = await generateOptimalSquad('4-3-1-2',{FW:[...isolated,card(500,'ST')],MF:[],DF:[card(600,'GK')]},0,33,false,{currentSquad});
  expect(result.success).toBe(true);
- expect(result.searchStage).toBe(4);
+ expect(result.searchStage).toBe(1);
  expect(result.squad.some(p=>p.id==='500')).toBe(true);
- expect(result.stageAttempts.every(n=>n>=5)).toBe(true);
+ expect(result.stageAttempts[0]).toBeGreaterThan(0);
 });
 test.each([0,4999999,5000000,60000000])('OVR floor at budget %i applies to every position including GK', budget => {
  expect(passesNewCandidateFilter(card(1,'CB',{overall:84}),'CB',budget)).toBe(budget===4999999);

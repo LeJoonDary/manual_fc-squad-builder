@@ -78,11 +78,11 @@ type CountMap = Map<string, number>;
 
 const FORMATION_POSITION_MAP: Record<string, string> = {
   LCB: 'CB', RCB: 'CB',
-  LCM: 'CM', RCM: 'CM',
+  LCM: 'CM', RCM: 'CM', CCM: 'CM',
   LDM: 'CDM', RDM: 'CDM',
   LAM: 'CAM', RAM: 'CAM',
-  LS: 'ST', RS: 'ST',
-  LF: 'CF', RF: 'CF',
+  LS: 'ST', RS: 'ST', LST: 'ST', RST: 'ST', CF: 'ST',
+  LF: 'ST', RF: 'ST',
 };
 
 export function normalizeChemistryPosition(position: string): string {

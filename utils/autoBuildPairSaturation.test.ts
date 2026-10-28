@@ -65,14 +65,14 @@ test('returns to the next pair when the strongest combination cannot reach targe
  expect(result.totalChemistry).toBe(33);
 });
 
-test('cycles five distinct pairs rather than spending sets on reversed assignments', async () => {
+test('prioritizes the connected pair over isolated higher-meta pairs', async () => {
  const result=await generateOptimalSquad('4-3-1-2',{FW:[
   make(100,'ST',99,1000,{nationId:'x',leagueId:'x',clubId:'x'}),
   make(101,'ST',90),make(102,'ST',89),make(103,'ST',88),make(104,'ST',87),
  ],MF:[],DF:[]},0,33,false,{currentSquad:lockedExcept(['ST'])});
  expect(result.success).toBe(true);
  expect(result.searchStage).toBe(1);
- expect(result.stageAttempts[0]).toBe(5);
+ expect(result.stageAttempts[0]).toBe(1);
  expect(result.squad.filter(p=>!p.isLocked).map(p=>p.id).sort()).toEqual(['101','102']);
 });
 test('free search keeps group budget, exclusions and star requirements', async () => {
