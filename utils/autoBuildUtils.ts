@@ -713,13 +713,28 @@ function effectiveSlotBudget(slotCap: number, remainingBudget: number,
   return 11 - lockedCount <= 2 ? remainingBudget : slotCap;
 }
 
-function chemistryAffinity(card: GeneratedPlayer, squad: readonly GeneratedPlayer[]): number {
+function chemistryAffinity(card: GeneratedPlayer, squad: readonly GeneratedPlayer[], isolatedLocked: readonly GeneratedPlayer[] = []): number {
   if (!squad.some(player => player.isLocked)) return 0;
   const keys = linkKeys(card);
   const active = linkCounts(squad);
+  const locked = squad.filter(player => player.isLocked);
+  const lockedNations = locked.map(player => linkKeys(player).nation);
+  const dispersedNations = locked.length > 1 && lockedNations.every(nation => nation !== null)
+    && new Set(lockedNations).size === locked.length;
+  const bridgeClub = dispersedNations && keys.club !== null && (active.club.get(keys.club) ?? 0) >= 2;
   const saturatedLeague = keys.league !== null && (active.league.get(keys.league) ?? 0) >= 3
     && getSaturatedLeagues(squad).has(chemistryLeagueKey(keys.league));
-  return (keys.nation !== null && active.nation.has(keys.nation) ? 20 : 0)
+  // A scarce nation must not outrank attainable club/league links for a locked card.
+  const fallback = isolatedLocked.reduce((bonus, player) => {
+    const target = linkKeys(player);
+    const clubCount = target.club === null ? 0 : active.club.get(target.club) ?? 0;
+    const leagueCount = target.league === null ? 0 : active.league.get(target.league) ?? 0;
+    const clubTarget = leagueCount >= 5 ? 2 : 4;
+    return bonus + (target.club !== null && keys.club === target.club && clubCount < clubTarget ? 40 : 0)
+      + (target.league !== null && keys.league === target.league && leagueCount < 5 ? 30 : 0);
+  }, 0);
+  return fallback + (bridgeClub ? 80 : 0)
+    + (!dispersedNations && keys.nation !== null && active.nation.has(keys.nation) ? 20 : 0)
     + (keys.league !== null && !saturatedLeague && active.league.has(keys.league) ? 15 : 0)
     + (keys.club !== null && active.club.has(keys.club) ? 10 : 0);
 }
@@ -760,7 +775,7 @@ export function getCardMetaScore(card: any, targetPosition: string): number {
 
 /** Dynamic pruning happens after links and hard constraints, never before. */
 export function getDynamicCandidatesForSlot(position: string, squad: readonly GeneratedPlayer[], pool: readonly GeneratedPlayer[], budget: number,
-  anchor: GeneratedPlayer | null = selectDynamicAnchor(squad), candidateLimit = 25, coreLeague: string | null = null, considerManager = false, minChemistryTarget = 33, options: AutoBuildOptions = {}, bridgePool: readonly GeneratedPlayer[] = pool, remainingBudget = budget, totalBudget = 0): GeneratedPlayer[] {
+  anchor: GeneratedPlayer | null = selectDynamicAnchor(squad), candidateLimit = 25, coreLeague: string | null = null, considerManager = false, minChemistryTarget = 33, options: AutoBuildOptions = {}, bridgePool: readonly GeneratedPlayer[] = pool, remainingBudget = budget, totalBudget = 0, isolatedLocked: readonly GeneratedPlayer[] = []): GeneratedPlayer[] {
   const used = new Set(squad.map(p => p.playerKey));
   const counts = linkCounts(squad);
   const includeManager = position === 'GK' || considerManager;
@@ -797,7 +812,7 @@ export function getDynamicCandidatesForSlot(position: string, squad: readonly Ge
     // For the final slot, prioritize a complete solution including the requested manager.
     if (squad.length === 10 && b.saturated !== a.saturated) return b.saturated - a.saturated;
     if (squad.some(player => player.isLocked) && !(a.saturated && b.saturated)) {
-      const affinity = chemistryAffinity(b.card, squad) - chemistryAffinity(a.card, squad);
+      const affinity = chemistryAffinity(b.card, squad, isolatedLocked) - chemistryAffinity(a.card, squad, isolatedLocked);
       if (affinity) return affinity;
       const meta = getCardMetaScore(b.card, position) - getCardMetaScore(a.card, position);
       if (meta) return meta;
@@ -1238,7 +1253,7 @@ export async function solveDirectChemistryGap(
  * Uses formation slot priority, affordable reserves and
  * complete-squad scoring and a time-bounded, remaining-budget chemistry repair.
  * State/inputs are never mutated; unsuccessful results explicitly describe failure.
- * Three tuple passes and a free backtracking pass share a 50,000-node / five-second search budget.
+ * Tuple and free backtracking passes share an 8,000-iteration safety guard.
  */
 /** Standard search always runs first; both passes reuse the fetched candidate pool. */
 export async function generateOptimalSquad(
@@ -1246,20 +1261,21 @@ export async function generateOptimalSquad(
   minChemistry: number = 33, considerManager: boolean,
   options: AutoBuildOptions = {},
 ): Promise<GeneratedSquad> {
-  // Let the loading state paint before preparing the direct solver's full candidate pool.
+  // Let the loading state paint before preparing the full candidate pool.
   const formationSlots = FORMATIONS.find(item => item.name === formation)?.slots || [];
   const squadArray = getNormalizedSquadArray(options.currentSquad, formationSlots.length, formationSlots);
   options = { ...options, currentSquad: squadArray };
   const directSlotCount = squadArray.filter(entry => !entry?.isLocked).length;
-  if (directSlotCount && directSlotCount <= 2) await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const searchGuard = { iterationCount: 0, exhausted: false, lastYield: performance.now() };
   const standard = await generateOptimalSquadPass(formation, candidates, totalBudget,
-    minChemistry, considerManager, { ...options, allowVipRescue: false });
-  if (standard.success) return standard;
+    minChemistry, considerManager, { ...options, allowVipRescue: false }, searchGuard);
+  if (standard.success || searchGuard.exhausted) return standard;
   const openCount = directSlotCount;
   if (openCount >= 1 && openCount <= 2) return standard;
 
   const rescue = await generateOptimalSquadPass(formation, candidates, totalBudget,
-    minChemistry, considerManager, { ...options, allowVipRescue: true });
+    minChemistry, considerManager, { ...options, allowVipRescue: true }, searchGuard);
   if (rescue.success) return rescue;
   // A failed rescue must not replace a more complete/better-chemistry standard result.
   if (standard.squad.length > rescue.squad.length
@@ -1273,6 +1289,7 @@ async function generateOptimalSquadPass(
   formation: string, candidates: CandidateGroups | CandidatePlayer[], totalBudget: number | null | undefined,
   minChemistry: number = 33, considerManager: boolean,
   options: AutoBuildOptions = {},
+  searchGuard = { iterationCount: 0, exhausted: false, lastYield: performance.now() },
 ): Promise<GeneratedSquad> {
   const layout = FORMATIONS.find(item => item.name === formation);
   if (!layout) throw new Error(`Unsupported formation: ${formation}`);
@@ -1353,6 +1370,18 @@ async function generateOptimalSquadPass(
     // Keep lower-tier legal links available for the expanded pass.
     return filtered;
   }));
+  // Count players, not versions or repeated position entries, across the full pool.
+  const availablePlayers = [...fixedPlayers.values(), ...rawPools.flat()];
+  const isolatedLocked = [...fixedPlayers.values()].filter(player => {
+    const target = linkKeys(player);
+    return !engineIcon(player) && !isCardHero(player) && target.nation !== null && target.league !== null
+      && new Set(availablePlayers.filter(candidate => {
+        const keys = linkKeys(candidate);
+        return keys.nation === target.nation && keys.league === target.league;
+      }).map(candidate => candidate.playerKey)).size < 2;
+  });
+  const affinity = (card: GeneratedPlayer, squad: readonly GeneratedPlayer[]) =>
+    chemistryAffinity(card, squad, isolatedLocked);
   const openPositions = layout.slots.filter((_, i) => !fixedPlayers.has(i)).map(slot => slot.position);
   if (usedDirectSolver) {
     return solveDirectChemistryGap([...fixedPlayers.values()], openPositions,
@@ -1392,7 +1421,9 @@ async function generateOptimalSquadPass(
   const filled = (state: State) => state.slots.filter((p): p is GeneratedPlayer => Boolean(p));
   const evaluate = (state: State) => {
     const squad = filled(state);
-    const chemistry = calculateSquadChemistry(squad, considerManager);
+    // Use the actual joint league/nation boost, never an unconditional +2.
+    // A completed XI has no empty slots, but its manager can still close the gap.
+    const chemistry = calculateSquadChemistry(squad, considerManager, true);
     return { squad, totalCost: state.cost, totalChemistry: chemistry.totalChemistry, manager: chemistry.manager,
       teamMetaScore: squad.length ? squad.reduce((sum, p) => sum + p.metaScore, 0) / squad.length : 0,
       finalScore: calculateFinalSquadScore(squad, chemistry.totalChemistry, totalBudget, false, minChemistry, options) };
@@ -1407,6 +1438,19 @@ async function generateOptimalSquadPass(
   const stageAttempts = [0, 0, 0, 0];
   const started = performance.now();
   const searchDeadline = started + STAGE_TIMEOUT_MS;
+  const continueSearch = async (): Promise<boolean> => {
+    if (searchGuard.exhausted || ++searchGuard.iterationCount > 8000) {
+      searchGuard.exhausted = true;
+      pruned = true;
+      return false;
+    }
+    // A node limit alone cannot keep expensive synchronous chemistry work responsive.
+    if (performance.now() - searchGuard.lastYield >= 8) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      searchGuard.lastYield = performance.now();
+    }
+    return true;
+  };
   // Reserve time and nodes for each expansion rather than exhausting them at 150.
   for (const [stageIndex, limit] of [150, 200, 300, 300].entries()) {
     if (bestComplete && bestComplete.totalChemistry >= minChemistry) break;
@@ -1417,8 +1461,9 @@ async function generateOptimalSquadPass(
     // The fourth pass releases all anchor sets, retaining every hard constraint.
     const pools = rawPools.map(pool => pool.slice(0, limit));
     resolverPools = pools;
-    const visit = (state: State, depth: number, branchDeadline = deadline, branchLimit = nodeLimit): boolean => {
+    const visit = async (state: State, depth: number, branchDeadline = deadline, branchLimit = nodeLimit): Promise<boolean> => {
       if (performance.now() >= branchDeadline || iterations >= branchLimit) { pruned = true; return false; }
+      if (!await continueSearch()) return false;
       const occupied = filled(state);
       if (occupied.length > filled(bestPartial).length) bestPartial = state;
       if (depth === order.length) {
@@ -1428,34 +1473,41 @@ async function generateOptimalSquadPass(
         return result.totalChemistry >= minChemistry;
       }
       if (depth === 0 && stageIndex < 3) {
-        const groupIndices = order.filter(index => priorityGroup(layout.slots[index].position) === anchorPosition);
+        // 동일 그룹이 3슬롯 이상이어도 앵커 조합은 최대 2슬롯으로 제한한다.
+        const groupIndices = order
+          .filter(index => priorityGroup(layout.slots[index].position) === anchorPosition)
+          .slice(0, 2);
         if (groupIndices.length > 0) {
           const combinations: Array<{ state: State; score: number; affinity: number }> = [];
-          const collect = (partial: State, offset: number, score: number, affinity: number) => {
+          const collect = async (partial: State, offset: number, score: number, affinityScore: number): Promise<void> => {
+            if (filled(partial).length > filled(bestPartial).length) bestPartial = partial;
+            if (!await continueSearch()) return;
             if (performance.now() >= branchDeadline || iterations >= branchLimit) { pruned = true; return; }
-            if (offset === groupIndices.length) { combinations.push({ state: partial, score, affinity }); return; }
+            if (offset === groupIndices.length) { combinations.push({ state: partial, score, affinity: affinityScore }); return; }
             const slotIndex = groupIndices[offset];
             const players = filled(partial);
             const cap = liveSlotCap(slotIndex, partial.slots, partial.cost);
             const remainingBudget = spendingLimit - partial.cost;
             const targets = getZeroChemistryTargets(players, considerManager);
             const source = rawPools[slotIndex].filter(p => passesDynamicBudget(p, cap, remainingBudget, targets, options.allowVipRescue, players, options))
-              .sort((a, b) => chemistryAffinity(b, players) - chemistryAffinity(a, players) || b.metaScore - a.metaScore).slice(0, limit);
+              .sort((a, b) => affinity(b, players) - affinity(a, players) || b.metaScore - a.metaScore).slice(0, limit);
             const eligible = getDynamicCandidatesForSlot(layout.slots[slotIndex].position, players, source,
               Math.min(cap, spendingLimit - partial.cost), selectDynamicAnchor(players, considerManager, formationPositions),
-              25, preferredCoreLeagueFor(players), considerManager, minChemistry, options, rawPools[slotIndex], remainingBudget, totalBudget);
+              25, preferredCoreLeagueFor(players), considerManager, minChemistry, options, rawPools[slotIndex], remainingBudget, totalBudget, isolatedLocked);
             for (const player of eligible) {
-              if (performance.now() >= branchDeadline || iterations >= branchLimit) { pruned = true; return; }
+              if (!await continueSearch()) break;
+              if (searchGuard.exhausted || performance.now() >= branchDeadline || iterations >= branchLimit) { pruned = true; return; }
               if (partial.cost + player.price > spendingLimit
                 || players.some(p => p.playerKey === player.playerKey)) continue;
               const trial = [...players, player];
               if (!withinFemaleLimit(trial, options) || !isNewSelectionValid(trial, options) || !isActiveLeagueCandidate(player, players) || specialCount(trial) > maxSpecial || !withinCardLimits(trial, options)) continue;
               const slots = partial.slots.slice(); slots[slotIndex] = player;
-              collect({ slots, cost: partial.cost + player.price }, offset + 1,
-                score + player.metaScore, affinity + chemistryAffinity(player, players));
+              await collect({ slots, cost: partial.cost + player.price }, offset + 1,
+                score + player.metaScore, affinityScore + affinity(player, players));
             }
           };
-          collect(state, 0, 0, 0);
+          await collect(state, 0, 0, 0);
+          if (searchGuard.exhausted) return false;
           combinations.sort((a, b) => b.affinity - a.affinity || b.score - a.score || a.state.cost - b.state.cost);
           // Different assignments of the same cards are one tuple, not separate sets.
           // Keep the best legal assignment (slot requirements and budgets were checked).
@@ -1466,11 +1518,11 @@ async function generateOptimalSquadPass(
           }
           const topAnchorSets = [...uniqueSets.values()].slice(0, 5);
           for (const [i, combination] of topAnchorSets.entries()) {
-            if (performance.now() >= branchDeadline || iterations >= branchLimit) { pruned = true; return false; }
+            if (searchGuard.exhausted || performance.now() >= branchDeadline || iterations >= branchLimit) { pruned = true; return false; }
             iterations++; stageAttempts[stageIndex]++;
             const left = topAnchorSets.length - i;
             const now = performance.now();
-            if (visit(combination.state, groupIndices.length, now + (branchDeadline - now) / left,
+            if (await visit(combination.state, groupIndices.length, now + (branchDeadline - now) / left,
               iterations + Math.ceil((branchLimit - iterations) / left))) return true;
           }
           return false;
@@ -1482,11 +1534,12 @@ async function generateOptimalSquadPass(
       const remainingBudget = spendingLimit - state.cost;
       const targets = getZeroChemistryTargets(occupied, considerManager);
       const source = rawPools[index].filter(p => passesDynamicBudget(p, slotCap, remainingBudget, targets, options.allowVipRescue, occupied, options) && withinFemaleLimit([...occupied, p], options) && withinCardLimits([...occupied, p], options))
-        .sort((a, b) => chemistryAffinity(b, occupied) - chemistryAffinity(a, occupied) || b.metaScore - a.metaScore).slice(0, limit);
+        .sort((a, b) => affinity(b, occupied) - affinity(a, occupied) || b.metaScore - a.metaScore).slice(0, limit);
       const eligible = getDynamicCandidatesForSlot(layout.slots[index].position, occupied, source,
-        Math.min(slotCap, spendingLimit - state.cost), anchor, 25, preferredCoreLeagueFor(occupied), considerManager, minChemistry, options, rawPools[index], remainingBudget, totalBudget);
+        Math.min(slotCap, spendingLimit - state.cost), anchor, 25, preferredCoreLeagueFor(occupied), considerManager, minChemistry, options, rawPools[index], remainingBudget, totalBudget, isolatedLocked);
       for (const [candidateIndex, candidate] of eligible.entries()) {
-        if (performance.now() >= branchDeadline || iterations >= branchLimit) { pruned = true; return false; }
+        if (!await continueSearch()) break;
+        if (searchGuard.exhausted || performance.now() >= branchDeadline || iterations >= branchLimit) { pruned = true; return false; }
         iterations++; stageAttempts[stageIndex]++;
         const squad = [...occupied, candidate];
         const cost = state.cost + candidate.price;
@@ -1509,14 +1562,15 @@ async function generateOptimalSquadPass(
         const now = performance.now();
         const childDeadline = depth === 0 ? now + (branchDeadline - now) / remainingAnchors : branchDeadline;
         const childLimit = depth === 0 ? iterations + Math.ceil((branchLimit - iterations) / remainingAnchors) : branchLimit;
-        if (visit({ slots, cost }, depth + 1, childDeadline, childLimit)) return true;
+        if (await visit({ slots, cost }, depth + 1, childDeadline, childLimit)) return true;
       }
       return false;
     };
-    visit(initial, 0);
+    await visit(initial, 0);
+    if (searchGuard.exhausted) break;
   }
   // Refine against the full prepared pools, independently of the search-stage cutoff.
-  if (bestComplete && bestComplete.totalChemistry >= minChemistry) {
+  if (!searchGuard.exhausted && bestComplete && bestComplete.totalChemistry >= minChemistry) {
     const refined = refineCompletedSquad(bestComplete.squad, spendingLimit - bestComplete.totalCost,
       totalBudget, rawPools.flat(), considerManager, minChemistry, options);
     const slots = layout.slots.map(slot => refined.squad.find(p => p.slotPosition === slot.position));
