@@ -74,3 +74,7 @@
 #ronaldo, 89, scream, https://www.youtube.com/shorts/YhBHsRAYJyE
 #calhanoglu, 86, scream, https://www.youtube.com/shorts/NMCyEEvQ7fA
 #mandzukic, 87, scream, https://www.youtube.com/shorts/YUvMYaHtrV4
+
+loftus-cheek, 83, showdown, https://www.youtube.com/shorts/vHdDMBF_vFM
+augusto, 83, showdown, https://www.youtube.com/shorts/Q0-z_fsDRLk
+ronaldo, 89, scream, https://www.youtube.com/shorts/8P1LhLKGEQc
