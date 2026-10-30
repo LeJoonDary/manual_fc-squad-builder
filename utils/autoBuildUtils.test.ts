@@ -1,9 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { findBestManager, type AutoBuildPlayer } from './autoBuildUtils';
+import { findBestManager, passesNewCandidateFilter, type AutoBuildPlayer } from './autoBuildUtils';
 import { adaptChemistryPlayerCard, calculateChemistry } from './chemistry';
 
 const player = (id: string, leagueId: string | number, nationId: string | number, extra = {}): AutoBuildPlayer => ({
   id, name: id, position: 'ST', leagueId, nationId, clubId: id, ...extra,
+});
+
+describe('candidate CB and midfield stat floors', () => {
+  it.each(['CB', 'LCB', 'RCB'])('%s accepts primary and secondary CBs at pace 75 regardless of defending', slot => {
+    for (const position of ['CB', 'RB', 'CDM']) {
+      for (const def of [undefined, 0, 60, 79, 90]) {
+        const card = { position, altPositions: ['CB'], overall: 90, price: 1000, def };
+        expect(passesNewCandidateFilter({ ...card, pac: 74 }, slot, 500000)).toBe(false);
+        expect(passesNewCandidateFilter({ ...card, pac: 75 }, slot, 500000)).toBe(true);
+        expect(passesNewCandidateFilter({ ...card, pac: 82 }, slot, 500000)).toBe(true);
+      }
+    }
+  });
+
+  it.each(['CM', 'CDM', 'LCM', 'RCM', 'LDM', 'RDM'])('%s requires pace 72 and defending 72', position => {
+    const card = { position, overall: 90, price: 1000 };
+    for (const [pac, def, expected] of [[70, 90, false], [71, 90, false], [90, 71, false], [72, 72, true], [80, 75, true]] as const) {
+      expect(passesNewCandidateFilter({ ...card, pac, def }, position, 500000)).toBe(expected);
+      expect(passesNewCandidateFilter({ ...card, player_stats: [{ pac, def }] }, position, 500000)).toBe(expected);
+    }
+    expect(passesNewCandidateFilter({ ...card, pac: 90 }, position, 500000)).toBe(false);
+  });
 });
 
 describe('findBestManager', () => {

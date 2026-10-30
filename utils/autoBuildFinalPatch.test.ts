@@ -37,8 +37,8 @@ test('rejects chemistry below the target and preserves input', async () => {
  expect(currentSquad).toEqual(before);
 });
 test('CB cuts and primary-only bonus cover raw database cards and secondary CBs', () => {
- expect(passesNewCandidateFilter(card(1, 'LB', { def: 75 }), 'CB', 500000)).toBe(false);
- expect(passesNewCandidateFilter(card(1, 'CB', { def: 79 }), 'CB', 0)).toBe(false);
+ expect(passesNewCandidateFilter(card(1, 'LB', { altPositions: ['CB'], def: 75 }), 'CB', 500000)).toBe(true);
+ expect(passesNewCandidateFilter(card(1, 'CB', { def: 79 }), 'CB', 0)).toBe(true);
  expect(passesNewCandidateFilter(card(1, 'CB', { def: 80 }), 'CB', 0)).toBe(true);
  expect(calculateMetaScore(card(1, 'CB'), 'LCB') - calculateMetaScore(card(2, 'LB'), 'LCB')).toBe(10);
  expect(calculateMetaScore({ ...base, card_positions: [{ is_primary: true, positions: { name: 'CB' } }] }, 'CB')).toBe(100);

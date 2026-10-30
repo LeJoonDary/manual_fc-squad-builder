@@ -44,9 +44,12 @@ test('unlimited, already-spent and incomplete squads do not trigger upgrades', (
  const incomplete = squad.slice(1);
  expect(upgradeSquadToTargetBudgetRatio(incomplete,1000000,pools,false)).toBe(incomplete);
 });
-test.each(['CM','CDM','CB','LCM','RCM','LDM','RDM','LCB','RCB'])('%s pace floor begins at 300k and includes 70', pos => {
- expect(passesNewCandidateFilter({ pac: 62, overall: 99 },pos,299999)).toBe(true);
- expect(passesNewCandidateFilter({ pac: 69, overall: 99 },pos,300000)).toBe(false);
- expect(passesNewCandidateFilter({ pac: 70 },pos,300000)).toBe(true);
- expect(passesNewCandidateFilter({ player_stats: [{pac:62}] },pos,300000)).toBe(false);
+test.each(['CM','CDM','CB','LCM','RCM','LDM','RDM','LCB','RCB'])('%s uses budget-independent midfield/CB stat floors', pos => {
+ const isCB = ['CB', 'LCB', 'RCB'].includes(pos);
+ const floor = isCB ? 75 : 72;
+ for (const budget of [0, 299999, 300000]) {
+   const base = { overall: 90, price: 1000, def: isCB ? 0 : 72 };
+   expect(passesNewCandidateFilter({ ...base, pac: floor - 1 }, pos, budget)).toBe(false);
+   expect(passesNewCandidateFilter({ ...base, pac: floor }, pos, budget)).toBe(true);
+ }
 });

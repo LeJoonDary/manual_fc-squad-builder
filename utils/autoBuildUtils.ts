@@ -953,11 +953,6 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
     return false;
   }
 
-  // CB 슬롯은 순수 주포지션 CB만 허용.
-  if (normSlot === 'CB' && primaryPos !== 'CB') {
-    return false;
-  }
-
   // CM/CDM 슬롯에 주포지션 수비수 진입 차단.
   if (['CM', 'CDM'].includes(normSlot) && ['CB', 'LB', 'RB'].includes(primaryPos)) {
     return false;
@@ -984,11 +979,14 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
   const price = Number(sourceCard.price ?? 0);
   if (price > (context.maxPriceCap ?? calculateDynamicSlotCap(position, formationPositions ?? [position], context.remainingBudget ?? budget, budget === 0, budget, formationPositions))) return false;
   if (['ST', 'CF', 'LB', 'RB', 'LWB', 'RWB'].includes(pos) && pace < 82) return false;
-  if (['CB', 'CM', 'CDM'].includes(pos)) {
+  if (pos === 'CB') {
+    // CB: 주/부포지션과 수비력에 관계없이 페이스 75 이상 요구.
+    if (pace < 75) return false;
+  } else if (['CM', 'CDM'].includes(pos)) {
     const stats = relation(sourceCard.player_stats);
     const defending = [sourceCard.faceDefending, sourceCard.def, sourceCard.stats?.def, sourceCard.face_stats?.def, stats.def]
       .find(value => value != null && value !== '' && Number.isFinite(Number(value)));
-    if (Number(defending ?? 60) < (pos === 'CB' ? 80 : 70) || pace < 70) return false;
+    if (pace < 72 || Number(defending ?? 60) < 72) return false;
   }
   if (['ST', 'CF', 'LB', 'RB', 'LWB', 'RWB'].includes(pos)) {
     const stats = relation(sourceCard.player_stats);

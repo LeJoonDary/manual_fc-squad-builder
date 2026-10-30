@@ -3,10 +3,10 @@ import { passesNewCandidateFilter, calculateMetaScore } from './autoBuildUtils';
 
 test.each([0, 100000, 299999, 300000, 499999, 500000, 1000000])('hard caps hold at budget %s', budget => {
   for (const pos of ['CM', 'CDM', 'LCM', 'RDM']) {
-    for (const stats of [{ def: 69 }, { faceDefending: 69 }, { player_stats: [{ def: 69 }] }]) {
+    for (const stats of [{ def: 71 }, { faceDefending: 71 }, { player_stats: [{ def: 71 }] }]) {
       expect(passesNewCandidateFilter({ pac: 90, ...stats }, pos, budget)).toBe(false);
     }
-    expect(passesNewCandidateFilter({ pac: 90, def: 70 }, pos, budget)).toBe(true);
+    expect(passesNewCandidateFilter({ overall: 90, pac: 90, def: 72 }, pos, budget)).toBe(true);
   }
   for (const pos of ['ST', 'CF', 'LS', 'RS']) {
     expect(passesNewCandidateFilter({ pac: 62, phy: 90 }, pos, budget)).toBe(false);
@@ -19,9 +19,10 @@ test.each([0, 100000, 299999, 300000, 499999, 500000, 1000000])('hard caps hold 
     expect(passesNewCandidateFilter({ pac: 82, phy: 62 }, pos, budget)).toBe(budget < 500000);
     expect(passesNewCandidateFilter({ pac: 82, phy: 65 }, pos, budget)).toBe(true);
   }
+  expect(passesNewCandidateFilter({ overall: 90, pac: 75, def: 0 }, 'CB', budget)).toBe(true);
   expect(passesNewCandidateFilter({ pac: 69 }, 'CB', budget)).toBe(false);
-  expect(passesNewCandidateFilter({ pac: 70 }, 'CB', budget)).toBe(true);
-  expect(passesNewCandidateFilter({ pac: 74 }, 'CB', budget)).toBe(true);
+  expect(passesNewCandidateFilter({ pac: 70 }, 'CB', budget)).toBe(false);
+  expect(passesNewCandidateFilter({ pac: 74 }, 'CB', budget)).toBe(false);
 });
 
 test('alternate-position cards compete on the assigned slot score without a primary bonus', () => {

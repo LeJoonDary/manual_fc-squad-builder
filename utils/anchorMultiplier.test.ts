@@ -36,7 +36,7 @@ test('striker weights are budget independent and support raw and normalized face
   expect(calculateMetaScore(card, 'CF', 500000)).toBeCloseTo(90);
   expect(evaluateCandidateScore(card, 'ST', [], 500000)).toBeCloseTo(90);
   expect(calculateMetaScore({ overall: 90, facePace: 90, faceShooting: 90, facePassing: 90, faceDribbling: 90, facePhysicality: 90 }, 'ST', 500000)).toBeCloseTo(90);
-  expect(passesNewCandidateFilter({ pac: 70, price: 1000 }, 'CB', 1000000)).toBe(true);
+  expect(passesNewCandidateFilter({ pac: 70, price: 1000 }, 'CB', 1000000)).toBe(false);
 });
 
 test('DB query retains expanded anchor cards and integer price caps', async () => {
