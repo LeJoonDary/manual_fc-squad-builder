@@ -114,7 +114,7 @@ DETAIL_KEYS = {
     "long_passing": "attributeLongPassing", "curve": "attributeCurve",
     "agility": "attributeAgility", "balance": "attributeBalance",
     "reactions": "attributeReactions", "ball_control": "attributeBallControl",
-    "dribbling_sub": "attributeDribbling", "composure": "attributeComposure",
+    "dribbling": "attributeDribbling", "composure": "attributeComposure",
     "interceptions": "attributeInterceptions", "heading_accuracy": "attributeHeadingAccuracy",
     "def_awareness": "attributeDefensiveAwareness", "standing_tackle": "attributeStandingTackle",
     "sliding_tackle": "attributeSlidingTackle", "jumping": "attributeJumping",

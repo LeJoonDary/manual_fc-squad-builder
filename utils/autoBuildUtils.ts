@@ -623,14 +623,29 @@ function calculateBaseMetaScore(input: any, assignedPosition: string): number {
   const ovr = read(['overall'], 80), pac = read(['facePace','pac','pace','attributeSprintSpeed'], 70);
   const sho = read(['faceShooting','sho','shooting'],70), pas = read(['facePassing','pas','passing'],70), dri = read(['faceDribbling','dri','dribbling'],70);
   const def = read(['faceDefending','def','defending'],70), phy = read(['facePhysicality','phy','physicality'],70);
+  // 626줄 부근 (def, phy 정의 이후)에 추가
+  const agi = read(['agility', 'movement_agility'], dri);
+  const bal = read(['balance', 'movement_balance'], dri);
+  const comp = read(['composure', 'mentality_composure'], sho);
+
   const pos = normalizeChemistryPosition(assignedPosition);
   if (pos === 'GK') return ovr;
-  if (['ST','CF'].includes(pos)) return ovr*.20 + pac*.35 + sho*.25 + dri*.15 + pas*.05;
-  if (['LB','RB','LWB','RWB'].includes(pos)) return ovr*.15 + pac*.40 + def*.25 + phy*.20;
-  if (['CM','CDM'].includes(pos)) return ovr*.15 + pas*.30 + dri*.25 + def*.15 + pac*.10 + phy*.05;
-  if (pos === 'CB') return ovr*.10 + def*.35 + pac*.25 + phy*.25 + pas*.05;
-  if (pos === 'CAM') return ovr*.15 + pas*.25 + dri*.25 + sho*.20 + pac*.15;
-  return ovr*.15 + pac*.40 + dri*.25 + sho*.10 + pas*.10;
+
+  // ST / CF: 살마 상향 & 홀란드 감점 (합계 100%)
+  if (['ST', 'CF'].includes(pos)) {
+    return ovr * 0.10 + pac * 0.30 + (sho * 0.23 + comp * 0.05) + (dri * 0.08 + agi * 0.10 + bal * 0.09) + pas * 0.05;
+  }
+
+  if (['LB', 'RB', 'LWB', 'RWB'].includes(pos)) return ovr * 0.15 + pac * 0.40 + def * 0.25 + phy * 0.20;
+  if (['CM', 'CDM'].includes(pos)) return ovr * 0.15 + pas * 0.30 + dri * 0.25 + def * 0.15 + pac * 0.10 + phy * 0.05;
+  if (pos === 'CB') return ovr * 0.10 + def * 0.35 + pac * 0.35 + phy * 0.20;
+
+  // CAM: 본마티 1티어 & 무시알라 드리블 체감 특화 (합계 100%)
+  if (pos === 'CAM') {
+    return ovr * 0.10 + pac * 0.15 + (sho * 0.15 + comp * 0.05) + pas * 0.25 + (dri * 0.05 + agi * 0.13 + bal * 0.12);
+  }
+
+  return ovr * 0.15 + pac * 0.40 + dri * 0.25 + sho * 0.10 + pas * 0.10;
 }
 
 /** Price affects affordability only, never a candidate's performance score. */
