@@ -8,7 +8,7 @@ const make = (id: string, position: string, clubId: number, leagueId: number, na
   metaScore: 90, price: 1000, card: { overall: 85 }, isIcon: false, isHero: false,
 });
 
-test.each([['clubId', 3, 18], ['leagueId', 5, 12], ['nationId', 4, 8]] as const)(
+test.each([['clubId', 3, 4], ['leagueId', 5, 2.5], ['nationId', 4, 1.5]] as const)(
   '%s bonus stops at saturation %s', (field, cap, bonus) => {
     const candidate = { [field]: 1 } as any;
     for (let count = 0; count <= cap + 2; count++) {
@@ -19,9 +19,9 @@ test.each([['clubId', 3, 18], ['leagueId', 5, 12], ['nationId', 4, 8]] as const)
 
 test('raw joins, locked cards and special-card identities share saturation rules', () => {
   const raw = { club: { id: 1 }, league: { id: 100 }, nation: { id: 2 } };
-  expect(anchorSynergyScore(raw as any, [{ ...raw, isLocked: true }] as any)).toBe(38);
+  expect(anchorSynergyScore(raw as any, [{ ...raw, isLocked: true }] as any)).toBe(8);
   expect(anchorSynergyScore({ isIcon: true, clubId: 1, leagueId: 100, nationId: 2 } as any,
-    [{ clubId: 1, leagueId: 100, nationId: 2 }] as any)).toBe(8);
+    [{ clubId: 1, leagueId: 100, nationId: 2 }] as any)).toBe(1.5);
   expect(anchorSynergyScore({} as any, [{}] as any)).toBe(0);
 });
 

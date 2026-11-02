@@ -1,6 +1,6 @@
 import { isCardIcon, isCardHero, isCardHallOfFut } from './specialCardIdentity.js';
 import type { ChemistryManager, ChemistryResult, PlayerCard, SquadSlot } from '../types/chemistry';
-import { sharedClubKey } from './clubIdentity';
+import { sharedClubKey, getSharedClubKey } from './clubIdentity';
 
 const CLUB_THRESHOLDS = [2, 4, 7] as const;
 const LEAGUE_THRESHOLDS = [3, 5, 8] as const;
@@ -187,7 +187,7 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
 export function calculateChemistry(squad: SquadSlot[], manager: ChemistryManager | null = null): ChemistryResult {
   const playerChemMap: Record<string, number> = {};
   const validSlots = squad.filter(isPositionMatch).map(slot => ({ ...slot, player: { ...slot.player,
-    clubId: sharedClubKey(slot.player) || slot.player.clubId,
+    clubId: getSharedClubKey(slot.player),
     isIcon: isCardIcon(slot.player), isHero: isCardHero(slot.player) } }));
   const clubCounts: CountMap = new Map();
   const leagueCounts: CountMap = new Map();

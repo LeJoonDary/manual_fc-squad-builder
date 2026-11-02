@@ -6,7 +6,8 @@ export { isCardIcon, isCardHero } from './specialCardIdentity.js';
 // Prepared candidates have already passed the robust raw-card classifier.
 const engineIcon = (card: any): boolean => card?.card && card?.slotPosition && typeof card.isIcon === 'boolean' ? card.isIcon : isCardIcon(card);
 import { calculateChemistry } from './chemistry.ts';
-import { sharedClubKey } from './clubIdentity';
+import { sharedClubKey, getSharedClubKey } from './clubIdentity';
+export { getSharedClubKey } from './clubIdentity';
 import type { ChemistryResult, PlayerCard, SquadSlot } from '../types/chemistry';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, isPositionMatched, normalizeChemistryPosition } from './chemistry.ts';
@@ -539,14 +540,14 @@ export function getAnchorSlotOrder(positions: readonly string[]): string[] {
   return buildDynamicFillOrder(positions.map(position => ({ position }))).map(slot => slot.position);
 }
 
-const LINK_RULES = { club: [3, 18], league: [5, 12], nation: [4, 8] } as const;
+const LINK_RULES = { club: [3, 4], league: [5, 2.5], nation: [4, 1.5] } as const;
 type LinkKind = keyof typeof LINK_RULES;
 const LINK_KINDS = Object.keys(LINK_RULES) as LinkKind[];
 function linkKeys(input: any): Record<LinkKind, string | null> {
   const card = input.card ?? input.raw ?? input;
   const key = (value: any) => value == null || value === '' ? null : String(value);
   return {
-    club: engineIcon(input) || isCardHero(input) ? null : key(sharedClubKey(input) || (input.clubId ?? card.clubId ?? card.club_id ?? relation(card.club).id)),
+    club: engineIcon(input) || isCardHero(input) ? null : key(getSharedClubKey(input)),
     league: engineIcon(input) ? null : key(input.leagueId ?? card.leagueId ?? card.league_id ?? relation(card.league).id),
     nation: key(input.nationId ?? card.nationId ?? card.nation_id ?? relation(card.nation).id ?? relation(card.players).nation_id),
   };
@@ -1547,7 +1548,14 @@ async function generateOptimalSquadPass(
       const remainingBudget = spendingLimit - state.cost;
       const targets = getZeroChemistryTargets(occupied, considerManager);
       const source = rawPools[index].filter(p => passesDynamicBudget(p, slotCap, remainingBudget, targets, options.allowVipRescue, occupied, options) && withinFemaleLimit([...occupied, p], options) && withinCardLimits([...occupied, p], options))
-        .sort((a, b) => affinity(b, occupied) - affinity(a, occupied) || b.metaScore - a.metaScore).slice(0, limit);
+        .sort((a, b) => {
+          const position = layout.slots[index].position;
+          const scoreA = (Number.isFinite(a.metaScore) ? a.metaScore : calculateMetaScore(a, position, remainingBudget))
+            + anchorSynergyScore(a, occupied);
+          const scoreB = (Number.isFinite(b.metaScore) ? b.metaScore : calculateMetaScore(b, position, remainingBudget))
+            + anchorSynergyScore(b, occupied);
+          return (scoreB - scoreA) || (a.price - b.price);
+        }).slice(0, limit);
       const eligible = getDynamicCandidatesForSlot(layout.slots[index].position, occupied, source,
         Math.min(slotCap, spendingLimit - state.cost), anchor, 25, preferredCoreLeagueFor(occupied), considerManager, minChemistry, options, rawPools[index], remainingBudget, totalBudget, isolatedLocked);
       for (const [candidateIndex, candidate] of eligible.entries()) {

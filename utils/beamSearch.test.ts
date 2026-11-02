@@ -190,7 +190,7 @@ test('anchor order preserves every formation slot, with attackers first and GK l
 
 test('anchor synergy rewards thresholds rather than each teammate', () => {
   const card = { clubId: 1, leagueId: 100, nationId: 2 } as any;
-  expect(anchorSynergyScore(card, [card, { clubId: 3, leagueId: '100', nationId: '2' } as any])).toBe(38);
+  expect(anchorSynergyScore(card, [card, { clubId: 3, leagueId: '100', nationId: '2' } as any])).toBe(8);
   expect(anchorSynergyScore({} as any, [{} as any])).toBe(0);
 });
 
@@ -214,7 +214,7 @@ test('dynamic synergy promotes a partner beyond the old static top thirty', () =
 });
 
 
-test.each([[0,0],[1,38],[2,38],[3,20],[4,12],[5,0]])('diminishing synergy with %s existing identical affiliations', (count, expected) => {
+test.each([[0,0],[1,8],[2,8],[3,4],[4,2.5],[5,0]])('diminishing synergy with %s existing identical affiliations', (count, expected) => {
   const card = { clubId: 1, leagueId: 100, nationId: 1 } as any;
   expect(anchorSynergyScore(card, Array.from({ length: count }, () => card))).toBe(expected);
 });
