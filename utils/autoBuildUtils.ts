@@ -480,6 +480,27 @@ function slotRequirement(position: string, options: AutoBuildOptions): SlotRequi
   const role = getRoleRequirement(position, options);
   return options.slotRequirements?.[position] ?? (role ? { role: { name: role.roleName, minLevel: role.minLevel } } : undefined);
 }
+
+export function hasSlotConstraints(position: string, options: AutoBuildOptions = {}): boolean {
+  const active = (value: unknown): boolean => {
+    if (Array.isArray(value)) return value.some(active);
+    if (value && typeof value === 'object') return Object.values(value).some(active);
+    return value !== undefined && value !== null && value !== false && value !== '' && value !== 0;
+  };
+  return active(slotRequirement(position, options));
+}
+
+/** Scarce slots precede unrestricted slots; stable sorting preserves position priority. */
+export function getMrvSlotOrder(
+  slots: readonly { position: string }[], rawPools: readonly (readonly unknown[])[],
+  lockedIndices: ReadonlySet<number>, options: AutoBuildOptions = {},
+): number[] {
+  const ordered = buildDynamicFillOrder(slots.map((slot, index) => ({ ...slot, index })))
+    .map(slot => slot.index).filter(index => !lockedIndices.has(index));
+  const scarce = (index: number) => hasSlotConstraints(slots[index].position, options) || rawPools[index].length <= 25;
+  return ordered.sort((a, b) => Number(scarce(b)) - Number(scarce(a))
+    || (scarce(a) && scarce(b) ? rawPools[a].length - rawPools[b].length : 0));
+}
 function meetsRoleRequirement(card: any, position: string, options: AutoBuildOptions): boolean {
   return matchesSlotRequirements(card, slotRequirement(position, options), position);
 }
@@ -1450,18 +1471,28 @@ async function generateOptimalSquadPass(
     return solveDirectChemistryGap([...fixedPlayers.values()], openPositions,
       rawPools.filter((_, index) => !fixedPlayers.has(index)), totalBudget, minChemistry, considerManager, options);
   }
-  const order = buildDynamicFillOrder(layout.slots).filter(slot => openPositions.includes(slot.position)).map(slot => layout.slots.findIndex(s => s.position === slot.position));
-  if (order.length) {
-    const firstPosition = priorityGroup(layout.slots[order[0]].position);
-    order.sort((a, b) => Number(priorityGroup(layout.slots[b].position) === firstPosition)
-      - Number(priorityGroup(layout.slots[a].position) === firstPosition));
-  }
-  const liveSlotCap = (index: number, slots: Array<GeneratedPlayer | undefined>, cost: number) =>
-    calculateDynamicSlotCap(layout.slots[index].position,
+  const order = getMrvSlotOrder(layout.slots, rawPools, new Set(fixedPlayers.keys()), options);
+  const liveSlotCap = (index: number, slots: Array<GeneratedPlayer | undefined>, cost: number) => {
+    if (hasSlotConstraints(layout.slots[index].position, options) || rawPools[index].length <= 15) {
+      const used = new Set(slots.filter(Boolean).map(player => player!.playerKey));
+      let reserve = 0;
+      for (const other of order) {
+        if (other === index || slots[other]) continue;
+        let cheapest = Infinity;
+        for (const candidate of rawPools[other]) {
+          if (!used.has(candidate.playerKey)) cheapest = Math.min(cheapest, candidate.price);
+        }
+        if (!Number.isFinite(cheapest)) return 0;
+        reserve += cheapest;
+      }
+      return Math.max(0, spendingLimit - cost - reserve);
+    }
+    return calculateDynamicSlotCap(layout.slots[index].position,
       order.filter(i => !slots[i]).map(i => layout.slots[i].position), spendingLimit - cost,
       totalBudget === 0, totalBudget, formationPositions,
       slots.filter((player): player is GeneratedPlayer => player !== undefined));
-  const prioritySlots = buildDynamicFillOrder(layout.slots).map(slot => slot.position);
+  };
+  const prioritySlots = [...fixedPlayers.keys(), ...order].map(index => layout.slots[index].position);
   const preferredCoreLeagueFor = (squad: readonly GeneratedPlayer[]) => {
     const saturated = getSaturatedLeagues(squad);
     for (const position of prioritySlots) {
@@ -1537,9 +1568,9 @@ async function generateOptimalSquadPass(
       }
       if (depth === 0 && stageIndex < 3) {
         // 동일 그룹이 3슬롯 이상이어도 앵커 조합은 최대 2슬롯으로 제한한다.
-        const groupIndices = order
-          .filter(index => priorityGroup(layout.slots[index].position) === anchorPosition)
-          .slice(0, 2);
+        // Only batch a contiguous prefix: MRV may interleave different groups.
+        const groupIndices = order.slice(0, 2)
+          .filter((index, offset) => offset === 0 || priorityGroup(layout.slots[index].position) === anchorPosition);
         if (groupIndices.length > 0) {
           const combinations: Array<{ state: State; score: number; affinity: number }> = [];
           const collect = async (partial: State, offset: number, score: number, affinityScore: number): Promise<void> => {

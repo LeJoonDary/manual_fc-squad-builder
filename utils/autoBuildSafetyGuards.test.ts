@@ -46,7 +46,7 @@ test('four locks accept a completed XI whose real manager closes the gap', async
   expect(pool).toEqual(before);
 });
 
-test('two-slot anchors preserve budget for later stages while the iteration guard still bounds search', async () => {
+test('MRV rejects empty defensive pools before enumerating midfield anchors', async () => {
   const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
   try {
     const slots = FORMATIONS.find(f => f.name === '4-3-1-2')!.slots;
@@ -55,11 +55,12 @@ test('two-slot anchors preserve budget for later stages while the iteration guar
     const pool = Array.from({ length: 25 }, (_, i) => card(i, 'CM'));
     const before = structuredClone(pool);
     const result = await generateOptimalSquad('4-3-1-2', { FW: [], MF: pool, DF: [] }, 0, 33, false, { currentSquad });
-    expect(result.searchLimitReached).toBe(true);
+    expect(result.searchLimitReached).toBe(false);
     expect(result.searchStage).toBeGreaterThan(1);
-    expect(result.squad.length).toBeGreaterThan(3);
+    expect(result.squad).toHaveLength(3);
     expect(result.success).toBe(false);
-    expect(result.stageAttempts.slice(1).some(attempts => attempts > 0)).toBe(true);
+    expect(result.iterations).toBe(0);
+    expect(result.stageAttempts).toEqual([0, 0, 0, 0]);
     expect(pool).toEqual(before);
   } finally {
     clock.mockRestore();
