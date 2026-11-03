@@ -664,6 +664,7 @@ export function evaluatePartialSquadCohesion(squad: readonly any[]): number {
 }
 export function isActiveLeagueCandidate(card: PlayerCard, squad: readonly PlayerCard[]): boolean {
   if (hasFewUnlockedSlots(squad)) return true;
+  if (sharesExistingLeagueOrClub(card, squad)) return true;
   const deficits = getChemistryDeficits(squad);
   const keys = linkKeys(card);
   if (LINK_KINDS.some(kind => keys[kind] !== null
@@ -675,7 +676,31 @@ export function isActiveLeagueCandidate(card: PlayerCard, squad: readonly Player
 const chemistryLeagueKey = (id: string) => id.normalize('NFKC').trim().toLocaleLowerCase('en-US');
 
 function hasFewUnlockedSlots(squad: readonly (PlayerCard & { isLocked?: boolean })[]): boolean {
-  return 11 - squad.filter(player => player?.isLocked).length <= 2;
+  return 11 - squad.filter(player => player?.isLocked).length <= 4;
+}
+
+function sharesExistingLeagueOrClub(card: PlayerCard, squad: readonly PlayerCard[]): boolean {
+  const league = linkKeys(card).league;
+  const club = getSharedClubKey(card);
+  return squad.some(player => (league !== null && !engineIcon(player)
+    && linkKeys(player).league !== null
+    && chemistryLeagueKey(linkKeys(player).league!) === chemistryLeagueKey(league))
+    || (club !== '' && getSharedClubKey(player) === club));
+}
+
+/** Locked leagues cannot be removed: additions linked to that core must remain legal. */
+function withinLeagueCountLimit(players: readonly (PlayerCard & { isLocked?: boolean })[], maxLeagues = 3): boolean {
+  if (hasFewUnlockedSlots(players) || leagueDistribution(players).length <= maxLeagues) return true;
+  const connected = players.filter(player => player.isLocked);
+  if (leagueDistribution(connected).length < maxLeagues) return false;
+  let pending = players.filter(player => !player.isLocked);
+  while (pending.length) {
+    const linked = pending.filter(player => engineIcon(player) || sharesExistingLeagueOrClub(player, connected));
+    if (!linked.length) return false;
+    connected.push(...linked);
+    pending = pending.filter(player => !linked.includes(player));
+  }
+  return true;
 }
 
 function getSaturatedLeagues(squad: readonly AutoBuildPlayer[],
@@ -894,7 +919,7 @@ export function isNewSelectionValid(players: readonly any[], options: AutoBuildO
   // must still use at least two leagues, even with a lower chemistry target.
   if (constraints.maxPlayersPerLeague === 9) {
     const leagues = leagueDistribution(players);
-    return (hasFewUnlockedSlots(players) || leagues.length <= constraints.maxLeagues)
+    return withinLeagueCountLimit(players, constraints.maxLeagues)
       && (players.length < 11 || leagues.length >= constraints.minLeagues);
   }
   return true;
@@ -1046,8 +1071,7 @@ export function calculateFinalSquadScore(squad: readonly any[], chemistry: numbe
   if (!(relaxed && getLeagueConstraints(options).maxPlayersPerLeague === 5 ? isRelaxedSelectionValid(squad) : isNewSelectionValid(squad, options))) return -Infinity;
   if (budget > 0 && squad.reduce((sum, p) => sum + Number(p.price ?? p.card?.price ?? 0), 0) > budget) return -Infinity;
   if (chemistry < minChemistryTarget) return -20000 + chemistry * 100;
-  const leagues = leagueDistribution(squad);
-  if (leagues.length > 3 && !hasFewUnlockedSlots(squad)) return -Infinity;
+  if (!withinLeagueCountLimit(squad)) return -Infinity;
   return squad.reduce((sum, p) => sum + evaluateCandidateScore(p, p.slotPosition ?? p.assignedPosition ?? p.position, [], budget), 10000);
 }
 export function clubSynergyBonus(card: any, teammates: readonly any[]): number {

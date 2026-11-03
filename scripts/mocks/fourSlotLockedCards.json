@@ -1,0 +1,871 @@
+{
+  "currentSquad": {
+    "0": {
+      "card": {
+        "id": 19980,
+        "player_id": 251852,
+        "overall": 84,
+        "price": 0,
+        "version": "special_ones_to_watch",
+        "card_type": "special_sbc",
+        "club_id": 6,
+        "league_id": 2,
+        "players": {
+          "id": 251852,
+          "name": "Karim Adeyemi",
+          "gender": "Male",
+          "height": 180,
+          "nations": {
+            "name": "Germany",
+            "flag_url": "https://flagcdn.com/de.svg"
+          },
+          "long_name": "Karim-David Adeyemi",
+          "nation_id": 17
+        },
+        "clubs": {
+          "id": 6,
+          "name": "FC Barcelona",
+          "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/6.png"
+        },
+        "card_positions": [
+          {
+            "positions": {
+              "name": "ST"
+            },
+            "is_primary": false,
+            "meta_score": 92.98
+          },
+          {
+            "positions": {
+              "name": "LW"
+            },
+            "is_primary": false,
+            "meta_score": 93.9
+          },
+          {
+            "positions": {
+              "name": "RW"
+            },
+            "is_primary": false,
+            "meta_score": 93.9
+          },
+          {
+            "positions": {
+              "name": "CAM"
+            },
+            "is_primary": false,
+            "meta_score": 86.75
+          },
+          {
+            "positions": {
+              "name": "LM"
+            },
+            "is_primary": false,
+            "meta_score": 93.9
+          },
+          {
+            "positions": {
+              "name": "RM"
+            },
+            "is_primary": true,
+            "meta_score": 93.9
+          }
+        ],
+        "player_stats": [
+          {
+            "def": 39,
+            "dri": 84,
+            "pac": 96,
+            "pas": 76,
+            "phy": 71,
+            "sho": 83,
+            "vision": 78,
+            "agility": 88,
+            "balance": 83,
+            "jumping": 95,
+            "stamina": 79,
+            "strength": 69,
+            "composure": 78,
+            "finishing": 84,
+            "gk_diving": 12,
+            "gk_kicking": 7,
+            "gk_handling": 12,
+            "gk_reflexes": 7,
+            "acceleration": 97,
+            "sprint_speed": 96,
+            "def_awareness": 27,
+            "short_passing": 78,
+            "gk_positioning": 12,
+            "standing_tackle": 37
+          }
+        ]
+      },
+      "isLocked": true,
+      "isOwned": true
+    },
+    "2": {
+      "card": {
+        "id": 14,
+        "player_id": 277643,
+        "overall": 90,
+        "price": 137000,
+        "version": "gold",
+        "card_type": "NORMAL",
+        "club_id": 6,
+        "league_id": 2,
+        "players": {
+          "id": 277643,
+          "name": "Lamine Yamal",
+          "gender": "Male",
+          "height": 181,
+          "nations": {
+            "name": "Spain",
+            "flag_url": "https://flagcdn.com/es.svg"
+          },
+          "long_name": "Lamine Yamal Nasraoui Ebanaلامين يامال نصراوي إبانا",
+          "nation_id": 1
+        },
+        "clubs": {
+          "id": 6,
+          "name": "FC Barcelona",
+          "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/6.png"
+        },
+        "card_positions": [
+          {
+            "positions": {
+              "name": "RW"
+            },
+            "is_primary": true,
+            "meta_score": 97.25
+          },
+          {
+            "positions": {
+              "name": "RM"
+            },
+            "is_primary": false,
+            "meta_score": 97.25
+          }
+        ],
+        "player_stats": [
+          {
+            "def": 38,
+            "dri": 93,
+            "pac": 86,
+            "pas": 87,
+            "phy": 61,
+            "sho": 84,
+            "vision": 89,
+            "agility": 94,
+            "balance": 83,
+            "jumping": 65,
+            "stamina": 76,
+            "strength": 60,
+            "composure": 85,
+            "finishing": 84,
+            "gk_diving": 9,
+            "gk_kicking": 7,
+            "gk_handling": 13,
+            "gk_reflexes": 7,
+            "acceleration": 89,
+            "sprint_speed": 84,
+            "def_awareness": 30,
+            "short_passing": 88,
+            "gk_positioning": 10,
+            "standing_tackle": 47
+          }
+        ]
+      },
+      "isLocked": true,
+      "isOwned": true
+    },
+    "3": {
+      "card": {
+        "id": 8,
+        "player_id": 241667,
+        "overall": 90,
+        "price": 239000,
+        "version": "gold",
+        "card_type": "NORMAL",
+        "club_id": 7,
+        "league_id": 6,
+        "players": {
+          "id": 241667,
+          "name": "Aitana Bonmatí",
+          "gender": "Female",
+          "height": 162,
+          "nations": {
+            "name": "Spain",
+            "flag_url": "https://flagcdn.com/es.svg"
+          },
+          "long_name": "Aitana Bonmatí Conca",
+          "nation_id": 1
+        },
+        "clubs": {
+          "id": 7,
+          "name": "FC Barcelona",
+          "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/7.png"
+        },
+        "card_positions": [
+          {
+            "positions": {
+              "name": "CM"
+            },
+            "is_primary": true,
+            "meta_score": 97.15
+          },
+          {
+            "positions": {
+              "name": "CAM"
+            },
+            "is_primary": false,
+            "meta_score": 95.9
+          }
+        ],
+        "player_stats": [
+          {
+            "def": 75,
+            "dri": 88,
+            "pac": 80,
+            "pas": 86,
+            "phy": 72,
+            "sho": 85,
+            "vision": 91,
+            "agility": 80,
+            "balance": 80,
+            "jumping": 74,
+            "stamina": 77,
+            "strength": 73,
+            "composure": 85,
+            "finishing": 88,
+            "gk_diving": 9,
+            "gk_kicking": 11,
+            "gk_handling": 15,
+            "gk_reflexes": 14,
+            "acceleration": 79,
+            "sprint_speed": 80,
+            "def_awareness": 75,
+            "short_passing": 92,
+            "gk_positioning": 12,
+            "standing_tackle": 79
+          }
+        ]
+      },
+      "isLocked": true,
+      "isOwned": true
+    },
+    "5": {
+      "card": {
+        "id": 88,
+        "player_id": 243404,
+        "overall": 86,
+        "price": 33000,
+        "version": "gold",
+        "card_type": "NORMAL",
+        "club_id": 12,
+        "league_id": 1,
+        "players": {
+          "id": 243404,
+          "name": "Georgia Stanway",
+          "gender": "Female",
+          "height": 164,
+          "nations": {
+            "name": "England",
+            "flag_url": "https://flagcdn.com/gb-eng.svg"
+          },
+          "long_name": "Georgia Stanway",
+          "nation_id": 5
+        },
+        "clubs": {
+          "id": 12,
+          "name": "Arsenal",
+          "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/12.png"
+        },
+        "card_positions": [
+          {
+            "positions": {
+              "name": "CM"
+            },
+            "is_primary": false,
+            "meta_score": 90.5
+          },
+          {
+            "positions": {
+              "name": "CDM"
+            },
+            "is_primary": true,
+            "meta_score": 90.5
+          }
+        ],
+        "player_stats": [
+          {
+            "def": 78,
+            "dri": 86,
+            "pac": 82,
+            "pas": 80,
+            "phy": 78,
+            "sho": 79,
+            "vision": 84,
+            "agility": 86,
+            "balance": 85,
+            "jumping": 70,
+            "stamina": 85,
+            "strength": 72,
+            "composure": 69,
+            "finishing": 79,
+            "gk_diving": 12,
+            "gk_kicking": 15,
+            "gk_handling": 8,
+            "gk_reflexes": 8,
+            "acceleration": 84,
+            "sprint_speed": 80,
+            "def_awareness": 83,
+            "short_passing": 90,
+            "gk_positioning": 10,
+            "standing_tackle": 84
+          }
+        ]
+      },
+      "isLocked": true,
+      "isOwned": true
+    },
+    "6": {
+      "card": {
+        "id": 65,
+        "player_id": 253436,
+        "overall": 87,
+        "price": 8000,
+        "version": "gold",
+        "card_type": "NORMAL",
+        "club_id": 12,
+        "league_id": 1,
+        "players": {
+          "id": 253436,
+          "name": "Ona Batlle",
+          "gender": "Female",
+          "height": 160,
+          "nations": {
+            "name": "Spain",
+            "flag_url": "https://flagcdn.com/es.svg"
+          },
+          "long_name": "Ona Batlle Pascual",
+          "nation_id": 1
+        },
+        "clubs": {
+          "id": 12,
+          "name": "Arsenal",
+          "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/12.png"
+        },
+        "card_positions": [
+          {
+            "positions": {
+              "name": "LB"
+            },
+            "is_primary": false,
+            "meta_score": 86.95
+          },
+          {
+            "positions": {
+              "name": "RB"
+            },
+            "is_primary": true,
+            "meta_score": 86.95
+          },
+          {
+            "positions": {
+              "name": "LM"
+            },
+            "is_primary": false,
+            "meta_score": 86.95
+          },
+          {
+            "positions": {
+              "name": "RM"
+            },
+            "is_primary": false,
+            "meta_score": 86.95
+          }
+        ],
+        "player_stats": [
+          {
+            "def": 82,
+            "dri": 82,
+            "pac": 88,
+            "pas": 80,
+            "phy": 72,
+            "sho": 62,
+            "vision": 74,
+            "agility": 90,
+            "balance": 89,
+            "jumping": 73,
+            "stamina": 90,
+            "strength": 62,
+            "composure": 82,
+            "finishing": 70,
+            "gk_diving": 13,
+            "gk_kicking": 15,
+            "gk_handling": 8,
+            "gk_reflexes": 5,
+            "acceleration": 84,
+            "sprint_speed": 92,
+            "def_awareness": 85,
+            "short_passing": 86,
+            "gk_positioning": 14,
+            "standing_tackle": 85
+          }
+        ]
+      },
+      "isLocked": true,
+      "isOwned": true
+    },
+    "7": {
+      "card": {
+        "id": 19988,
+        "player_id": 169721,
+        "overall": 85,
+        "price": 0,
+        "version": "special_base_hall_of_fut",
+        "card_type": "SPECIAL",
+        "club_id": 132794,
+        "league_id": 3,
+        "players": {
+          "id": 169721,
+          "name": "Micah Richards",
+          "gender": "Male",
+          "height": 180,
+          "nations": {
+            "name": "England",
+            "flag_url": "https://flagcdn.com/gb-eng.svg"
+          },
+          "long_name": "Micah Richards",
+          "nation_id": 5
+        },
+        "clubs": {
+          "id": 132794,
+          "name": "HALL OF FUT",
+          "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/132794.png"
+        },
+        "card_positions": [
+          {
+            "positions": {
+              "name": "CB"
+            },
+            "is_primary": false,
+            "meta_score": 90.6
+          },
+          {
+            "positions": {
+              "name": "RB"
+            },
+            "is_primary": true,
+            "meta_score": 88.95
+          }
+        ],
+        "player_stats": [
+          {
+            "def": 84,
+            "dri": 76,
+            "pac": 86,
+            "pas": 73,
+            "phy": 89,
+            "sho": 57,
+            "vision": 69,
+            "agility": 73,
+            "balance": 71,
+            "jumping": 90,
+            "stamina": 85,
+            "strength": 92,
+            "composure": 80,
+            "finishing": 46,
+            "gk_diving": 7,
+            "gk_kicking": 15,
+            "gk_handling": 16,
+            "gk_reflexes": 8,
+            "acceleration": 84,
+            "sprint_speed": 87,
+            "def_awareness": 84,
+            "short_passing": 79,
+            "gk_positioning": 16,
+            "standing_tackle": 84
+          }
+        ]
+      },
+      "isLocked": true,
+      "isOwned": true
+    },
+    "9": {
+      "card": {
+        "id": 20264,
+        "player_id": 81863,
+        "overall": 85,
+        "price": 0,
+        "version": "special_future_stars",
+        "card_type": "special_sbc",
+        "club_id": 6,
+        "league_id": 2,
+        "players": {
+          "id": 81863,
+          "name": "Xavi Espart",
+          "gender": "Male",
+          "height": 175,
+          "nations": {
+            "name": "Spain",
+            "flag_url": "https://flagcdn.com/es.svg"
+          },
+          "long_name": "Xavi Espart Font",
+          "nation_id": 1
+        },
+        "clubs": {
+          "id": 6,
+          "name": "FC Barcelona",
+          "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/6.png"
+        },
+        "card_positions": [
+          {
+            "positions": {
+              "name": "CM"
+            },
+            "is_primary": false,
+            "meta_score": 87.95
+          },
+          {
+            "positions": {
+              "name": "CDM"
+            },
+            "is_primary": false,
+            "meta_score": 87.95
+          },
+          {
+            "positions": {
+              "name": "LB"
+            },
+            "is_primary": true,
+            "meta_score": 87.05
+          },
+          {
+            "positions": {
+              "name": "RB"
+            },
+            "is_primary": false,
+            "meta_score": 87.05
+          }
+        ],
+        "player_stats": [
+          {
+            "def": 82,
+            "dri": 84,
+            "pac": 88,
+            "pas": 82,
+            "phy": 74,
+            "sho": 64,
+            "vision": 83,
+            "agility": 82,
+            "balance": 83,
+            "jumping": 85,
+            "stamina": 75,
+            "strength": 72,
+            "composure": 78,
+            "finishing": 66,
+            "gk_diving": 15,
+            "gk_kicking": 12,
+            "gk_handling": 11,
+            "gk_reflexes": 7,
+            "acceleration": 87,
+            "sprint_speed": 89,
+            "def_awareness": 81,
+            "short_passing": 87,
+            "gk_positioning": 14,
+            "standing_tackle": 83
+          }
+        ]
+      },
+      "isLocked": true,
+      "isOwned": true
+    }
+  },
+  "target": [
+    {
+      "id": 22,
+      "player_id": 241846,
+      "overall": 89,
+      "price": 131000,
+      "version": "gold",
+      "card_type": "NORMAL",
+      "club_id": 7,
+      "league_id": 6,
+      "players": {
+        "id": 241846,
+        "name": "Ewa Pajor",
+        "gender": "Female",
+        "height": 167,
+        "nations": {
+          "name": "Poland",
+          "flag_url": "https://flagcdn.com/pl.svg"
+        },
+        "long_name": "Ewa Pajor",
+        "nation_id": 11
+      },
+      "clubs": {
+        "id": 7,
+        "name": "FC Barcelona",
+        "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/7.png"
+      },
+      "card_positions": [
+        {
+          "positions": {
+            "name": "ST"
+          },
+          "is_primary": true,
+          "meta_score": 95.62
+        },
+        {
+          "positions": {
+            "name": "LW"
+          },
+          "is_primary": false,
+          "meta_score": 93.4
+        },
+        {
+          "positions": {
+            "name": "CAM"
+          },
+          "is_primary": false,
+          "meta_score": 87.04
+        },
+        {
+          "positions": {
+            "name": "LM"
+          },
+          "is_primary": false,
+          "meta_score": 93.4
+        }
+      ],
+      "player_stats": [
+        {
+          "def": 22,
+          "dri": 89,
+          "pac": 93,
+          "pas": 65,
+          "phy": 72,
+          "sho": 91,
+          "vision": 76,
+          "agility": 91,
+          "balance": 83,
+          "jumping": 91,
+          "stamina": 85,
+          "strength": 82,
+          "composure": 89,
+          "finishing": 94,
+          "gk_diving": 15,
+          "gk_kicking": 12,
+          "gk_handling": 8,
+          "gk_reflexes": 12,
+          "acceleration": 92,
+          "sprint_speed": 93,
+          "def_awareness": 18,
+          "short_passing": 75,
+          "gk_positioning": 8,
+          "standing_tackle": 12
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "player_id": 237288,
+      "overall": 89,
+      "price": 34750,
+      "version": "gold",
+      "card_type": "NORMAL",
+      "club_id": 12,
+      "league_id": 1,
+      "players": {
+        "id": 237288,
+        "name": "Mariona",
+        "gender": "Female",
+        "height": 165,
+        "nations": {
+          "name": "Spain",
+          "flag_url": "https://flagcdn.com/es.svg"
+        },
+        "long_name": "María Francesca Caldentey Oliver",
+        "nation_id": 1
+      },
+      "clubs": {
+        "id": 12,
+        "name": "Arsenal",
+        "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/12.png"
+      },
+      "card_positions": [
+        {
+          "positions": {
+            "name": "CM"
+          },
+          "is_primary": true,
+          "meta_score": 95.65
+        },
+        {
+          "positions": {
+            "name": "CDM"
+          },
+          "is_primary": false,
+          "meta_score": 95.65
+        }
+      ],
+      "player_stats": [
+        {
+          "def": 78,
+          "dri": 90,
+          "pac": 79,
+          "pas": 86,
+          "phy": 82,
+          "sho": 85,
+          "vision": 88,
+          "agility": 92,
+          "balance": 92,
+          "jumping": 75,
+          "stamina": 93,
+          "strength": 82,
+          "composure": 87,
+          "finishing": 89,
+          "gk_diving": 13,
+          "gk_kicking": 11,
+          "gk_handling": 8,
+          "gk_reflexes": 9,
+          "acceleration": 82,
+          "sprint_speed": 76,
+          "def_awareness": 80,
+          "short_passing": 89,
+          "gk_positioning": 11,
+          "standing_tackle": 80
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "player_id": 243715,
+      "overall": 88,
+      "price": 17500,
+      "version": "gold",
+      "card_type": "NORMAL",
+      "club_id": 11,
+      "league_id": 3,
+      "players": {
+        "id": 243715,
+        "name": "W. Saliba",
+        "gender": "Male",
+        "height": 192,
+        "nations": {
+          "name": "France",
+          "flag_url": "https://flagcdn.com/fr.svg"
+        },
+        "long_name": "William Alain André Gabriel Saliba",
+        "nation_id": 2
+      },
+      "clubs": {
+        "id": 11,
+        "name": "Arsenal",
+        "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/11.png"
+      },
+      "card_positions": [
+        {
+          "positions": {
+            "name": "CB"
+          },
+          "is_primary": true,
+          "meta_score": 94.45
+        }
+      ],
+      "player_stats": [
+        {
+          "def": 90,
+          "dri": 73,
+          "pac": 77,
+          "pas": 68,
+          "phy": 82,
+          "sho": 41,
+          "vision": 62,
+          "agility": 53,
+          "balance": 46,
+          "jumping": 90,
+          "stamina": 72,
+          "strength": 86,
+          "composure": 84,
+          "finishing": 35,
+          "gk_diving": 7,
+          "gk_kicking": 6,
+          "gk_handling": 10,
+          "gk_reflexes": 11,
+          "acceleration": 76,
+          "sprint_speed": 78,
+          "def_awareness": 89,
+          "short_passing": 80,
+          "gk_positioning": 8,
+          "standing_tackle": 92
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "player_id": 220901,
+      "overall": 88,
+      "price": 14500,
+      "version": "gold",
+      "card_type": "NORMAL",
+      "club_id": 11,
+      "league_id": 3,
+      "players": {
+        "id": 220901,
+        "name": "David Raya",
+        "gender": "Male",
+        "height": 186,
+        "nations": {
+          "name": "Spain",
+          "flag_url": "https://flagcdn.com/es.svg"
+        },
+        "long_name": "David Raya Martín",
+        "nation_id": 1
+      },
+      "clubs": {
+        "id": 11,
+        "name": "Arsenal",
+        "logo_url": "https://iqfbyjvnzthixbxeuewk.supabase.co/storage/v1/object/public/fc-assets/clubs/11.png"
+      },
+      "card_positions": [
+        {
+          "positions": {
+            "name": "GK"
+          },
+          "is_primary": true,
+          "meta_score": 88
+        }
+      ],
+      "player_stats": [
+        {
+          "def": 58,
+          "dri": 88,
+          "pac": 87,
+          "pas": 88,
+          "phy": 86,
+          "sho": 86,
+          "vision": 69,
+          "agility": 68,
+          "balance": 45,
+          "jumping": 65,
+          "stamina": 31,
+          "strength": 43,
+          "composure": 70,
+          "finishing": 19,
+          "gk_diving": 87,
+          "gk_kicking": 88,
+          "gk_handling": 86,
+          "gk_reflexes": 88,
+          "acceleration": 59,
+          "sprint_speed": 57,
+          "def_awareness": 28,
+          "short_passing": 62,
+          "gk_positioning": 86,
+          "standing_tackle": 14
+        }
+      ]
+    }
+  ]
+}
