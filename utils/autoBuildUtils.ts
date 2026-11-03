@@ -85,16 +85,41 @@ export function getNormalizedSquadArray(
   currentSquad: AutoBuildOptions['currentSquad'], slotCount = 11,
   slots: readonly { position: string }[] = [],
 ): (CurrentSquadEntry | null)[] {
-  return Array.from({ length: slotCount }, (_, index) => {
-    if (Array.isArray(currentSquad)) return currentSquad[index] ?? null;
-    if (!currentSquad) return null;
-    // An explicit empty index must remain empty, even if a legacy position key exists.
-    if (Object.prototype.hasOwnProperty.call(currentSquad, index)) return currentSquad[index] ?? null;
+  if (Array.isArray(currentSquad)) return Array.from({ length: slotCount }, (_, index) => currentSquad[index] ?? null);
+  const result: (CurrentSquadEntry | null)[] = Array(slotCount).fill(null);
+  if (!currentSquad) return result;
+  const has = (key: string | number) => Object.prototype.hasOwnProperty.call(currentSquad, key);
+  const assigned = new Set<number>();
+  const reserved = new Set<string>();
+  // Resolve exact identities first, including explicit empty slots. A CM key
+  // belongs to the central CM and cannot also supply LCM or RCM.
+  for (let index = 0; index < slotCount; index++) {
     const position = slots[index]?.position;
-    if (!position) return null;
-    if (Object.prototype.hasOwnProperty.call(currentSquad, position)) return currentSquad[position] ?? null;
-    return currentSquad[getNormalizedSlot(position)] ?? null;
+    if (has(index)) {
+      result[index] = currentSquad[index] ?? null;
+      assigned.add(index);
+      if (position) reserved.add(position);
+    } else if (position && has(position)) {
+      reserved.add(position);
+      if (slots.filter(slot => slot.position === position).length === 1) {
+        result[index] = currentSquad[position] ?? null;
+        assigned.add(index);
+      }
+    }
+  }
+  // Legacy normalized aliases are safe only when exactly one unassigned slot
+  // can consume the key. Ambiguous CM/ST/CB inputs require slot IDs or indices.
+  const aliases = new Map<string, number[]>();
+  slots.slice(0, slotCount).forEach(({ position }, index) => {
+    if (assigned.has(index)) return;
+    const alias = getNormalizedSlot(position);
+    if (reserved.has(alias) || !has(alias)) return;
+    aliases.set(alias, [...(aliases.get(alias) ?? []), index]);
   });
+  for (const [alias, indices] of aliases) {
+    if (indices.length === 1) result[indices[0]] = currentSquad[alias] ?? null;
+  }
+  return result;
 }
 function exclusionSet(options: AutoBuildOptions, formation: string): Set<string> {
   const excluded = new Set<string>(normalizeExcludedCardVersionIds(options.excludedCardVersionIds));

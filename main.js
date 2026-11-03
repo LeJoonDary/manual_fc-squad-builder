@@ -283,7 +283,10 @@ let tacticalPlaystylesStatus = 'loading';
 let tacticalTab = 'roles';
 const updateAutoBuildFormation = mountAutoBuildSettings(
   document.querySelector('#auto-build-settings'), currentFormation, () => targetBudget,
-  { budgetSection: document.querySelector('.budget-summary'), supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad: () => structuredClone(squad), resetTargetBudget, openTacticalRoles, getRoleOptions, clearRolesAndPlaystyles },
+  { budgetSection: document.querySelector('.budget-summary'), supabase, getSquadSnapshot, applyAutoBuildResult,
+    getCurrentSquad: () => structuredClone(FORMATIONS.find(layout => layout.name === currentFormation).slots
+      .map(slot => squad[slot.position] ?? null)),
+    resetTargetBudget, openTacticalRoles, getRoleOptions, clearRolesAndPlaystyles },
 );
 function resetTargetBudget() {
   targetBudgetInput.value = '';

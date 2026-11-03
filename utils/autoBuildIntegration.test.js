@@ -65,10 +65,10 @@ describe('auto build pitch integration', () => {
     leftWing.querySelector('.owned-player').click();
     leftWing.querySelector('.lock-player').click();
     const currentSquad = bridge.services.getCurrentSquad();
-    expect(currentSquad.LW).toMatchObject({ isOwned: true, isLocked: true });
+    expect(currentSquad[0]).toMatchObject({ isOwned: true, isLocked: true });
     const rebuilt = await generateOptimalSquad('4-3-3', groupCandidatePlayers(rows), 1000000, 33, false, { currentSquad });
     bridge.services.applyAutoBuildResult(rebuilt, { ...request, snapshot: bridge.services.getSquadSnapshot() });
-    expect(leftWing.dataset.cardId).toBe(String(currentSquad.LW.card_id));
+    expect(leftWing.dataset.cardId).toBe(String(currentSquad[0].card_id));
     expect(leftWing.classList.contains('is-locked')).toBe(true);
     expect(leftWing.classList.contains('is-owned')).toBe(true);
     expect(document.querySelector('#total-cost').value).toBe(rebuilt.totalCost.toLocaleString('en-US'));

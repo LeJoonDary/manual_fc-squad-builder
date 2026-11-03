@@ -25,6 +25,17 @@ beforeEach(async () => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); });
 
 describe('Auto Build UI workflow', () => {
+  it('displays a central CM lock at its single price and submits it once', async () => {
+    const currentSquad = Array(11).fill(null);
+    currentSquad[4] = { card: { id: 999, price: 197000 }, isLocked: true, isOwned: false };
+    await act(async () => root.render(<AutoBuildSettings {...props} formation="4-3-1-2"
+      getCurrentSquad={() => currentSquad} />));
+    expect(container.textContent).toContain('Locked Player Cost 197,000 C');
+    expect(container.textContent).not.toContain('394,000 C');
+    await act(async () => button().click());
+    expect(generateOptimalSquad.mock.lastCall[5].currentSquad.filter(Boolean)).toHaveLength(1);
+    expect(props.applyAutoBuildResult).toHaveBeenCalled();
+  });
   it('uses one engine without Squad Focus controls or options', async () => {
     expect(container.querySelector('.auto-build-focus')).toBeNull();
     expect(container.textContent).not.toContain('Squad Focus');
