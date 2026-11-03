@@ -1590,6 +1590,12 @@ async function generateOptimalSquadPass(
     await visit(initial, 0);
     if (searchGuard.exhausted) break;
   }
+  if (bestComplete && bestComplete.totalChemistry < minChemistry) {
+    const repaired = await repairNearMissSquad(bestComplete.squad, rawPools, spendingLimit,
+      considerManager, minChemistry, options);
+    if (repaired) bestComplete = evaluate({ slots: repaired,
+      cost: repaired.reduce((sum, player) => sum + player.price, 0) });
+  }
   // Refine against the full prepared pools, independently of the search-stage cutoff.
   if (!searchGuard.exhausted && bestComplete && bestComplete.totalChemistry >= minChemistry) {
     const refined = refineCompletedSquad(bestComplete.squad, spendingLimit - bestComplete.totalCost,
@@ -1602,6 +1608,64 @@ async function generateOptimalSquadPass(
   const success = complete && result.totalChemistry >= minChemistry && withinFemaleLimit(result.squad, options) && isNewSelectionValid(result.squad, options);
   return { ...result, remainingBudget: spendingLimit - result.totalCost, success, minChemistryTarget: minChemistry, status: success ? 'success' : complete ? 'chemistry_unmet' : 'incomplete', iterations, searchLimitReached: pruned,
     searchStage, stageAttempts };
+}
+
+/** Bounded local repair using slot-aligned, already validated prepared pools.
+ * Returns null on failure; never mutates the incumbent or the search pools.
+ */
+export async function repairNearMissSquad(
+  squad: GeneratedPlayer[], rawPools: readonly (readonly GeneratedPlayer[])[], spendingLimit: number,
+  considerManager: boolean, minChemistry = 33, options: AutoBuildOptions = {},
+): Promise<GeneratedPlayer[] | null> {
+  if (squad.length !== 11 || calculateSquadChemistry(squad, considerManager).totalChemistry >= minChemistry) return null;
+  const unlockedIndices = squad.flatMap((player, index) => player.isLocked ? [] : [index]);
+  const currentCost = squad.reduce((sum, player) => sum + player.price, 0);
+  const maxSpecial = specialLimit(options);
+  const legal = (players: GeneratedPlayer[]) => withinFemaleLimit(players, options)
+    && withinCardLimits(players, options) && isNewSelectionValid(players, options)
+    && players.filter(p => !p.isLocked && isSpecialCard(p)).length <= maxSpecial
+    && new Set(players.map(p => p.playerKey)).size === players.length;
+  const shortlist = (index: number, others: GeneratedPlayer[], budget: number, limit: number) =>
+    (rawPools[index] ?? []).filter(player => !player.isLocked && player.id !== squad[index].id
+      && player.slotPosition === squad[index].slotPosition && isPositionMatched(squad[index].slotPosition, player)
+      && Number.isFinite(player.price) && player.price >= 0 && player.price <= budget
+      && legal([...others, player]))
+      .sort((a, b) => b.metaScore - a.metaScore || a.price - b.price || a.id.localeCompare(b.id)).slice(0, limit);
+  let lastYield = performance.now();
+  const reachesTarget = async (trial: GeneratedPlayer[]) => {
+    // Repair has its own bounded work allowance, even after the DFS guard expires.
+    if (performance.now() - lastYield >= 8) {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      lastYield = performance.now();
+    }
+    return calculateSquadChemistry(trial, considerManager).totalChemistry >= minChemistry;
+  };
+  for (const index of unlockedIndices) {
+    const others = squad.filter((_, i) => i !== index);
+    const budget = spendingLimit - (currentCost - squad[index].price);
+    for (const player of shortlist(index, others, budget, 60)) {
+      const trial = squad.slice(); trial[index] = player;
+      // Descending meta order selects the best successful card for this slot.
+      if (await reachesTarget(trial)) return trial;
+    }
+  }
+  for (let a = 0; a < unlockedIndices.length; a++) {
+    for (const j of unlockedIndices.slice(a + 1)) {
+      const i = unlockedIndices[a];
+      const others = squad.filter((_, index) => index !== i && index !== j);
+      const budget = spendingLimit - (currentCost - squad[i].price - squad[j].price);
+      const first = shortlist(i, others, budget, 20);
+      const second = shortlist(j, others, budget, 20);
+      const pairs = first.flatMap(left => second.filter(right => left.price + right.price <= budget
+        && legal([...others, left, right])).map(right => ({ left, right })));
+      pairs.sort((a, b) => (b.left.metaScore + b.right.metaScore) - (a.left.metaScore + a.right.metaScore));
+      for (const { left, right } of pairs) {
+        const trial = squad.slice(); trial[i] = left; trial[j] = right;
+        if (await reachesTarget(trial)) return trial;
+      }
+    }
+  }
+  return null;
 }
 
 /** One cheapest-first pass using the shared remaining balance, without construction slot caps. */
