@@ -153,11 +153,41 @@ CLUB_ALIAS_MAP = {
 }
 
 NATION_ALIAS_MAP = {
-    "car": "Central African Republic", "central african republic": "Central African Republic",
-    "netherlands antilles": "Curaçao", "curacao": "Curaçao", "curaçao": "Curaçao",
-    "ivory coast": "Côte d'Ivoire", "cote d'ivoire": "Côte d'Ivoire", "netherlands": "Holland", "holland": "Holland",
-    "türkiye": "Turkey", "turkey": "Turkey", "south korea": "Korea Republic", "korea republic": "Korea Republic",
-    "usa": "United States", "united states": "United States", "germany": "Germany"
+    # 보스니아 (FUT.GG의 'and' 누락 및 변형 명칭을 DB 65번 정식 명칭으로 매핑)
+    "bosnia herzegovina": "Bosnia and Herzegovina",
+    "bosnia-herzegovina": "Bosnia and Herzegovina",
+    "bosnia and herzegovina": "Bosnia and Herzegovina",
+    "bosnia": "Bosnia and Herzegovina",
+
+    # 네덜란드 (FUT.GG의 Netherlands를 DB 16번 정식 명칭 Holland로 매핑)
+    "netherlands": "Holland",
+    "holland": "Holland",
+
+    # 기타 주요 국가 명칭 불일치 방지
+    "czechia": "Czech Republic",
+    "czech republic": "Czech Republic",
+    "south korea": "Korea Republic",
+    "korea republic": "Korea Republic",
+    "korea": "Korea Republic",
+    "usa": "United States",
+    "united states": "United States",
+    "türkiye": "Turkey",
+    "turkey": "Turkey",
+    "ivory coast": "Côte d'Ivoire",
+    "cote d'ivoire": "Côte d'Ivoire",
+    "dr congo": "Congo DR",
+    "democratic republic of the congo": "Congo DR",
+    "cape verde": "Cape Verde Islands",
+    "cape verde islands": "Cape Verde Islands",
+    "netherlands antilles": "Curaçao",
+    "curacao": "Curaçao",
+    "curaçao": "Curaçao",
+    "car": "Central African Republic",
+    "central african republic": "Central African Republic",
+    "ireland": "Republic of Ireland",
+    "republic of ireland": "Republic of Ireland",
+    "china": "China PR",
+    "china pr": "China PR",
 }
 
 def get_table_columns(table_name):
@@ -233,8 +263,19 @@ def get_or_create_nation(name):
     if not name: return None
     clean = name.strip()
     canonical_name = NATION_ALIAS_MAP.get(clean.lower(), clean)
+
+    # 1. 정규화 명칭으로 1차 조회 (대소문자 무시)
     res = supabase.table("nations").select("id").ilike("name", canonical_name).execute()
     if res.data: return res.data[0]["id"]
+
+    # 2. 'and', 공백, 하이픈 누락 대비 퍼지 검색 (예: 'Bosnia Herzegovina' -> '%Bosnia%Herzegovina%')
+    words = [w for w in re.split(r"[\s\-_]+", canonical_name) if w.lower() not in ["and", "of", "the", "pr", "dr", "republic", "islands"]]
+    if len(words) >= 2:
+        pattern = "%" + "%".join(words) + "%"
+        res_fuzzy = supabase.table("nations").select("id").ilike("name", pattern).execute()
+        if res_fuzzy.data: return res_fuzzy.data[0]["id"]
+
+    # 3. DB에 기존 국가가 전혀 없을 때만 신규 생성 (300번 이상)
     try:
         max_res = supabase.table("nations").select("id").order("id", desc=True).limit(1).execute()
         next_id = (max_res.data[0]["id"] + 1) if max_res.data else 300

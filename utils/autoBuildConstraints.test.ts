@@ -101,14 +101,15 @@ describe('owned, locked and special-card constraints', () => {
     expect(result.squad.map(player => player.id)).toEqual(initial.squad.map(player => player.id));
   });
 
-  it('filters specials before DB limits and bypasses price caps for owned cards', async () => {
+  it('filters specials before DB limits and ignores unlocked owned card overrides', async () => {
     const { rows } = fixture();
     rows[2].card_type = 'SPECIAL_ICON';
     const owned = { ...rows[0], price: 9000000 };
     const db = createCandidateMockDb(rows);
     const result = await fetchCandidatePlayers(1000000, '4-3-3', false,
       db as unknown as SupabaseClient, { currentSquad: { LW: { card: owned, isOwned: true } }, maxSpecialCards: 0 });
-    expect(result.find(card => card.id === owned.id)).toMatchObject({ isOwned: true, price: 9000000 });
+    expect(result.find(card => card.id === owned.id)?.price).toBe(rows[0].price);
+    expect(result.find(card => card.id === owned.id)?.isOwned).not.toBe(true);
     expect(result.some(card => card.id === rows[2].id)).toBe(false);
     expect(db.calls.every(call => call.or?.includes('SPECIAL_ICON'))).toBe(true);
   });

@@ -60,3 +60,22 @@ test('uses meta ranking for each reserve quota but does not pin rescue cards fir
   expect(result.map(p => p.id)).not.toContain('low-hero');
   expect(result[0].id).toBe('base-0');
 });
+
+test('keeps eight rescue links and seventeen ordinary candidates beyond the source cutoff', () => {
+  const rescue = Array.from({ length: 40 }, (_, i) => make('rescue-' + i, { nationId: 1, leagueId: 7 }));
+  const regular = base.map(card => ({ ...card, leagueId: 3 }));
+  const all = [...rescue, ...regular, regular[0]];
+  const result = getDynamicCandidatesForSlot('CM', [target], rescue, 100, null, 25, null, false, 33, {}, all, 100, 0, [], true);
+  expect(result).toHaveLength(25);
+  expect(result.filter(card => card.nationId === 1)).toHaveLength(8);
+  expect(new Set(result.map(card => card.id)).size).toBe(25);
+});
+
+test('ordinary builds retain the legacy shortlist even at a late DFS depth', () => {
+  const rescue = Array.from({ length: 25 }, (_, i) => make('link-' + i, { nationId: 1 }));
+  const squad = [target, ...Array.from({ length: 7 }, (_, i) => make('occupied-' + i, {
+    leagueId: 500 + i, nationId: 500 + i, clubId: 500 + i,
+  }))];
+  const result = getDynamicCandidatesForSlot('CM', squad, rescue, 100, null, 25);
+  expect(result).toHaveLength(25);
+});

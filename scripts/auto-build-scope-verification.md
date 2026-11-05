@@ -1,0 +1,306 @@
+# Auto-build scope verification — 2026-11-05
+
+- `npm run build`: passed.
+- Focused tests (bridgeCandidates, mrvOrder, autoBuildLockedPuzzle, fourSlotLocks): 44 passed.
+- Full suite: 945 passed, 279 failed, 5 skipped.
+- All remaining failing assertions also failed when imports of autoBuildUtils were redirected to an isolated copy of HEAD's source. Working source was never restored or replaced. The temporary alias configuration and source were removed afterward.
+- Existing contradictory expectations include `singleBudget.test.ts` and `playstyleBonus.test.ts` asking for CB before CM. Other failures include removed getPriorityPriceCap/generateTopAnchorSets exports and unrelated card UI tests. No tests were skipped or expectations weakened to hide these failures.
+
+## Live database checks
+
+Command: `npx tsx scripts/check-seven-lock-links.ts`. Database reads are outside the measured builder duration. Locked cards are marked owned. Prices and candidate counts are live and can change.
+
+| Initial locks | Result | Builder time | New-card cost |
+| --- | --- | --- | --- |
+| 7 | Mariona, De Paul, Saliba, Frimpong; MLS/Poland; 33/33 | 210–231 ms | 54,150 |
+| 8 (Valencia added) | Mariona, De Paul, Timber; MLS/Poland; 33/33 | 32–54 ms | 36,200 |
+| 3, run 1 | 33/33 | 751 ms | 197,700 |
+| 3, run 2 | 33/33 | 676 ms | 197,700 |
+| 3, run 3 | 33/33 | 677 ms | 197,700 |
+| 3, run 4 | 33/33 | 682 ms | 197,700 |
+| 3, run 5 | 33/33 | 724 ms | 197,700 |
+
+Three-lock card versions: Adeyemi 19980 (RS), Lacroix 396 (LCB), Espart 20264 (LB); budget 300,000; Icons/Heroes excluded. Every newly selected card costs at most 90,000. All five deterministic runs produced Gyokeres, Moleiro, De Jong, Mariona, Gravenberch, Eric Garcia, Ona Batlle, Raya. Pedri was absent. Regression tests confirm LS is the first open slot, followed by CAM and midfield. This does not introduce randomized squad diversity.
+
+The strict 200 ms target for seven locks and zero full-suite failures were **not** achieved.
+
+## Remaining failing assertions
+
+- `AlternativePlayerModal.test.js`: preserves standard-first ranking across twenty-card page boundaries
+- `AlternativePlayerModal.test.js`: renders full cards with price and stats and swaps the requested slot
+- `PitchMiniCard.test.js`: GK pitch card shows keeper labels and values
+- `PitchMiniCard.test.js`: keeps more than seven styles for wrapping without mutating the input
+- `PitchMiniCard.test.js`: merges raw joins and normalized styles without losing images or duplicating icons
+- `PitchMiniCard.test.js`: mini card renders Plus-first playstyles between affiliations and skills
+- `PitchMiniCard.test.js`: omits absent optional badges and deduplicates ICON affiliation
+- `PlayerCard.test.js`: GK catalog card shows keeper labels and values
+- `PlayerCard.test.js`: ICON names and club ID render shared shield emblems without raw text
+- `PlayerCard.test.js`: cached summaries render six face stats without a portrait or unknown meta score
+- `PlayerCard.test.js`: overflow opens details without selecting the squad card; cached playstyle icons still render
+- `PlayerCard.test.js`: renders 1 roles with overflow only beyond two
+- `PlayerCard.test.js`: renders 2 roles with overflow only beyond two
+- `PlayerCard.test.js`: renders 3 roles with overflow only beyond two
+- `PlayerCard.test.js`: renders two priority roles and the remaining count, with safe emblem fallback
+- `PlayerCard.test.js`: shared card renders the reference layout and selection works with keyboard and click
+- `advancedSettings.test.ts`: fullback cap for LB applies from 300k and increases for first priority
+- `advancedSettings.test.ts`: fullback cap for RB applies from 300k and increases for first priority
+- `alternativePlayers.test.js`: alternative players puts icons identified by affiliation or identity after standard cards
+- `alternativePlayers.test.js`: alternative players sorts eligible gold and special cards before icons and omits silver and bronze
+- `alternativePlayers.test.js`: alternative players sorts regular cards before both heroes and icons, then OVR descending and price ascending
+- `anchorMultiplier.test.ts`: CF enforces pace 82 at every budget and retains physicality cutoffs
+- `anchorMultiplier.test.ts`: DB query retains expanded anchor cards and integer price caps
+- `anchorMultiplier.test.ts`: LB uses physicality 20%, no passing, and PHY 65 only from 500k
+- `anchorMultiplier.test.ts`: LS enforces pace 82 at every budget and retains physicality cutoffs
+- `anchorMultiplier.test.ts`: LWB uses physicality 20%, no passing, and PHY 65 only from 500k
+- `anchorMultiplier.test.ts`: RB uses physicality 20%, no passing, and PHY 65 only from 500k
+- `anchorMultiplier.test.ts`: RS enforces pace 82 at every budget and retains physicality cutoffs
+- `anchorMultiplier.test.ts`: RWB uses physicality 20%, no passing, and PHY 65 only from 500k
+- `anchorMultiplier.test.ts`: ST enforces pace 82 at every budget and retains physicality cutoffs
+- `anchorMultiplier.test.ts`: first three anchors expand to 52.5%, 32.5%, 22% and later slots share remaining funds
+- `anchorMultiplier.test.ts`: full-squad cap recheck catches a late slot exceeding its remaining-budget share
+- `autoBuildConstraints.test.ts`: owned, locked and special-card constraints builds around a 3M locked defender using a separate 1M allowance for open DF slots
+- `autoBuildConstraints.test.ts`: owned, locked and special-card constraints enforces a combined Icon/Hero cap of 0
+- `autoBuildConstraints.test.ts`: owned, locked and special-card constraints enforces a combined Icon/Hero cap of 1
+- `autoBuildConstraints.test.ts`: owned, locked and special-card constraints enforces a combined Icon/Hero cap of 2
+- `autoBuildConstraints.test.ts`: owned, locked and special-card constraints injects owned cards missing from fetched candidates and counts unpaid locked cards
+- `autoBuildConstraints.test.ts`: owned, locked and special-card constraints keeps a locked card in its exact slot with zero owned cost despite higher-scoring candidates
+- `autoBuildConstraints.test.ts`: owned, locked and special-card constraints keeps all 11 locked owned players at zero budget without any candidates
+- `autoBuildConstraints.test.ts`: owned, locked and special-card constraints keeps the target price filter when locks already exceed the budget
+- `autoBuildConstraints.test.ts`: owned, locked and special-card constraints keeps zero-price locks and excludes free or null owned replacements even in fallback (budget 0)
+- `autoBuildFiltering.test.ts`: forces all pace/defense floors at budget 0
+- `autoBuildFiltering.test.ts`: forces all pace/defense floors at budget 100000
+- `autoBuildFiltering.test.ts`: forces all pace/defense floors at budget 299999
+- `autoBuildFiltering.test.ts`: forces all pace/defense floors at budget 300000
+- `autoBuildFiltering.test.ts`: forces all pace/defense floors at budget 500000
+- `autoBuildFiltering.test.ts`: forces all pace/defense floors at budget 60000000
+- `autoBuildFiltering.test.ts`: forces all pace/defense floors at budget undefined
+- `autoBuildFinalPatch.test.ts`: all stages share a five-second deadline
+- `autoBuildFinalPatch.test.ts`: preserves midfield, striker and fullback stat floors at 499999
+- `autoBuildFinalPatch.test.ts`: preserves midfield, striker and fullback stat floors at 500000
+- `autoBuildFinalPatch.test.ts`: rejects chemistry below the target and preserves input
+- `autoBuildGroupPools.test.ts`: all seven ranks have fixed caps independent of remaining slots
+- `autoBuildGroupPools.test.ts`: default ST pair spends one fixed pool without equal per-player limits
+- `autoBuildGroupPools.test.ts`: fifth-priority fullbacks share 130k, including the upgrade pass
+- `autoBuildGroupPools.test.ts`: pair generation includes affordable partners beyond the old top-40 slice
+- `autoBuildGroupPools.test.ts`: preserves wingless defaults and appends omitted groups after custom priorities
+- `autoBuildGroupPools.test.ts`: sets preserve different slot eligibility and reject duplicate player versions
+- `autoBuildGroupPools.test.ts`: top five 1-slot sets match exhaustive summed-score ranking
+- `autoBuildGroupPools.test.ts`: top five 2-slot sets match exhaustive summed-score ranking
+- `autoBuildGroupPools.test.ts`: top five 3-slot sets match exhaustive summed-score ranking
+- `autoBuildPairSaturation.test.ts`: free search keeps group budget, exclusions and star requirements
+- `autoBuildPairSaturation.test.ts`: selects the stronger 279k + 66k pair rather than a 482k ace and filler
+- `autoBuildPairSaturation.test.ts`: unlimited Icon squad selects stronger fullback and keeper without rewarding club links
+- `autoRefine.test.ts`: main builder refines beyond construction slot cap and returns accurate remaining funds
+- `autoRefine.test.ts`: upgrades a 900 C starter to the best affordable DB score and preserves inputs and chemistry
+- `beamSearch.test.ts`: CB/GK eligibility uses women leagues and flags, never height or missing data
+- `beamSearch.test.ts`: anchor order preserves every formation slot, with attackers first and GK last
+- `beamSearch.test.ts`: bounded search builds 33 chemistry under 500ms from 1320 candidates
+- `beamSearch.test.ts`: budget and Icon status do not affect base scores; GK uses overall
+- `beamSearch.test.ts`: dynamic synergy promotes a partner beyond the old static top thirty
+- `beamSearch.test.ts`: equal-priority aliases retain formation order and CB precedes midfield
+- `beamSearch.test.ts`: equivalent 750-coin cards remain selected at high budget
+- `beamSearch.test.ts`: final score uses position meta formulas and goalkeeper overall
+- `beamSearch.test.ts`: first anchor keeps meta rank one even when a lower-ranked card has better chemistry
+- `beamSearch.test.ts`: fourth real league is blocked even for Hero and same-nation bridges
+- `beamSearch.test.ts`: only a strict 32-chemistry baseline can use a one-slot relaxed rescue
+- `beamSearch.test.ts`: passing and dribbling let a lower OVR midfielder beat a fast winger assigned to CM
+- `beamSearch.test.ts`: price-neutral score at 14999
+- `beamSearch.test.ts`: price-neutral score at 15000
+- `beamSearch.test.ts`: price-neutral score at 250000
+- `beamSearch.test.ts`: price-neutral score at 250001
+- `beamSearch.test.ts`: price-neutral score at 2999
+- `beamSearch.test.ts`: price-neutral score at 3000
+- `beamSearch.test.ts`: synergy adds 18/12/8 only once and supports locks and numeric/string IDs
+- `budgetUpgrade.test.ts`: unlimited, already-spent and incomplete squads do not trigger upgrades
+- `candidatePlayers.test.ts`: applies OVR bounds to every DB query and owned cards: { min: 45, max: 74 }
+- `candidatePlayers.test.ts`: applies OVR bounds to every DB query and owned cards: { min: 75, max: 99 }
+- `candidatePlayers.test.ts`: candidate pruning bounds every position to one top-120 query with thousands of cards (budget 0)
+- `candidatePlayers.test.ts`: candidate pruning bounds every position to one top-120 query with thousands of cards (budget 1000000)
+- `candidatePlayers.test.ts`: candidate pruning deducts locks only from the total, never the open-slot allocation
+- `candidatePlayers.test.ts`: candidate pruning excludes only the selected version in every query and owned-card path (budget 0)
+- `candidatePlayers.test.ts`: candidate pruning excludes only the selected version in every query and owned-card path (budget 1000000)
+- `candidatePlayers.test.ts`: candidate pruning fetches minimum-price candidates at zero budget and reports DB errors
+- `candidatePlayers.test.ts`: candidate pruning fetches top candidates without a price cap for an unset budget (0)
+- `candidatePlayers.test.ts`: candidate pruning fetches top candidates without a price cap for an unset budget (null)
+- `candidatePlayers.test.ts`: candidate pruning fetches top candidates without a price cap for an unset budget (undefined)
+- `candidatePlayers.test.ts`: candidate pruning filters before limiting, ranks by rating, and keeps secondary positions and deduplicates
+- `candidatePlayers.test.ts`: candidate pruning filters fullbacks/GK at fixed caps before the 120-row limit and loads CB aerial attributes
+- `candidatePlayers.test.ts`: candidate pruning filters unpriced cards before limits and owned injection (budget 0)
+- `candidatePlayers.test.ts`: candidate pruning filters unpriced cards before limits and owned injection (budget 1000000)
+- `candidatePlayers.test.ts`: filters required roles in the DB before the 120-row limit while preserving full role joins
+- `dualAnchor.test.ts`: league saturation alone switches anchors and manual priorities determine the next ace
+- `dualAnchor.test.ts`: partial-squad affiliation rewards plateau instead of stacking after saturation
+- `dynamicBudgetCaps.test.ts`: 18 percent fallback cap for LB is lifted only by FB priority
+- `dynamicBudgetCaps.test.ts`: 18 percent fallback cap for LWB is lifted only by FB priority
+- `dynamicBudgetCaps.test.ts`: 18 percent fallback cap for RB is lifted only by FB priority
+- `dynamicBudgetCaps.test.ts`: 18 percent fallback cap for RWB is lifted only by FB priority
+- `dynamicBudgetCaps.test.ts`: beam and upgrade obey GK cap and its priority override
+- `dynamicBudgetCaps.test.ts`: beam and upgrade obey LB cap and its priority override
+- `dynamicBudgetCaps.test.ts`: fullback LB requires pace at least 82 at every budget, including alternate positions
+- `dynamicBudgetCaps.test.ts`: fullback LWB requires pace at least 82 at every budget, including alternate positions
+- `dynamicBudgetCaps.test.ts`: fullback RB requires pace at least 82 at every budget, including alternate positions
+- `dynamicBudgetCaps.test.ts`: fullback RWB requires pace at least 82 at every budget, including alternate positions
+- `dynamicBudgetCaps.test.ts`: keeper cap and striker pace have inclusive boundaries and normalized aliases
+- `dynamicBudgetRebalancing.test.ts`: a final goalkeeper uses savings from locked slots
+- `dynamicDamping.test.ts`: CDM uses normal link bonuses without midfield damping
+- `dynamicDamping.test.ts`: CM uses normal link bonuses without midfield damping
+- `dynamicDamping.test.ts`: GK reads nested overall and ignores invalid values
+- `dynamicDamping.test.ts`: GK reads nested overall_rating and ignores invalid values
+- `dynamicDamping.test.ts`: GK reads nested rating and ignores invalid values
+- `dynamicDamping.test.ts`: LCM uses normal link bonuses without midfield damping
+- `dynamicDamping.test.ts`: RCM uses normal link bonuses without midfield damping
+- `dynamicDamping.test.ts`: goalkeepers rank by raw OVR before inflated meta score
+- `effectiveCoreLeague.test.ts`: Icon league contributions and a manager can graduate the core at five
+- `effectiveCoreLeague.test.ts`: hybrid 5-3-3 keeps unfinished leagues available
+- `fallbackExpansion.test.ts`: DB fetch retains 175 cards after exclusion before search-stage slicing
+- `fallbackExpansion.test.ts`: expanded pool respects its exact 175-card boundary with 174 distractors
+- `fallbackExpansion.test.ts`: expanded pool respects its exact 175-card boundary with 175 distractors
+- `fallbackExpansion.test.ts`: failed top 100 expands to 175 and finds a chemistry bridge beyond old DB limit
+- `fallbackExpansion.test.ts`: fallback does not reinstate a physically invalid striker
+- `fallbackExpansion.test.ts`: fallback preserves exclusions and advanced requirements {"excludedCardVersionIds":[999]}
+- `fallbackExpansion.test.ts`: fallback preserves exclusions and advanced requirements {"slotRequirements":{"ST":{"minWf":5}}}
+- `finalEnginePatch.test.ts`: hard caps hold at budget 0
+- `finalSquadScore.test.ts`: complete-squad search matches exhaustive scoring on a small pool and ignores input order
+- `finalSquadScore.test.ts`: final scoring uses exact hybrid and club bonuses, no Gold floor, and rejects excess cost
+- `finalSquadScore.test.ts`: strength uses OVR and normalized pace aliases, including low-rated Gold
+- `formationPriority.test.ts`: dynamic pool retains 25 base candidates
+- `formationPriority.test.ts`: second striker becomes the first open anchor with locked teammates
+- `generateSquad.test.ts`: generateOptimalSquad backtracks when an early high-meta choice blocks a later player identity
+- `generateSquad.test.ts`: generateOptimalSquad builds all exact slots using meta rather than OVR, honors budget, and preserves inputs
+- `generateSquad.test.ts`: generateOptimalSquad clusters slightly more expensive cheap cards instead of selecting isolated price minima
+- `generateSquad.test.ts`: generateOptimalSquad excludes only the banned card through candidates, ownership and fallback
+- `generateSquad.test.ts`: generateOptimalSquad places the shared player at striker before choosing a winger
+- `generateSquad.test.ts`: generateOptimalSquad prioritizes quality and 33 chemistry without a budget (0)
+- `generateSquad.test.ts`: generateOptimalSquad prioritizes quality and 33 chemistry without a budget (null)
+- `generateSquad.test.ts`: generateOptimalSquad prioritizes quality and 33 chemistry without a budget (undefined)
+- `generateSquad.test.ts`: generateOptimalSquad replaces isolated expensive-meta players to meet chemistry
+- `generateSquad.test.ts`: generateOptimalSquad reserves budget and disables managers
+- `generateSquad.test.ts`: generateOptimalSquad selects a premium winger after reserving the striker identity
+- `generateSquad.test.ts`: generateOptimalSquad selects male CB candidates using the joined gender bonus in both CB slots
+- `generateSquad.test.ts`: generateOptimalSquad selects stronger cards above soft targets instead of a 650-coin card, preserving locks and input budgets
+- `generateSquad.test.ts`: generateOptimalSquad uses the full remaining budget around owned locks
+- `generateSquad.test.ts`: generateOptimalSquad uses the new OVR-and-pace formula instead of persisted meta_score
+- `hybridSquad.test.ts`: allows concentrated squads and locks when alternatives are unavailable, with a soft penalty
+- `hybridSquad.test.ts`: allows high-pace low-OVR Gold without an arbitrary quality floor
+- `hybridSquad.test.ts`: assembles the feasible template 4 before relaxing the league cap
+- `hybridSquad.test.ts`: assembles the feasible template 5 before relaxing the league cap
+- `hybridSquad.test.ts`: builds a chemistry-valid hybrid regardless of league identity 1
+- `hybridSquad.test.ts`: builds a chemistry-valid hybrid regardless of league identity 999
+- `hybridSquad.test.ts`: can select pace 81 while respecting the overall budget
+- `hybridSquad.test.ts`: prefers a hybrid over stronger mono-league candidates and keeps it after upgrades
+- `hybridSquad.test.ts`: uses six regulars only when a five-player-cap build is unavailable
+- `inGameMeta.test.ts`: OVR baseline, special cards, thresholds and missing stats
+- `inGameMeta.test.ts`: exact CAM formula
+- `inGameMeta.test.ts`: exact CB formula
+- `inGameMeta.test.ts`: exact CF formula
+- `inGameMeta.test.ts`: exact LCB formula
+- `inGameMeta.test.ts`: exact ST formula
+- `inGameMeta.test.ts`: priority groups move all relevant formation slots together
+- `metaPaceScore.test.ts`: CB height 179 applies -20 points
+- `metaPaceScore.test.ts`: GK excludes body bonus, and a secondary position has no deduction
+- `metaPaceScore.test.ts`: height, male and primary bonuses stack without changing the 180cm baseline
+- `metaPaceScore.test.ts`: joined stats, missing values and goalkeeper fallback remain supported
+- `metaPaceScore.test.ts`: male CB has no bonus for {"raw":{"players":{"is_women":false}}}
+- `metaPaceScore.test.ts`: no male bonus for {"gender":"F"}
+- `metaPaceScore.test.ts`: no male bonus for {"gender":"Female"}
+- `metaPaceScore.test.ts`: no male bonus for {"is_women":true}
+- `metaPaceScore.test.ts`: reads height from normalized and joined cards: {"height":"179"}
+- `metaPaceScore.test.ts`: reads height from normalized and joined cards: {"playerDef":{"height":179}}
+- `metaPaceScore.test.ts`: reads height from normalized and joined cards: {"players":[{"height":179}]}
+- `metaPaceScore.test.ts`: reads height from normalized and joined cards: {"players":{"height":179}}
+- `metaPaceScore.test.ts`: reads height from normalized and joined cards: {"raw":{"players":{"height":179}}}
+- `metaPaceScore.test.ts`: recognizes male metadata for both CB and GK: {"isWomen":false}
+- `metaPaceScore.test.ts`: recognizes male metadata for both CB and GK: {"playerDef":{"gender":1}}
+- `metaPaceScore.test.ts`: recognizes male metadata for both CB and GK: {"playerDef":{"isWomen":false}}
+- `metaPaceScore.test.ts`: recognizes male metadata for both CB and GK: {"players":[{"gender":"Male"}]}
+- `metaPaceScore.test.ts`: recognizes male metadata for both CB and GK: {"raw":{"playerDef":{"gender":"M"}}}
+- `metaPaceScore.test.ts`: short aerial specialists receive only minus five: {"card_type":"ICON"}
+- `metaPaceScore.test.ts`: short aerial specialists receive only minus five: {"card_type":"SPECIAL_HERO"}
+- `metaPaceScore.test.ts`: short aerial specialists receive only minus five: {"detail_stats":{"agility":80,"balance":70,"finishing":90,"composure":60,"def_awareness":80,"standing_tackle":70,"strength":90,"stamina":70,"vision":80,"short_passing":90,"jumping":90}}
+- `metaPaceScore.test.ts`: short aerial specialists receive only minus five: {"face_stats":{"pac":90,"sho":80,"pas":70,"dri":85,"def":60,"phy":90}}
+- `metaPaceScore.test.ts`: short aerial specialists receive only minus five: {"isHero":true}
+- `metaPaceScore.test.ts`: short aerial specialists receive only minus five: {"isIcon":true}
+- `metaPaceScore.test.ts`: short aerial specialists receive only minus five: {"is_hero":true}
+- `metaPaceScore.test.ts`: short aerial specialists receive only minus five: {"is_icon":true}
+- `metaPaceScore.test.ts`: short aerial specialists receive only minus five: {"raw":{"card_type":"SPECIAL_ICON"}}
+- `playstyleBonus.test.ts`: empty priorities use all seven default groups with centerbacks before midfield
+- `playstyleBonus.test.ts`: solver selects gold over silver at equal stats, price and chemistry
+- `priceCapTimeout.test.ts`: all DB price caps are integers at budget 1000000
+- `priceCapTimeout.test.ts`: all DB price caps are integers at budget 300000
+- `priceCapTimeout.test.ts`: all DB price caps are integers at budget 300000.75
+- `priceCapTimeout.test.ts`: core bonus does not override a stronger alternative
+- `priorityBudgetCaps.test.ts`: caps start at 300k, preserve unlimited budgets and honor aliases and order
+- `priorityBudgetCaps.test.ts`: first-priority ST never selects or upgrades to an 890k card; full chemistry and locks survive
+- `priorityBudgetCaps.test.ts`: query cap applies before LIMIT so 120 expensive strikers cannot crowd out an eligible card
+- `priorityBudgetCaps.test.ts`: rank cap for CAM has an inclusive boundary
+- `priorityBudgetCaps.test.ts`: rank cap for CDM has an inclusive boundary
+- `priorityBudgetCaps.test.ts`: rank cap for GK has an inclusive boundary
+- `priorityBudgetCaps.test.ts`: rank cap for LCB has an inclusive boundary
+- `priorityBudgetCaps.test.ts`: rank cap for LW has an inclusive boundary
+- `priorityBudgetCaps.test.ts`: rank cap for RWB has an inclusive boundary
+- `priorityBudgetCaps.test.ts`: rank cap for ST has an inclusive boundary
+- `priorityUpgrade.test.ts`: higher OVR but worse meta cards do not replace stronger incumbents
+- `priorityUpgrade.test.ts`: post-pass replaces a higher OVR incumbent only when in-game meta improves
+- `priorityUpgrade.test.ts`: priorities group canonical slots, deduplicate choices and preserve input
+- `scoreDrivenUpgrade.test.ts`: CF physicality follows the budget boundary in every card shape
+- `scoreDrivenUpgrade.test.ts`: LB accepts exactly pace 82 at every budget
+- `scoreDrivenUpgrade.test.ts`: LS physicality follows the budget boundary in every card shape
+- `scoreDrivenUpgrade.test.ts`: LWB accepts exactly pace 82 at every budget
+- `scoreDrivenUpgrade.test.ts`: RB accepts exactly pace 82 at every budget
+- `scoreDrivenUpgrade.test.ts`: RS physicality follows the budget boundary in every card shape
+- `scoreDrivenUpgrade.test.ts`: RWB accepts exactly pace 82 at every budget
+- `scoreDrivenUpgrade.test.ts`: ST physicality follows the budget boundary in every card shape
+- `scoreDrivenUpgrade.test.ts`: upgrade evaluates playstyle points exactly once
+- `singleBudget.test.ts`: caps premium CB by focus in attack
+- `singleBudget.test.ts`: caps premium CB by focus in balanced
+- `singleBudget.test.ts`: caps premium CB by focus in defense
+- `singleBudget.test.ts`: preserves both wing investments after reserving paid locks: 0
+- `singleBudget.test.ts`: selects a striker above the old cap but rejects prices above 170% of the base
+- `singleBudget.test.ts`: single shared budget allows a card far above the former equal-share cap and keeps paid locks exact
+- `singleBudget.test.ts`: single shared budget applies the intended position-specific score multipliers: attack
+- `singleBudget.test.ts`: single shared budget applies the intended position-specific score multipliers: balanced
+- `singleBudget.test.ts`: single shared budget applies the intended position-specific score multipliers: defense
+- `singleBudget.test.ts`: single shared budget caps unlocked fullback/GK purchases at fixed ceilings throughout upgrades, without capping CB
+- `singleBudget.test.ts`: single shared budget keeps expensive locked and owned defenders despite their market prices
+- `singleBudget.test.ts`: single shared budget normalizes slot aliases and gives ST first priority in attack and balanced
+- `singleBudget.test.ts`: single shared budget performs at most two upgrades only when at least 50k remains: 300000
+- `singleBudget.test.ts`: single shared budget performs at most two upgrades only when at least 50k remains: 49999
+- `singleBudget.test.ts`: spends both upgrade opportunities on cheap CBs before a weaker CM
+- `singleBudget.test.ts`: uses the premium CB preference only with sufficient balance in attack (80000)
+- `squadBalance.test.ts`: builder selects the taller unlocked CB but preserves a manually locked short CB
+- `squadBalance.test.ts`: defensive height floor for GK at 186
+- `squadBalance.test.ts`: defensive height floor for RCB at 180
+- `squadBalance.test.ts`: female penalty is applied once and missing height is not treated as short
+- `squadFocus.test.ts`: applies the cap and score matrix for CAM
+- `squadFocus.test.ts`: applies the cap and score matrix for CDM
+- `squadFocus.test.ts`: applies the cap and score matrix for CF
+- `squadFocus.test.ts`: applies the cap and score matrix for GK
+- `squadFocus.test.ts`: applies the cap and score matrix for LB
+- `squadFocus.test.ts`: applies the cap and score matrix for LCB
+- `squadFocus.test.ts`: applies the cap and score matrix for LCM
+- `squadFocus.test.ts`: applies the cap and score matrix for LM
+- `squadFocus.test.ts`: applies the cap and score matrix for LW
+- `squadFocus.test.ts`: applies the cap and score matrix for LWB
+- `squadFocus.test.ts`: applies the cap and score matrix for RB
+- `squadFocus.test.ts`: applies the cap and score matrix for RCB
+- `squadFocus.test.ts`: applies the cap and score matrix for RM
+- `squadFocus.test.ts`: applies the cap and score matrix for RW
+- `squadFocus.test.ts`: applies the cap and score matrix for RWB
+- `squadFocus.test.ts`: applies the cap and score matrix for ST
+- `squadFocus.test.ts`: enforces Attack midfield and fixed defensive caps at budget 1000000
+- `squadFocus.test.ts`: enforces Attack midfield and fixed defensive caps at budget 500000
+- `squadFocus.test.ts`: normalizes striker aliases, preserves equal-priority order and puts unknown positions last
+- `squadFocus.test.ts`: produces distinct allocations from the same candidates without exceeding caps: attack
+- `squadFocus.test.ts`: rejects an invalid focus instead of silently switching its policy
+- `squadFocus.test.ts`: uses the focus caps in DB queries before limiting rows: attack
+- `squadFocus.test.ts`: uses the focus caps in DB queries before limiting rows: balanced
+- `squadFocus.test.ts`: uses the focus caps in DB queries before limiting rows: defense
+- `tacticalRequirements.test.ts`: applies minimum tier predicates before DB limit {"isPlus":false,"minLevel":1}
+- `tacticalRequirements.test.ts`: applies minimum tier predicates before DB limit {"isPlus":false,"minLevel":2}
+- `tacticalRequirements.test.ts`: applies minimum tier predicates before DB limit {"isPlus":true,"minLevel":1}
+- `tacticalRequirements.test.ts`: applies minimum tier predicates before DB limit {"isPlus":true,"minLevel":2}
+- `tacticalRequirements.test.ts`: applies only the female penalty at known tall height {"gender":"Female"}
+- `tacticalRequirements.test.ts`: applies only the female penalty at known tall height {"gender":0}
+- `tacticalRequirements.test.ts`: applies only the female penalty at known tall height {"isWomen":true}
+- `tacticalRequirements.test.ts`: applies only the female penalty at known tall height {"playerDef":{"isWomen":true}}
+- `tacticalRequirements.test.ts`: applies only the female penalty at known tall height {"players":[{"gender":"F"}]}

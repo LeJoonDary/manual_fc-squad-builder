@@ -4,13 +4,13 @@ import { getMrvSlotOrder, hasSlotConstraints, generateOptimalSquad, getAvailable
 import { FORMATIONS } from './formations.js';
 import fixture from '../scripts/mocks/mrvCandidates.json';
 
-test('orders scarce slots by pool size and keeps ordinary position priority for ties', () => {
+test('keeps ordinary slots in position order regardless of pool size', () => {
   const slots = ['ST', 'CAM', 'LCM', 'CM', 'RCM', 'CB', 'GK'].map(position => ({ position }));
   const pools = [100, 200, 8, 3, 15, 8, 80].map(count => Array(count).fill(null));
-  expect(getMrvSlotOrder(slots, pools, new Set())).toEqual([3, 2, 5, 4, 0, 1, 6]);
-  expect(getMrvSlotOrder(slots, pools, new Set([3]))).toEqual([2, 5, 4, 0, 1, 6]);
+  expect(getMrvSlotOrder(slots, pools, new Set())).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  expect(getMrvSlotOrder(slots, pools, new Set([3]))).toEqual([0, 1, 2, 4, 5, 6]);
   expect(getMrvSlotOrder(slots, pools, new Set(), { slotRequirements: { GK: { minWf: 3 } } }))
-    .toEqual([3, 2, 5, 4, 6, 0, 1]);
+    .toEqual([6, 0, 1, 2, 3, 4, 5]);
 });
 
 test('recognizes supported PlayStyle, Role and star requirements without treating empty settings as constraints', () => {
@@ -41,4 +41,14 @@ test('prioritizes three Pinged Pass+ CMs and completes 33 chemistry without lock
   expect(midfield.map(p => p.id).sort()).toEqual(['11', '8', '88']);
   expect(midfield.reduce((sum, player) => sum + player.price, 0)).toBe(469000);
   expect(midfield.every(p => matchesSlotRequirements(p.card, fixture.options.slotRequirements.CM, p.slotPosition))).toBe(true);
+});
+
+
+test('keeps attackers first with three locks and midfield first with seven locks', () => {
+  const slots = FORMATIONS.find(f => f.name === '4-3-1-2')!.slots;
+  const pools = slots.map((_, i) => Array(i + 1).fill(null));
+  const positions = (locked: number[]) => getMrvSlotOrder(slots, pools, new Set(locked))
+    .map(i => slots[i].position);
+  expect(positions([1, 6, 7])).toEqual(['LS', 'CAM', 'LCM', 'CM', 'RCM', 'RCB', 'RB', 'GK']);
+  expect(positions([0, 1, 2, 4, 6, 7, 10])).toEqual(['LCM', 'RCM', 'RCB', 'RB']);
 });
