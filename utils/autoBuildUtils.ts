@@ -45,6 +45,8 @@ export type CurrentSquadEntry = { card: Record<string, any>; isOwned?: boolean; 
 export interface AutoBuildOptions {
   /** Internal search stage: only matching rescue Heroes may exceed the slot cap. */
   allowVipRescue?: boolean;
+  /** Internal: derived once from a low-budget build with no locks. */
+  lowBudgetPooling?: boolean;
   maxFemalePlayers?: MaxFemalePlayers;
   slotRequirements?: Record<string, SlotRequirement>;
 
@@ -924,7 +926,7 @@ export function getDynamicCandidatesForSlot(position: string, squad: readonly Ge
   const used = new Set(squad.map(p => p.playerKey));
   const counts = linkCounts(squad);
   const includeManager = position === 'GK' || considerManager;
-  const chemistry = calculateSquadChemistry(squad, includeManager);
+  const chemistry = calculateSquadChemistry(squad, options.lowBudgetPooling ? false : includeManager);
   const saturated = chemistry.totalChemistry >= minChemistryTarget;
   const zeroChemistryTargets = squad.filter(p => chemistry.playerChemMap[p.id] === 0).map(linkKeys);
   const basePoolIds = new Set(pool.map(p => p.id));
@@ -937,16 +939,24 @@ export function getDynamicCandidatesForSlot(position: string, squad: readonly Ge
   const slotCap = effectiveSlotBudget(budget, remainingBudget, squad, options);
   const validCandidates = candidates;
   const rankAnchor = createAnchorRanker(position, squad);
+  const finalDelta = options.lowBudgetPooling && squad.length === 10
+    ? prepareChemistryDelta(squad.map(player => ({ position: player.slotPosition, player }))) : null;
   const ranked = validCandidates.map(card => {
       // Evaluate the actual completed squad, including manager/Icon effects, rather than
       // assuming that a number of Icons guarantees chemistry for every possible card.
       const reachesTarget = squad.length === 10
-        ? calculateSquadChemistry([...squad, card], includeManager).totalChemistry >= minChemistryTarget
+        ? (finalDelta ? finalDelta(card).totalChemistry : calculateSquadChemistry([...squad, card], includeManager).totalChemistry) >= minChemistryTarget
         : saturated;
       const baseMetaScore = getCardMetaScore(card, position);
       const linkScore = reachesTarget ? 0 : linkBonus(card, counts, anchor);
       const score = baseMetaScore + linkScore;
-      return { card, saturated: reachesTarget ? 1 : 0, score, anchorRank: rankAnchor(card) };
+      const keys = linkKeys(card);
+      const support = options.lowBudgetPooling ? [
+        keys.league === null ? 0 : Math.min(5, counts.league.get(keys.league) ?? 0),
+        keys.club === null ? 0 : counts.club.get(keys.club) ?? 0,
+        keys.nation === null ? 0 : counts.nation.get(keys.nation) ?? 0,
+      ] : [];
+      return { card, saturated: reachesTarget ? 1 : 0, score, anchorRank: rankAnchor(card), support };
     });
   const getCardOvr = (card: any): number => {
     const value = [card?.overall, card?.card?.overall, card?.rating, card?.overall_rating,
@@ -957,6 +967,10 @@ export function getDynamicCandidatesForSlot(position: string, squad: readonly Ge
   const compare = (a: typeof ranked[number], b: typeof ranked[number]) => {
     // For the final slot, prioritize a complete solution including the requested manager.
     if (squad.length === 10 && b.saturated !== a.saturated) return b.saturated - a.saturated;
+    if (options.lowBudgetPooling) {
+      const left = a.support, right = b.support;
+      for (let i = 0; i < left.length; i++) if (left[i] !== right[i]) return right[i] - left[i];
+    }
     if (priorityGroup(position) === 'ST') return compareAnchorRanks(a.anchorRank, b.anchorRank);
     if (squad.some(player => player.isLocked) && !(a.saturated && b.saturated)) {
       const affinity = chemistryAffinity(b.card, squad, isolatedLocked) - chemistryAffinity(a.card, squad, isolatedLocked);
@@ -1020,8 +1034,8 @@ export const isStrictSelectionValid = (players: readonly any[]) => withinSelecti
 export const isRelaxedSelectionValid = (players: readonly any[]) => withinSelectionQuota(players, [6, 6, 5]);
 export function getLeagueConstraints(options: AutoBuildOptions = {}) {
   // The settings store represents Exclude as 0 and Any as null.
-  const isNoSpecial = options.maxIcons === 0 && options.maxHeroes === 0;
-  return { minLeagues: isNoSpecial ? 2 : 3, maxLeagues: 3, maxPlayersPerLeague: isNoSpecial ? 9 : 5 };
+  const allowConcentratedLeagues = options.lowBudgetPooling || options.maxIcons === 0 && options.maxHeroes === 0;
+  return { minLeagues: allowConcentratedLeagues ? 2 : 3, maxLeagues: 3, maxPlayersPerLeague: allowConcentratedLeagues ? 9 : 5 };
 }
 export function isNewSelectionValid(players: readonly any[], options: AutoBuildOptions = {}): boolean {
   const constraints = getLeagueConstraints(options);
@@ -1493,13 +1507,15 @@ export async function generateOptimalSquad(
   const formationSlots = FORMATIONS.find(item => item.name === formation)?.slots || [];
   const squadArray = getNormalizedSquadArray(options.currentSquad, formationSlots.length, formationSlots)
     .map(entry => entry?.isLocked === true ? entry : null);
-  options = { ...options, currentSquad: squadArray };
+  options = { ...options, currentSquad: squadArray,
+    lowBudgetPooling: Number(totalBudget) > 0 && Number(totalBudget) <= 100000 && !squadArray.some(Boolean) };
   const directSlotCount = squadArray.filter(entry => !entry?.isLocked).length;
   await new Promise(resolve => setTimeout(resolve, 0));
-  const searchGuard = { iterationCount: 0, exhausted: false, lastYield: performance.now() };
+  const searchGuard = { iterationCount: 0, exhausted: false, lastYield: performance.now(),
+    deadline: options.lowBudgetPooling ? performance.now() + 2500 : Infinity };
   const standard = await generateOptimalSquadPass(formation, candidates, totalBudget,
     minChemistry, considerManager, { ...options, allowVipRescue: false }, searchGuard);
-  if (standard.success || searchGuard.exhausted) return standard;
+  if (standard.success || searchGuard.exhausted || performance.now() >= searchGuard.deadline) return standard;
   const openCount = directSlotCount;
   if (openCount >= 1 && openCount <= 4) return standard;
 
@@ -1518,7 +1534,7 @@ async function generateOptimalSquadPass(
   formation: string, candidates: CandidateGroups | CandidatePlayer[], totalBudget: number | null | undefined,
   minChemistry: number = 33, considerManager: boolean,
   options: AutoBuildOptions = {},
-  searchGuard = { iterationCount: 0, exhausted: false, lastYield: performance.now() },
+  searchGuard = { iterationCount: 0, exhausted: false, lastYield: performance.now(), deadline: Infinity },
 ): Promise<GeneratedSquad> {
   const layout = FORMATIONS.find(item => item.name === formation);
   if (!layout) throw new Error(`Unsupported formation: ${formation}`);
@@ -1573,7 +1589,8 @@ async function generateOptimalSquadPass(
     const unique = new Map<string, GeneratedPlayer>();
     let preparationYield = performance.now();
     for (const card of sharedSources.get(normalizeChemistryPosition(position))!) {
-      if (usedDirectSolver && performance.now() - preparationYield >= 8) {
+      if (options.lowBudgetPooling && performance.now() >= searchGuard.deadline) break;
+      if ((usedDirectSolver || options.lowBudgetPooling) && performance.now() - preparationYield >= 8) {
         await new Promise(resolve => setTimeout(resolve, 0));
         preparationYield = performance.now();
       }
@@ -1633,7 +1650,7 @@ async function generateOptimalSquadPass(
   const order = getMrvSlotOrder(layout.slots, rawPools, new Set(fixedPlayers.keys()), options);
   const hasConstrainedSlots = layout.slots.some(slot => hasSlotConstraints(slot.position, options));
   const uncappedLiveSlotBudget = (index: number, slots: Array<GeneratedPlayer | undefined>, cost: number) => {
-    if (hasSlotConstraints(layout.slots[index].position, options)
+    if (options.lowBudgetPooling || hasSlotConstraints(layout.slots[index].position, options)
       || (!hasConstrainedSlots && rawPools[index].length <= 15)) {
       const used = new Set(slots.filter(Boolean).map(player => player!.playerKey));
       let reserve = 0;
@@ -1708,7 +1725,7 @@ async function generateOptimalSquadPass(
   const started = performance.now();
   const searchDeadline = started + STAGE_TIMEOUT_MS;
   const continueSearch = async (): Promise<boolean> => {
-    if (searchGuard.exhausted || ++searchGuard.iterationCount > 8000) {
+    if (searchGuard.exhausted || performance.now() >= searchGuard.deadline || ++searchGuard.iterationCount > 8000) {
       searchGuard.exhausted = true;
       pruned = true;
       return false;
@@ -1727,7 +1744,7 @@ async function generateOptimalSquadPass(
     // ST ranking must not change with CPU scheduling. Its existing node budget and
     // cooperative yields bound the search without timing out a higher-ranked anchor.
     const deterministicAnchors = order.length > 0 && priorityGroup(layout.slots[order[0]].position) === 'ST';
-    const deadline = deterministicAnchors ? Infinity : started + STAGE_TIMEOUT_MS * [0.2, 0.4, 0.7, 1][stageIndex];
+    const deadline = Math.min(searchGuard.deadline, deterministicAnchors ? Infinity : started + STAGE_TIMEOUT_MS * [0.2, 0.4, 0.7, 1][stageIndex]);
     const nodeLimit = [10000, 20000, 35000, MAX_BACKTRACK_ITERATIONS][stageIndex];
     const anchorPosition = order.length ? priorityGroup(layout.slots[order[0]].position) : null;
     // The fourth pass releases all anchor sets, retaining every hard constraint.
@@ -1792,7 +1809,10 @@ async function generateOptimalSquadPass(
               clubLinks: a.clubLinks + b.clubLinks, meta: a.meta + b.meta, price: a.price + b.price,
               id: a.id + '|' + b.id }));
           const ranks = new Map(combinations.map(item => [item, rankSet(item.state)]));
-          combinations.sort((a, b) => (anchorPosition === 'ST' ? 0 : b.affinity - a.affinity)
+          const coreLeagues = (state: State) => new Set(groupIndices.map(index =>
+            linkKeys(state.slots[index]!).league).filter(Boolean)).size;
+          combinations.sort((a, b) => (options.lowBudgetPooling ? coreLeagues(a.state) - coreLeagues(b.state) : 0)
+            || (anchorPosition === 'ST' ? 0 : b.affinity - a.affinity)
             || compareAnchorRanks(ranks.get(a)!, ranks.get(b)!));
           // Different assignments of the same cards are one tuple, not separate sets.
           // Keep the best legal assignment (slot requirements and budgets were checked).
@@ -1862,14 +1882,14 @@ async function generateOptimalSquadPass(
     await visit(initial, 0);
     if (searchGuard.exhausted) break;
   }
-  if (bestComplete && bestComplete.totalChemistry < minChemistry) {
+  if (bestComplete && bestComplete.totalChemistry < minChemistry && performance.now() < searchGuard.deadline) {
     const repaired = await repairNearMissSquad(bestComplete.squad, rawPools, spendingLimit,
-      considerManager, minChemistry, options);
+      considerManager, minChemistry, options, searchGuard.deadline);
     if (repaired) bestComplete = evaluate({ slots: repaired,
       cost: repaired.reduce((sum, player) => sum + player.price, 0) });
   }
   // Refine against the full prepared pools, independently of the search-stage cutoff.
-  if (!searchGuard.exhausted && bestComplete && bestComplete.totalChemistry >= minChemistry) {
+  if (!options.lowBudgetPooling && !searchGuard.exhausted && bestComplete && bestComplete.totalChemistry >= minChemistry) {
     const refined = refineCompletedSquad(bestComplete.squad, spendingLimit - bestComplete.totalCost,
       totalBudget, rawPools.flat().filter(player => priorityGroup(player.slotPosition) !== 'ST'
         || bestComplete!.squad.some(selected => selected.slotPosition === player.slotPosition && selected.id === player.id)),
@@ -1889,9 +1909,27 @@ async function generateOptimalSquadPass(
  */
 export async function repairNearMissSquad(
   squad: GeneratedPlayer[], rawPools: readonly (readonly GeneratedPlayer[])[], spendingLimit: number,
-  considerManager: boolean, minChemistry = 33, options: AutoBuildOptions = {},
+  considerManager: boolean, minChemistry = 33, options: AutoBuildOptions = {}, deadlineLimit = Infinity,
 ): Promise<GeneratedPlayer[] | null> {
-  if (squad.length !== 11 || calculateSquadChemistry(squad, considerManager).totalChemistry >= minChemistry) return null;
+  const deadline = Math.min(performance.now() + 2500, deadlineLimit);
+  let repairEvaluations = 0;
+  if (squad.length !== 11) return null;
+  const canReachTarget = (trial: GeneratedPlayer[], delta: ReturnType<typeof prepareChemistryDelta>) => {
+    const last = trial[trial.length - 1];
+    // Reuse the ten-player prefix for both the no-manager check and manager deltas.
+    if (delta(last).totalChemistry >= minChemistry) return true;
+    if (!considerManager) return false;
+    const leagues = new Set(trial.filter(p => !engineIcon(p)).map(p => p.leagueId));
+    const nations = new Set(trial.map(p => p.nationId));
+    for (const leagueId of leagues) for (const nationId of nations) {
+      if (performance.now() >= deadline) return false;
+      if (delta(last, { leagueId, nationId }).totalChemistry >= minChemistry) return true;
+    }
+    return false;
+  };
+  const prepareDelta = (players: GeneratedPlayer[]) => prepareChemistryDelta(players.map(player =>
+    ({ position: player.slotPosition, player })));
+  if (canReachTarget(squad, prepareDelta(squad.slice(0, -1)))) return null;
   const unlockedIndices = squad.flatMap((player, index) => player.isLocked ? [] : [index]);
   const currentCost = squad.reduce((sum, player) => sum + player.price, 0);
   const maxSpecial = specialLimit(options);
@@ -1900,43 +1938,54 @@ export async function repairNearMissSquad(
     && withinCardLimits(players, options) && isNewSelectionValid(players, options)
     && players.filter(p => !p.isLocked && isSpecialCard(p)).length <= maxSpecial
     && new Set(players.map(p => p.playerKey)).size === players.length;
-  const shortlist = (index: number, others: GeneratedPlayer[], budget: number, limit: number) =>
-    (rawPools[index] ?? []).filter(player => !player.isLocked && player.id !== squad[index].id
-      && player.slotPosition === squad[index].slotPosition && isPositionMatched(squad[index].slotPosition, player)
-      && Number.isFinite(player.price) && player.price >= 0 && player.price <= budget
-      && legal([...others, player]))
-      .sort((a, b) => b.metaScore - a.metaScore || a.price - b.price || a.id.localeCompare(b.id)).slice(0, limit);
+  const shortlist = (index: number, others: GeneratedPlayer[], budget: number, limit: number) => {
+    const candidates: GeneratedPlayer[] = [];
+    for (const player of rawPools[index] ?? []) {
+      if (performance.now() >= deadline) break;
+      if (!player.isLocked && player.id !== squad[index].id
+        && player.slotPosition === squad[index].slotPosition && isPositionMatched(squad[index].slotPosition, player)
+        && Number.isFinite(player.price) && player.price >= 0 && player.price <= budget
+        && legal([...others, player])) candidates.push(player);
+    }
+    return candidates.sort((a, b) => b.metaScore - a.metaScore || a.price - b.price || a.id.localeCompare(b.id)).slice(0, limit);
+  };
   let lastYield = performance.now();
-  const reachesTarget = async (trial: GeneratedPlayer[]) => {
-    // Repair has its own bounded work allowance, even after the DFS guard expires.
+  const reachesTarget = async (trial: GeneratedPlayer[], delta: ReturnType<typeof prepareChemistryDelta>) => {
     if (performance.now() - lastYield >= 8) {
       await new Promise(resolve => setTimeout(resolve, 0));
       lastYield = performance.now();
     }
-    return calculateSquadChemistry(trial, considerManager).totalChemistry >= minChemistry;
+    return performance.now() < deadline && canReachTarget(trial, delta);
   };
   for (const index of unlockedIndices) {
+    if (performance.now() >= deadline) return null;
     const others = squad.filter((_, i) => i !== index);
     const budget = spendingLimit - (currentCost - squad[index].price);
+    const delta = prepareDelta(others);
     for (const player of shortlist(index, others, budget, 60)) {
+      if (performance.now() >= deadline || ++repairEvaluations > 1500) return null;
       const trial = squad.slice(); trial[index] = player;
       // Descending meta order selects the best successful card for this slot.
-      if (await reachesTarget(trial)) return trial;
+      if (await reachesTarget([...others, player], delta)) return trial;
     }
   }
   for (let a = 0; a < unlockedIndices.length; a++) {
     for (const j of unlockedIndices.slice(a + 1)) {
+      if (performance.now() >= deadline) return null;
       const i = unlockedIndices[a];
       const others = squad.filter((_, index) => index !== i && index !== j);
       const budget = spendingLimit - (currentCost - squad[i].price - squad[j].price);
       const first = shortlist(i, others, budget, 20);
       const second = shortlist(j, others, budget, 20);
-      const pairs = first.flatMap(left => second.filter(right => left.price + right.price <= budget
+      const pairs = first.flatMap(left => second.filter(right => performance.now() < deadline && left.price + right.price <= budget
         && legal([...others, left, right])).map(right => ({ left, right })));
       pairs.sort((a, b) => (b.left.metaScore + b.right.metaScore) - (a.left.metaScore + a.right.metaScore));
+      const deltas = new Map<string, ReturnType<typeof prepareChemistryDelta>>();
       for (const { left, right } of pairs) {
+        if (performance.now() >= deadline || ++repairEvaluations > 1500) return null;
+        if (!deltas.has(left.id)) deltas.set(left.id, prepareDelta([...others, left]));
         const trial = squad.slice(); trial[i] = left; trial[j] = right;
-        if (await reachesTarget(trial)) return trial;
+        if (await reachesTarget([...others, left, right], deltas.get(left.id)!)) return trial;
       }
     }
   }

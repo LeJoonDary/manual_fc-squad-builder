@@ -1,4 +1,5 @@
-import { expect, test } from 'vitest';
+import * as chemistry from './chemistry';
+import { expect, test, vi } from 'vitest';
 import { calculateSquadChemistry, repairNearMissSquad, type GeneratedPlayer } from './autoBuildUtils';
 
 // Prepared-pool fixture: real chemistry calculator, three locks and a 1M budget.
@@ -60,4 +61,42 @@ test('leaves successful, incomplete and unrepairable squads untouched', async ()
   expect(await repairNearMissSquad(squad.slice(1), poolsFor(), 1000000, false)).toBeNull();
   squad[7] = make(7, 2, { clubId: 99 });
   expect(await repairNearMissSquad(squad, poolsFor(), 1000000, false)).toBeNull();
+});
+
+
+test('stops after 1500 trial evaluations even when every slot has many legal replacements', async () => {
+  const evaluate = vi.fn(() => ({ totalChemistry: 0, playerChemistry: 0 }));
+  const spy = vi.spyOn(chemistry, 'prepareChemistryDelta').mockReturnValue(evaluate);
+  try {
+    const squad = Array.from({ length: 11 }, (_, i) => make(i, i + 1));
+    const pools = squad.map((_, i) => Array.from({ length: 60 }, (_, j) => make(1000 + i * 60 + j, i + 1)));
+    expect(await repairNearMissSquad(squad, pools, 1000000, false)).toBeNull();
+    expect(evaluate).toHaveBeenCalledTimes(1501); // Initial squad plus 1500 trials.
+  } finally { spy.mockRestore(); }
+});
+
+test('checks the deadline during candidate filtering before evaluating more trials', async () => {
+  let elapsed = 0;
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => elapsed += 500);
+  const evaluate = vi.fn(() => ({ totalChemistry: 0, playerChemistry: 0 }));
+  const spy = vi.spyOn(chemistry, 'prepareChemistryDelta').mockReturnValue(evaluate);
+  try {
+    const squad = Array.from({ length: 11 }, (_, i) => make(i, i + 1));
+    const pools = squad.map((_, i) => Array.from({ length: 60 }, (_, j) => make(1000 + i * 60 + j, i + 1)));
+    expect(await repairNearMissSquad(squad, pools, 1000000, false)).toBeNull();
+    expect(evaluate).toHaveBeenCalledTimes(1);
+  } finally { clock.mockRestore(); spy.mockRestore(); }
+});
+
+
+test('fast delta checks retain a repair that needs a manager to reach the target', async () => {
+  const squad = fixture();
+  squad[7] = make(7, 99);
+  const pools = poolsFor();
+  pools[7] = [make(101, 2, { clubId: 99, nationId: 99 })];
+  expect(calculateSquadChemistry(squad, true).totalChemistry).toBeLessThan(33);
+  const result = await repairNearMissSquad(squad, pools, 1000000, true);
+  expect(result).not.toBeNull();
+  expect(calculateSquadChemistry(result!, false).totalChemistry).toBeLessThan(33);
+  expect(calculateSquadChemistry(result!, true).totalChemistry).toBe(33);
 });
