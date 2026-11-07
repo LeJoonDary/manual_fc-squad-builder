@@ -139,17 +139,17 @@ CLUB_ALIAS_MAP = {
 }
 
 NATION_ALIAS_MAP = {
-    # 보스니아 (FUT.GG의 'and' 누락 및 변형 명칭을 DB 65번 정식 명칭으로 매핑)
+    # 네덜란드 (DB의 16번 정식 명칭인 Netherlands로 통일 매핑)
+    "netherlands": "Netherlands",
+    "holland": "Netherlands",
+
+    # 보스니아 (FUT.GG의 'and' 누락 명칭을 DB 65번 정식 명칭으로 매핑)
     "bosnia herzegovina": "Bosnia and Herzegovina",
     "bosnia-herzegovina": "Bosnia and Herzegovina",
     "bosnia and herzegovina": "Bosnia and Herzegovina",
     "bosnia": "Bosnia and Herzegovina",
 
-    # 네덜란드 (FUT.GG의 Netherlands를 DB 16번 정식 명칭 Holland로 매핑)
-    "netherlands": "Holland",
-    "holland": "Holland",
-
-    # 기타 주요 국가 명칭 불일치 방지
+    # 기타 주요 국가 명칭
     "czechia": "Czech Republic",
     "czech republic": "Czech Republic",
     "south korea": "Korea Republic",
@@ -247,18 +247,34 @@ def get_or_create_nation(name):
     clean = name.strip()
     canonical_name = NATION_ALIAS_MAP.get(clean.lower(), clean)
 
-    # 1. 정규화 명칭으로 1차 조회 (대소문자 무시)
+    # ★ 1. 네덜란드 전용 안전장치 (DB의 16번 무조건 고정 반환)
+    if canonical_name in ["Netherlands", "Holland"]:
+        res16 = supabase.table("nations").select("id").eq("id", 16).execute()
+        if res16.data:
+            return 16
+        # 만약 16번이 없더라도 이름으로 조회
+        res = supabase.table("nations").select("id").or_("name.ilike.Netherlands,name.ilike.Holland").execute()
+        if res.data:
+            return res.data[0]["id"]
+
+    # ★ 2. 보스니아 전용 안전장치 (DB의 65번 무조건 고정 반환)
+    if "bosnia" in canonical_name.lower():
+        res65 = supabase.table("nations").select("id").eq("id", 65).execute()
+        if res65.data:
+            return 65
+
+    # 3. 일반 국가 정규화 명칭으로 1차 조회 (대소문자 무시)
     res = supabase.table("nations").select("id").ilike("name", canonical_name).execute()
     if res.data: return res.data[0]["id"]
 
-    # 2. 'and', 공백, 하이픈 누락 대비 퍼지 검색 (예: 'Bosnia Herzegovina' -> '%Bosnia%Herzegovina%')
+    # 4. 공백, 'and', 하이픈 누락 대비 퍼지 검색 (2단어 이상)
     words = [w for w in re.split(r"[\s\-_]+", canonical_name) if w.lower() not in ["and", "of", "the", "pr", "dr", "republic", "islands"]]
     if len(words) >= 2:
         pattern = "%" + "%".join(words) + "%"
         res_fuzzy = supabase.table("nations").select("id").ilike("name", pattern).execute()
         if res_fuzzy.data: return res_fuzzy.data[0]["id"]
 
-    # 3. DB에 기존 국가가 전혀 없을 때만 신규 생성 (300번 이상)
+    # 5. DB에 기존 국가가 전혀 없을 때만 신규 생성 (300번 이상)
     try:
         max_res = supabase.table("nations").select("id").order("id", desc=True).limit(1).execute()
         next_id = (max_res.data[0]["id"] + 1) if max_res.data else 300
