@@ -1054,13 +1054,31 @@ export const WOMEN_LEAGUES = new Set([1, 6, 8, 9, 10, 15, 16, 31, 38, 44, 49, 53
 
 export const DEFAULT_BUDGET_CAP = .18;
 
+type BudgetPlayer = Pick<GeneratedPlayer, 'slotPosition' | 'price'> & Partial<Pick<GeneratedPlayer, 'isLocked' | 'isOwned'>>;
+
+/** Paid automatic strikers share the group allowance even after the first is selected. */
+function strikerSlotBudget(position: string, totalBudget: number, formationPositions: readonly string[],
+  filledPlayers: readonly BudgetPlayer[]): number {
+  const strikers = formationPositions.filter(slot => priorityGroup(slot) === 'ST');
+  const fixedPartners = filledPlayers.filter(player => player.slotPosition !== position
+    && priorityGroup(player.slotPosition) === 'ST'
+    && (player.isLocked || player.isOwned && player.price === 0));
+  const automaticSlots = Math.max(1, strikers.length - fixedPartners.length);
+  const spent = filledPlayers.filter(player => priorityGroup(player.slotPosition) === 'ST')
+    .reduce((sum, player) => sum + player.price, 0);
+  return Math.max(0, Math.min(totalBudget * .50 / automaticSlots, totalBudget * .50 - spent));
+}
+
 /** Formation group targets plus unspent targets from filled slots. */
 export function calculateDynamicSlotCap(position: string, unfilledPositions: readonly string[], remainingBudget: number,
   isUnlimited = false, totalBudget = remainingBudget,
   formationPositions: readonly string[] = unfilledPositions,
-  filledPlayers: readonly Pick<GeneratedPlayer, 'slotPosition' | 'price'>[] = []): number {
+  filledPlayers: readonly BudgetPlayer[] = []): number {
   if (isUnlimited || totalBudget === Infinity) return Infinity;
   if (remainingBudget <= 0 || totalBudget <= 0) return 0;
+  if (priorityGroup(position) === 'ST') return Math.floor(Math.min(
+    strikerSlotBudget(position, totalBudget, formationPositions, filledPlayers),
+    Math.max(0, remainingBudget - (Math.max(1, unfilledPositions.length) - 1) * 1000)));
   const hasWings = formationPositions.some(p => priorityGroup(p) === 'WIDE');
   const ratios: Record<string, number> = {
     ST: .35, CAM: .25, WIDE: .20, CB: .16,
@@ -1570,6 +1588,8 @@ async function generateOptimalSquadPass(
   const fixedPlayerKeys = new Set([...fixedPlayers.values()].map(p => p.playerKey));
   if (fixedPlayerKeys.size !== fixedPlayers.size) throw new Error('The same player is locked in multiple positions.');
   const formationPositions = layout.slots.map(slot => slot.position);
+  const automaticStrikerCount = layout.slots.filter((slot, index) =>
+    priorityGroup(slot.position) === 'ST' && !fixedPlayers.has(index)).length;
   const unassignedCount = layout.slots.length - fixedPlayers.size;
   // Fix the strategy at build start, independently of the remaining DFS depth.
   const usedDirectSolver = unassignedCount >= 1 && unassignedCount <= 4;
@@ -1605,8 +1625,9 @@ async function generateOptimalSquadPass(
       if (prepared && fixedPlayerKeys.has(prepared.playerKey)) continue;
       if (prepared && prepared.price > remainingTotalBudget) continue;
       // Retain the same cap during repair/refinement, which also consume these pools.
-      if (prepared && !usedDirectSolver && totalBudget > 0
-        && prepared.price > totalBudget * (priorityGroup(position) === 'ST' ? .50 : .30)) continue;
+      if (prepared && (!usedDirectSolver || priorityGroup(position) === 'ST' && automaticStrikerCount >= 2) && totalBudget > 0
+        && prepared.price > (priorityGroup(position) === 'ST'
+          ? strikerSlotBudget(position, totalBudget, formationPositions, [...fixedPlayers.values()]) : totalBudget * .30)) continue;
       if (prepared && prepared.price > getConstraintSlotCap(position, [...fixedPlayers.values()], totalBudget, options)) continue;
       if (prepared && (prepared.isIcon || prepared.isHero) && maxSpecial === 0) continue;
       if (prepared) {
@@ -1676,12 +1697,10 @@ async function generateOptimalSquadPass(
     if (totalBudget === 0 || priorityGroup(position) !== 'ST')
       return Math.min(uncappedLiveSlotBudget(index, slots, cost), totalBudget === 0 ? Infinity : totalBudget * .30);
     const occupied = slots.filter((p): p is GeneratedPlayer => Boolean(p));
-    const attackSpent = occupied.filter(p => priorityGroup(p.slotPosition) === 'ST')
-      .reduce((sum, p) => sum + p.price, 0);
     const used = new Set(occupied.map(p => p.playerKey));
     const reserve = order.filter(other => other !== index && !slots[other]).reduce((sum, other) =>
       sum + rawPools[other].reduce((min, card) => used.has(card.playerKey) ? min : Math.min(min, card.price), Infinity), 0);
-    return Math.max(0, Math.min(totalBudget * .50 - attackSpent, spendingLimit - cost - reserve,
+    return Math.max(0, Math.min(strikerSlotBudget(position, totalBudget, formationPositions, occupied), spendingLimit - cost - reserve,
       getConstraintSlotCap(position, occupied, totalBudget, options)));
   };
   const prioritySlots = [...fixedPlayers.keys(), ...order].map(index => layout.slots[index].position);
@@ -1891,7 +1910,7 @@ async function generateOptimalSquadPass(
   // Refine against the full prepared pools, independently of the search-stage cutoff.
   if (!options.lowBudgetPooling && !searchGuard.exhausted && bestComplete && bestComplete.totalChemistry >= minChemistry) {
     const refined = refineCompletedSquad(bestComplete.squad, spendingLimit - bestComplete.totalCost,
-      totalBudget, rawPools.flat().filter(player => priorityGroup(player.slotPosition) !== 'ST'
+      totalBudget, rawPools.flat().filter(player => automaticStrikerCount >= 2 || priorityGroup(player.slotPosition) !== 'ST'
         || bestComplete!.squad.some(selected => selected.slotPosition === player.slotPosition && selected.id === player.id)),
       considerManager, minChemistry, options);
     const slots = layout.slots.map(slot => refined.squad.find(p => p.slotPosition === slot.position));
@@ -2011,6 +2030,8 @@ export function refineCompletedSquad(
   const ovrRange = validateSquadOvrRange(options.squadOvrRange);
   const maxSpecial = specialLimit(options);
   const positions = squad.map(player => player.slotPosition);
+  const balancedStrikers = squad.filter(player => priorityGroup(player.slotPosition) === 'ST'
+    && !player.isLocked && !(player.isOwned && player.price === 0)).length >= 2;
   const upgradeTargets = squad.map((player, index) => ({ player, index }))
     .filter(({ player }) => !player.isLocked)
     .sort((a, b) => a.player.price - b.player.price
@@ -2025,6 +2046,8 @@ export function refineCompletedSquad(
     const candidates = pool.filter(candidate => {
       const card = candidate.card;
       return !candidate.isLocked && isPositionMatched(targetSlot, candidate)
+        && (!balancedStrikers || totalBudget === 0 || priorityGroup(targetSlot) !== 'ST'
+          || candidate.price <= strikerSlotBudget(targetSlot, totalBudget, positions, others))
         && !refinedSquad.some(p => p.id === candidate.id)
         && !others.some(p => p.playerKey === candidate.playerKey)
         && Number.isFinite(candidate.price) && candidate.price > player.price && candidate.price <= maxAffordablePrice

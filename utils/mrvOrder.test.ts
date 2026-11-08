@@ -37,6 +37,9 @@ test('prioritizes three Pinged Pass+ CMs and completes 33 chemistry without lock
   expect(result.totalChemistry).toBe(33);
   expect(result.totalCost).toBeLessThanOrEqual(1000000);
   expect(result.squad.some(p => p.isLocked || p.isIcon || p.isHero)).toBe(false);
+  const strikers = result.squad.filter(p => ['LS', 'RS'].includes(p.slotPosition));
+  expect(strikers).toHaveLength(2);
+  expect(strikers.every(p => p.price >= 100000 && p.price <= 250000)).toBe(true);
   const midfield = result.squad.filter(p => ['LCM', 'CM', 'RCM'].includes(p.slotPosition));
   expect(midfield.map(p => p.id).sort()).toEqual(['11', '8', '88']);
   expect(midfield.reduce((sum, player) => sum + player.price, 0)).toBe(469000);

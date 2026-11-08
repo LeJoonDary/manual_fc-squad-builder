@@ -2,9 +2,9 @@ import { expect, test } from 'vitest';
 import { calculateDynamicSlotCap, getDynamicCandidatesForSlot, fitsAnchorBudgetCaps, generateOptimalSquad, type GeneratedPlayer } from './autoBuildUtils';
 import { FORMATIONS } from './formations.js';
 
-test('base caps divide group targets and apply the 1.3 allowance', () => {
+test('strikers split their allowance equally while other groups retain base caps', () => {
   const positions = ['LS', 'RS', 'CAM', 'LCM', 'CM', 'RCM', 'LCB', 'RCB', 'LB', 'RB', 'GK'];
-  expect(calculateDynamicSlotCap('LS', positions, 1000000, false, 1000000, positions)).toBe(350000);
+  expect(calculateDynamicSlotCap('LS', positions, 1000000, false, 1000000, positions)).toBe(250000);
   expect(calculateDynamicSlotCap('CAM', ['CAM'], 1000000, false, 1000000, positions)).toBe(325000);
   expect(calculateDynamicSlotCap('CM', ['CM'], 1000000, false, 1000000, positions)).toBe(86666);
   expect(calculateDynamicSlotCap('LB', ['LB'], 1000000, false, 1000000, positions)).toBe(65000);
@@ -77,12 +77,12 @@ test.each(['CM', 'LCM', 'RCM', 'CDM'])('%s uses normal link bonuses without midf
   expect(run('CAM')[0].id).toBe('core');
 });
 
-test('first CF ace allowance respects reserves and later ST slots retain their multiplier', () => {
+test('CF and ST share equal caps and respect reserves and prior group spending', () => {
   const positions = ['CF', 'ST', 'GK'];
-  expect(calculateDynamicSlotCap('CF', positions, 1000000, false, 1000000, positions)).toBe(350000);
+  expect(calculateDynamicSlotCap('CF', positions, 1000000, false, 1000000, positions)).toBe(250000);
   expect(calculateDynamicSlotCap('CF', positions, 200000, false, 1000000, positions)).toBe(198000);
   expect(calculateDynamicSlotCap('ST', ['ST', 'GK'], 650000, false, 1000000, positions,
-    [{ slotPosition: 'CF', price: 350000 }])).toBe(262500);
+    [{ slotPosition: 'CF', price: 350000 }])).toBe(150000);
 });
 test('rescue Heroes and Icons bypass only the slot cap', () => {
   const candidates = [make('hero', { isHero: true, price: 90000 }), make('icon', { isIcon: true, price: 100000 }),
@@ -123,7 +123,7 @@ test('real backtracking and anchor collection retain an above-cap rescue Hero', 
 });
 
  test('full formation counts prevent later striker caps from increasing', () => {
-   expect(calculateDynamicSlotCap('RS', ['RS'], 90000, false, 100000, ['LS', 'RS', 'CAM'])).toBe(26250);
+   expect(calculateDynamicSlotCap('RS', ['RS'], 90000, false, 100000, ['LS', 'RS', 'CAM'])).toBe(25000);
  });
  test('standard successful search respects the remaining total budget', async () => {
    const layout = FORMATIONS.find(f => f.name === '4-3-1-2')!;

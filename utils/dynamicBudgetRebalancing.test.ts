@@ -11,7 +11,7 @@ test('per-card ratios use total budget and retain the remaining-balance constrai
  const priorities=['ST','CAM','CM','CB','FB','GK'];
  const pending=['LS','RS','LCM','CM','RCM','LCB','RCB','LB','RB','GK'];
  const cap=calculateDynamicSlotCap('LS',pending,200000);
- expect(cap).toBe(70000);
+ expect(cap).toBe(50000);
  expect(cap).toBeGreaterThan(0);
  expect(calculateDynamicSlotCap('GK',['GK'],170000)).toBe(17680);
  expect(calculateDynamicSlotCap('GK',['GK'],0)).toBe(0);
