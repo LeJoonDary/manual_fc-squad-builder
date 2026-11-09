@@ -75,6 +75,13 @@
 #calhanoglu, 86, scream, https://www.youtube.com/shorts/NMCyEEvQ7fA
 #mandzukic, 87, scream, https://www.youtube.com/shorts/YUvMYaHtrV4
 
-loftus-cheek, 83, showdown, https://www.youtube.com/shorts/vHdDMBF_vFM
-augusto, 83, showdown, https://www.youtube.com/shorts/Q0-z_fsDRLk
-ronaldo, 89, scream, https://www.youtube.com/shorts/8P1LhLKGEQc
+#loftus-cheek, 83, showdown, https://www.youtube.com/shorts/vHdDMBF_vFM
+#augusto, 83, showdown, https://www.youtube.com/shorts/Q0-z_fsDRLk
+#ronaldo, 89, scream, https://www.youtube.com/shorts/8P1LhLKGEQc
+
+#reijnders, 85, scream, https://www.youtube.com/shorts/oEFSCmdLnE0
+#openda, 85, europa, https://www.youtube.com/shorts/DX0rd3Ru8gY
+#sydney, 84, show, https://www.youtube.com/shorts/KjqedMi28HE
+#scott, 87, scream, https://www.youtube.com/shorts/eRRDxNCRmBQ
+#hulk, 85, hall, https://www.youtube.com/shorts/7dqHJA_2Y2o
+
