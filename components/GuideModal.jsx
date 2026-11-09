@@ -1,17 +1,11 @@
+import { LanguageProvider, useTranslation } from '../src/contexts/LanguageContext';
+import { ui } from '../src/i18n/languageStore';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 
 const STORAGE_KEY = 'metaxi_guide_seen_v2';
-const LANGUAGE_KEY = 'metaxi_guide_language';
 const VIDEO_IDS = { ko: 'nwbDLox9DHU', en: 'HOz_OeMgC68' };
-function readLanguage() {
-  try {
-    const saved = localStorage.getItem(LANGUAGE_KEY);
-    if (saved === 'ko' || saved === 'en') return saved;
-  } catch { /* Browser language remains available without storage. */ }
-  return navigator.language?.toLowerCase().startsWith('ko') ? 'ko' : 'en';
-}
 function readPreference() {
   try { return localStorage.getItem(STORAGE_KEY) === 'true'; }
   catch { return false; }
@@ -39,18 +33,18 @@ export function GuideModal({ onClose, language, onLanguageChange }) {
     onClose();
   }
 
-  return createPortal(<dialog ref={dialog} className="guide-modal" aria-labelledby="guide-title"
+  return createPortal(<dialog data-i18n-react ref={dialog} className="guide-modal" aria-labelledby="guide-title"
     onCancel={event => { event.preventDefault(); close(); }}>
     <header className="modal-header">
-      <h2 id="guide-title">META XI Quick Guide</h2>
+      <h2 id="guide-title">{ui('META XI Quick Guide')}</h2>
       <div className="guide-header-actions">
-        <div className="guide-language-toggle" role="group" aria-label="Guide language">
+        <div className="guide-language-toggle" role="group" aria-label={ui('Guide language')}>
           {['en', 'ko'].map(code => <button key={code} type="button"
             aria-pressed={language === code} onClick={() => onLanguageChange(code)}>
             {code === 'ko' ? '한국어' : 'English'}
           </button>)}
         </div>
-        <button type="button" className="modal-close" aria-label="Close guide" onClick={close}>×</button>
+        <button type="button" className="modal-close" aria-label={ui('Close guide')} onClick={close}>×</button>
       </div>
     </header>
     <div className="guide-video aspect-video">
@@ -66,17 +60,15 @@ export function GuideModal({ onClose, language, onLanguageChange }) {
 }
 
 export function GuideControl() {
+  return <LanguageProvider><GuideControlContent /></LanguageProvider>;
+}
+function GuideControlContent() {
+  const { lang: language, setLang: changeLanguage, t } = useTranslation();
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [language, setLanguage] = useState(readLanguage);
-  function changeLanguage(code) {
-    setLanguage(code);
-    try { localStorage.setItem(LANGUAGE_KEY, code); }
-    catch { /* Keep the selection in state if storage is unavailable. */ }
-  }
   useEffect(() => { if (!readPreference()) setIsGuideOpen(true); }, []);
   return <>
-    <button type="button" className="nav-tab guide-trigger" aria-haspopup="dialog"
-      aria-expanded={isGuideOpen} onClick={() => setIsGuideOpen(true)}>Guide</button>
+    <button data-i18n-react type="button" className="nav-tab guide-trigger" aria-haspopup="dialog"
+      aria-expanded={isGuideOpen} onClick={() => setIsGuideOpen(true)}>{t.nav.guide}</button>
     {isGuideOpen && <GuideModal language={language} onLanguageChange={changeLanguage} onClose={() => setIsGuideOpen(false)} />}
   </>;
 }

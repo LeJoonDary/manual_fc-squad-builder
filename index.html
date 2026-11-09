@@ -25,11 +25,12 @@
         </a>
         <nav class="main-nav" aria-label="Main navigation">
           <div class="main-nav-tabs" role="tablist" aria-label="Pages">
-          <button class="nav-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="squad-builder-page" data-tab="squad-builder">Squad Builder</button>
-          <button class="nav-tab" type="button" role="tab" aria-selected="false" aria-controls="players-page" data-tab="players">Players</button>
+          <button class="nav-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="squad-builder-page" data-tab="squad-builder" data-i18n="nav.builder">Squad Builder</button>
+          <button class="nav-tab" type="button" role="tab" aria-selected="false" aria-controls="players-page" data-tab="players" data-i18n="nav.players">Players</button>
           </div>
           <div id="guide-control"></div>
         </nav>
+        <div id="language-control"></div>
       </div>
     </header>
 
@@ -40,7 +41,7 @@
           <div class="pitch-column">
             <header class="page-heading pitch-heading">
               <div class="pitch-heading-title">
-                <p class="eyebrow">SQUAD BUILDER</p>
+                <p class="eyebrow" data-i18n="squad.title">SQUAD BUILDER</p>
                 <h1>4-3-1-2 Squad</h1>
                 <p id="status" class="status" aria-live="polite">Select a position to add a player.</p>
               </div>
@@ -75,19 +76,19 @@
             <header class="chemistry-panel-header">
               <div class="squad-summary-bar">
                 <div class="total-cost-summary">
-                  <p>TOTAL COST</p><h2>TOTAL COST</h2>
+                  <p data-i18n="squad.totalCost">TOTAL COST</p><h2 data-i18n="squad.totalCost">TOTAL COST</h2>
                   <strong><output id="total-cost">0</output><small> C</small></strong>
                 </div>
                 <div class="chemistry-total-summary">
-                  <p>TEAM CHEMISTRY</p><h2>TEAM CHEMISTRY</h2>
+                  <p data-i18n="squad.teamChem">TEAM CHEMISTRY</p><h2 data-i18n="squad.teamChem">TEAM CHEMISTRY</h2>
                   <strong><output id="total-chemistry">0</output><small> / 33</small></strong>
                 </div>
-                <button id="clear-squad" class="clear-squad" type="button">Clear All</button>
+                <button id="clear-squad" class="clear-squad" type="button" data-i18n="squad.clearAll">Clear All</button>
               </div>
               <div id="auto-build-settings"></div>
-              <section class="budget-summary" hidden aria-labelledby="budget-title">
+              <section class="budget-summary" data-i18n-dom hidden aria-labelledby="budget-title">
                 <div class="budget-heading">
-                  <div><p>TARGET BUDGET</p><h2 id="budget-title">Max Budget</h2></div>
+                  <div><p data-i18n="squad.targetBudget">TARGET BUDGET</p><h2 id="budget-title" data-i18n="squad.maxBudget">Max Budget</h2></div>
                   <label class="budget-input-wrap"><input id="target-budget" type="text" inputmode="numeric" placeholder="Enter budget (C)" autocomplete="off" aria-label="Max Budget" /><span>C</span></label>
                 </div>
                 <div class="budget-progress" role="progressbar" aria-label="Budget usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -118,15 +119,15 @@
 
       <section id="players-page" class="tab-page players-page" role="tabpanel" aria-label="Players" hidden>
         <header class="page-heading">
-          <p class="eyebrow">PLAYER DATABASE</p>
-          <h1>Players</h1>
+          <p class="eyebrow" data-i18n="playerDb.title">PLAYER DATABASE</p>
+          <h1 data-i18n="playerDb.subtitle">Player DB</h1>
         </header>
         <div class="players-layout">
           <section class="players-results" aria-labelledby="players-results-title">
             <div class="players-sticky-header">
             <div class="players-results-header">
               <div>
-                <h2 id="players-results-title">Player Results</h2>
+                <h2 id="players-results-title" data-i18n="playerDb.searchResult">Search Results</h2>
                 <p id="players-result-count" aria-live="polite">Apply filters to find players.</p>
               </div>
               <label class="player-search">
@@ -137,7 +138,7 @@
             </div>
             <div class="mobile-filter-actions">
               <button id="mobile-filters-toggle" type="button" aria-expanded="true" aria-controls="players-filters">Filters ▲ (Hide)</button>
-              <button id="mobile-clear-all-filters" type="button">Clear All</button>
+              <button id="mobile-clear-all-filters" type="button" data-i18n="playerDb.resetAll">Reset All</button>
             </div>
             <div id="filter-bar-mount" aria-live="off"></div>
             </div>
@@ -155,7 +156,7 @@
                 <h2>Find Players</h2>
               </div>
               <div class="filters-actions">
-                <button id="clear-all-filters" class="clear-all-filters" type="button">Clear All</button>
+                <button id="clear-all-filters" class="clear-all-filters" type="button" data-i18n="playerDb.resetAll">Reset All</button>
               </div>
             </div>
             <div id="filters-content" class="filters-content">
@@ -187,7 +188,7 @@
                 </button>
                 <div id="positions-filter-options" class="filter-accordion-content">
                 <div class="mini-pitch-heading">
-                  <div><span class="mini-pitch-kicker">TACTICAL MAP</span><strong>Tap zones to combine</strong></div>
+                  <div><span class="mini-pitch-kicker" data-i18n="playerDb.positionModal.title">Select Positions</span><strong data-i18n="playerDb.positionModal.subtitle">Select multiple positions to filter</strong></div>
                   <span class="selection-hint"><i></i> Multi-select</span>
                 </div>
                 <div class="position-mini-pitch" role="group" aria-label="Select positions on the pitch">
@@ -212,12 +213,12 @@
                   <label class="filter-switch">
                     <input id="only-primary-positions" type="checkbox" />
                     <span class="filter-switch-control" aria-hidden="true"></span>
-                    <span>Only Primary Positions</span>
+                    <span data-i18n="playerDb.positionModal.onlyPrimary">Only Primary Positions</span>
                   </label>
                   <label class="filter-switch">
                     <input id="has-all-selected-positions" type="checkbox" />
                     <span class="filter-switch-control" aria-hidden="true"></span>
-                    <span>Has All Selected Positions</span>
+                    <span data-i18n="playerDb.positionModal.hasAllSelected">Has All Selected Positions</span>
                   </label>
                 </div>
                 </div>

@@ -2227,3 +2227,18 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .ea-card-frame .ea-card-column .ea-card-rating { filter: drop-shadow(0 2px 4px rgba(0,0,0,.95)); }
 .ea-card-frame .ea-card-column .ea-card-position { filter: drop-shadow(0 2px 3px rgba(0,0,0,.95)); }
 .ea-card-frame .ea-card-column .ea-card-emblem { filter: brightness(1.05) drop-shadow(0 2px 4px rgba(0,0,0,.95)); }
+
+/* Language preference: usable independently of the legacy and React roots. */
+#language-control { margin-left: auto; flex: 0 0 auto; align-self: center; }
+.language-toggle { display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #374151; border-radius: 8px; background: #111827; }
+.language-toggle button { border: 0; border-radius: 5px; background: transparent; color: #9ca3af; padding: 6px 8px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.language-toggle button[aria-pressed="true"] { background: #059669; color: #fff; }
+.language-toggle button:hover { color: #fff; }
+.language-toggle button:focus-visible { outline: 2px solid #6ee7b7; outline-offset: 2px; }
+@media (max-width: 600px) {
+  .app-header-inner, body.is-squad-active .app-header-inner { gap: 8px; }
+  .language-toggle button { padding: 5px; font-size: 11px; }
+  .app-header .nav-tab { padding-inline: 7px; font-size: 12px; }
+  .metaxi-brand-name { display: none; }
+}
+.tactical-roles-dialog > p { color: #a9b7cb; padding-inline: 16px; line-height: 1.5; }

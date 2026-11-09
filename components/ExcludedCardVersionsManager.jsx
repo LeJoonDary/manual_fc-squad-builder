@@ -1,3 +1,5 @@
+import { LanguageProvider, useTranslation } from '../src/contexts/LanguageContext';
+import { ui } from '../src/i18n/languageStore';
 import { TrashIcon } from './TrashIcon.jsx';
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
@@ -26,6 +28,7 @@ function CardSummary({ card, fallbackName }) {
 }
 
 function ExclusionDialog({ supabase, onClose }) {
+  const { t } = useTranslation();
   const exclusionState = useSyncExternalStore(
     excludedCardVersionsStore.subscribe, excludedCardVersionsStore.getState);
   const { excludedCardVersionIds: ids, excludedCardVersionNames: names, squadOvrRange, maxIcons, maxHeroes, maxFemalePlayers } = exclusionState;
@@ -163,21 +166,22 @@ function ExclusionDialog({ supabase, onClose }) {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   }
 
-  return createPortal(<div className="modal exclusion-manager-modal" onKeyDown={handleKeyDown}>
+  return createPortal(<div data-i18n-react className="modal exclusion-manager-modal" onKeyDown={handleKeyDown}>
     <div className="modal-backdrop" onClick={onClose} />
     <section ref={panel} className="modal-panel exclusion-manager-panel" role="dialog" aria-modal="true" aria-labelledby="exclusion-manager-title">
       <header className="modal-header">
-        <div><p className="eyebrow">AUTO BUILD</p><div className="exclusion-title-row"><h2 id="exclusion-manager-title">Excluded Cards ({totalExcludedCount})</h2>
+        <div><p className="eyebrow">{ui('AUTO BUILD')}</p><div className="exclusion-title-row"><h2 id="exclusion-manager-title">{t.modals.excludedTitle} ({totalExcludedCount})</h2>
         {totalExcludedCount > 0 && <button type="button" className="exclusion-clear" onClick={() => change(() => {
           excludedCardVersionsStore.clear(); setSelected([]);
           document.getElementById(tab === 'search' ? 'exclusion-card-search' : 'exclusion-tab-excluded').focus();
-        }, 'Exclusions cleared.')}>Clear All</button>}
+        }, 'Exclusions cleared.')}>{ui('Clear All')}</button>}
         </div></div>
-        <button className="modal-close" type="button" aria-label="Close Excluded Cards" onClick={onClose}>×</button>
+        <button className="modal-close" type="button" aria-label={ui('Close Excluded Cards')} onClick={onClose}>×</button>
       </header>
-      <p className="exclusion-manager-help">Only the selected card versions will be excluded. Other versions of the player remain available in the pool.</p>
-      <div className="exclusion-manager-tabs" role="tablist" aria-label="Excluded Cards tabs">
-        {[['search', 'Search & Exclude'], ['excluded', `Active Exclusions (${totalCount})`]].map(([key, label]) =>
+      <p>{t.modals.excludedDesc}</p>
+      <p className="exclusion-manager-help">{ui('Only the selected card versions will be excluded. Other versions of the player remain available in the pool.')}</p>
+      <div className="exclusion-manager-tabs" role="tablist" aria-label={ui('Excluded Cards tabs')}>
+        {[['search', 'Search & Exclude'], ['excluded', ui('Active Exclusions ({count})', { count: totalCount })]].map(([key, label]) =>
           <button key={key} id={`exclusion-tab-${key}`} role="tab" type="button" aria-selected={tab === key}
             aria-controls={`exclusion-panel-${key}`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}
             onKeyDown={event => {
@@ -186,37 +190,37 @@ function ExclusionDialog({ supabase, onClose }) {
                 const next = event.key === 'Home' ? 'search' : event.key === 'End' ? 'excluded' : tab === 'search' ? 'excluded' : 'search';
                 setTab(next); document.getElementById(`exclusion-tab-${next}`).focus();
               }
-            }}>{label}</button>)}
+            }}>{ui(label)}</button>)}
       </div>
       <div id="exclusion-panel-search" role="tabpanel" aria-labelledby="exclusion-tab-search" hidden={tab !== 'search'}>
-        <label className="exclusion-search-label" htmlFor="exclusion-card-search">Search Player / Card</label>
+        <label className="exclusion-search-label" htmlFor="exclusion-card-search">{ui('Search Player / Card')}</label>
         <input ref={input} id="exclusion-card-search" className="exclusion-card-search" type="search" autoComplete="off"
-          placeholder="Enter player name..." value={keyword} onChange={event => {
+          placeholder={ui('Enter player name...')} value={keyword} onChange={event => {
             setKeyword(event.target.value); setPage(0); setRows([]); setHasMore(false);
           }} />
         <div className="exclusion-card-list" aria-busy={searchLoading}>
-          {keyword.trim().length < 2 && <p>Enter at least 2 characters to search for cards to exclude.</p>}
+          {keyword.trim().length < 2 && <p>{ui('Enter at least 2 characters to search for cards to exclude.')}</p>}
           {rows.map(card => {
             const id = String(card.id), banned = ids.includes(id);
             return <div className="exclusion-card-row" key={id}>
               <CardSummary card={card} />
               <button type="button" className="exclusion-toggle" aria-pressed={banned}
-                aria-label={`${exclusionCardLabel(card)} ${banned ? 'Remove exclusion' : 'Exclude'}`}
+                aria-label={`${exclusionCardLabel(card)} ${ui(banned ? 'Remove exclusion' : 'Exclude')}`}
                 onClick={() => change(() => banned ? excludedCardVersionsStore.unban(id) : excludedCardVersionsStore.ban(id, exclusionCardLabel(card)),
-                  banned ? 'Card exclusion removed.' : 'Card excluded.')}>{banned ? '✅ Excluded' : '🚫 Exclude'}</button>
+                  banned ? 'Card exclusion removed.' : 'Card excluded.')}>{ui(banned ? '✅ Excluded' : '🚫 Exclude')}</button>
             </div>;
           })}
-          {searchLoading && <p role="status">Searching cards…</p>}
-          {!searchLoading && !searchError && keyword.trim().length >= 2 && !rows.length && <p>No results found.</p>}
-          {searchError && <p role="alert">{searchError} <button type="button" onClick={() => setSearchRetry(value => value + 1)}>Try Again</button></p>}
-          {hasMore && !searchError && <button type="button" className="exclusion-load-more" disabled={searchLoading} onClick={() => setPage(value => value + 1)}>Load More</button>}
+          {searchLoading && <p role="status">{ui('Searching cards…')}</p>}
+          {!searchLoading && !searchError && keyword.trim().length >= 2 && !rows.length && <p>{ui('No results found.')}</p>}
+          {searchError && <p role="alert">{ui(searchError)} <button type="button" onClick={() => setSearchRetry(value => value + 1)}>{ui('Try Again')}</button></p>}
+          {hasMore && !searchError && <button type="button" className="exclusion-load-more" disabled={searchLoading} onClick={() => setPage(value => value + 1)}>{ui('Load More')}</button>}
         </div>
         <fieldset className="exclusion-settings-group exclusion-ovr">
-          <legend>Squad OVR Range</legend>
+          <legend>{ui('Squad OVR Range')}</legend>
           <div className="exclusion-ovr-fields">
             {[['min', 'Min OVR', minOvr, setMinOvr], ['max', 'Max OVR', maxOvr, setMaxOvr]].map(([key, label, value, setValue]) =>
               <div key={key}>
-                <label htmlFor={`exclusion-ovr-${key}`}>{label}</label>
+                <label htmlFor={`exclusion-ovr-${key}`}>{ui(label)}</label>
                 <input id={`exclusion-ovr-${key}`} type="number" min="45" max="99" step="1" value={value}
                   onChange={event => setValue(event.target.value === '' ? '' : Number(event.target.value))} />
                 <input type="range" aria-label={`${label} slider`} min="45" max="99" step="1"
@@ -231,18 +235,18 @@ function ExclusionDialog({ supabase, onClose }) {
           <div className="exclusion-ovr-chips">
             {[[45, 64, 'Max 64 (Bronze)'], [45, 74, 'Max 74 (Silver & Below)'], [75, 99, 'Min 75 (Gold & Above)']].map(([min, max, label]) =>
               <button key={label} type="button" aria-pressed={squadOvrRange.min === min && squadOvrRange.max === max}
-                onClick={() => applyOvrRange(min, max)}>{label}</button>)}
-            <button type="button" onClick={resetOvrRange}>Reset OVR Range</button>
+                onClick={() => applyOvrRange(min, max)}>{ui(label)}</button>)}
+            <button type="button" onClick={resetOvrRange}>{ui('Reset OVR Range')}</button>
           </div>
-          {!validRange && <p role="alert">Enter whole numbers from 45 to 99. Min OVR must not exceed Max OVR.</p>}
+          {!validRange && <p role="alert">{ui('Enter whole numbers from 45 to 99. Min OVR must not exceed Max OVR.')}</p>}
           <button type="button" className="exclusion-ovr-submit" disabled={!validRange} onClick={() => applyOvrRange()}>
-            Apply OVR Range to Builder
+            {ui('Apply OVR Range to Builder')}
           </button>
-          <p>Candidate pool: OVR {squadOvrRange.min} – {squadOvrRange.max}. Applying a new range overwrites previous settings.</p>
+          <p>{ui('Candidate pool: OVR {min} – {max}. Applying a new range overwrites previous settings.', { min: squadOvrRange.min, max: squadOvrRange.max })}</p>
         </fieldset>
         <fieldset className="exclusion-settings-group exclusion-special-limits">
-          <legend>Card &amp; Player Limits</legend>
-          <p>Exclude = None allowed, 1~5 = Max allowed</p>
+          <legend>{ui('Card & Player Limits')}</legend>
+          <p>{ui('Exclude = None allowed, 1~5 = Max allowed')}</p>
           {[
             ['Max Female', maxFemalePlayers === 'any' ? null : maxFemalePlayers === 'exclude' ? 0 : maxFemalePlayers,
               value => excludedCardVersionsStore.setMaxFemalePlayers(value === null ? 'any' : value === 0 ? 'exclude' : value)],
@@ -250,76 +254,80 @@ function ExclusionDialog({ supabase, onClose }) {
             ['Max Heroes', maxHeroes, excludedCardVersionsStore.setMaxHeroes],
           ].map(([label, value, setter]) =>
             <div className="exclusion-special-row" key={label}>
-              <span>{label}</span>
+              <span>{ui(label)}</span>
               <div role="group" aria-label={label} className="exclusion-special-options">
                 {LIMIT_OPTIONS.map(opt => <button key={opt.label} type="button" aria-pressed={value === opt.value}
                   className={opt.value === 0 ? 'is-exclude' : ''}
-                  onClick={() => change(() => setter(opt.value), `${label} updated.`)}>{opt.label}</button>)}
+                  onClick={() => change(() => setter(opt.value), `${label} updated.`)}>{ui(opt.label)}</button>)}
               </div>
             </div>)}
         </fieldset>
       </div>
       <div id="exclusion-panel-excluded" role="tabpanel" aria-labelledby="exclusion-tab-excluded" hidden={tab !== 'excluded'}>
         {hasOvrRule && <div className="exclusion-ovr-rule" role="status">
-          <strong>🎯 OVR {squadOvrRange.min} ~ {squadOvrRange.max} only in squad</strong>
-          <button type="button" aria-label="Remove OVR range" onClick={resetOvrRange}>✕ Cancel</button>
+          <strong>{ui('🎯 OVR {min} ~ {max} only in squad', { min: squadOvrRange.min, max: squadOvrRange.max })}</strong>
+          <button type="button" aria-label={ui('Remove OVR range')} onClick={resetOvrRange}>{ui('✕ Cancel')}</button>
         </div>}
         {maxFemalePlayers !== 'any' && <div className="exclusion-ovr-rule exclusion-female-rule" role="status">
-          <strong>Max Female Players: {maxFemalePlayers === 'exclude' ? 'Exclude' : maxFemalePlayers}</strong>
-          <button type="button" aria-label="Remove female player limit" onClick={() => change(() => {
+          <strong>{ui('Max Female Players: {count}', { count: maxFemalePlayers === 'exclude' ? ui('Exclude') : maxFemalePlayers })}</strong>
+          <button type="button" aria-label={ui('Remove female player limit')} onClick={() => change(() => {
             excludedCardVersionsStore.setMaxFemalePlayers('any');
             document.getElementById('exclusion-tab-excluded').focus();
-          }, 'Female player limit reset to Any.')}>✕ Cancel</button>
+          }, 'Female player limit reset to Any.')}>{ui('✕ Cancel')}</button>
         </div>}
         <label className="exclusion-select-all"><input ref={selectAll} type="checkbox" disabled={!ids.length}
-          checked={ids.length > 0 && selectedIds.length === ids.length} onChange={event => setSelected(event.target.checked ? [...ids] : [])} /> Select / Deselect All</label>
-        {detailLoading && <p role="status">Loading excluded cards…</p>}
-        {detailError && <p role="alert">{detailError} <button type="button" onClick={() => setDetailRetry(value => value + 1)}>Try Again</button></p>}
+          checked={ids.length > 0 && selectedIds.length === ids.length} onChange={event => setSelected(event.target.checked ? [...ids] : [])} />{ui('Select / Deselect All')}</label>
+        {detailLoading && <p role="status">{ui('Loading excluded cards…')}</p>}
+        {detailError && <p role="alert">{ui(detailError)} <button type="button" onClick={() => setDetailRetry(value => value + 1)}>{ui('Try Again')}</button></p>}
         <div id="excluded-card-versions-list" className="exclusion-card-list">
-          {!ids.length && <p>No cards currently excluded.</p>}
+          {!ids.length && <p>{ui('No cards currently excluded.')}</p>}
           {ids.map(id => <div className="exclusion-card-row" key={id}>
             <input type="checkbox" aria-label={`Select ${names[id]}`} checked={selectedIds.includes(id)} onChange={event =>
               setSelected(previous => event.target.checked ? [...previous, id] : previous.filter(value => value !== id))} />
             <CardSummary card={cache.current.get(id)} fallbackName={names[id]} />
             <button type="button" className="exclusion-toggle" aria-label={`Remove exclusion for ${names[id] || id}`}
-              onClick={() => change(() => excludedCardVersionsStore.unban(id), 'Card exclusion removed.')}>Remove</button>
+              onClick={() => change(() => excludedCardVersionsStore.unban(id), 'Card exclusion removed.')}>{ui('Remove')}</button>
           </div>)}
         </div>
         <footer className="exclusion-bulk-actions">
-          <span>{selectedIds.length} selected</span>
+          <span>{ui('{count} selected', { count: selectedIds.length })}</span>
           <button type="button" disabled={!selectedIds.length} onClick={() => change(() => {
             excludedCardVersionsStore.unbanMany(selectedIds); setSelected([]);
             document.getElementById('exclusion-tab-excluded').focus();
-          }, 'Selected card exclusions removed.')}>Remove Selected</button>
+          }, 'Selected card exclusions removed.')}>{ui('Remove Selected')}</button>
           <button type="button" className="exclusion-clear" disabled={!totalExcludedCount} onClick={() => change(() => {
             excludedCardVersionsStore.clear(); setSelected([]);
             document.getElementById('exclusion-tab-excluded').focus();
-          }, 'Exclusions cleared.')}>Clear All</button>
+          }, 'Exclusions cleared.')}>{ui('Clear All')}</button>
         </footer>
       </div>
-      {actionError && <p className="exclusion-action-message" role="alert">{actionError}</p>}
-      {notice && <p className="exclusion-action-message exclusion-toast" role="status">{notice}</p>}
+      {actionError && <p className="exclusion-action-message" role="alert">{ui(actionError)}</p>}
+      {notice && <p className="exclusion-action-message exclusion-toast" role="status">{ui(notice)}</p>}
     </section>
   </div>, document.body);
 }
 
-export function ExcludedCardVersionsManager({ supabase }) {
+export function ExcludedCardVersionsManager(props) {
+  return <LanguageProvider><ExcludedCardVersionsManagerContent {...props} /></LanguageProvider>;
+}
+function ExcludedCardVersionsManagerContent({ supabase }) {
+  const { t } = useTranslation();
   const exclusionState = useSyncExternalStore(excludedCardVersionsStore.subscribe, excludedCardVersionsStore.getState);
   const totalCount = getExcludedCardManagementCount(exclusionState);
   const totalExcludedCount = getTotalExcludedCount(exclusionState);
   const [open, setOpen] = useState(false);
   const [clearError, setClearError] = useState('');
-  return <section className="excluded-card-versions-manager">
+  return <section data-i18n-react className="excluded-card-versions-manager">
     <div className="settings-inline-control">
     <button type="button" className="excluded-card-versions-toggle" aria-haspopup="dialog" aria-expanded={open}
-      onClick={() => setOpen(true)}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🚫</span><span className="settings-trigger-label">Excluded Cards ({totalExcludedCount})</span></span></button>
-    {<button disabled={totalExcludedCount === 0} type="button" className="settings-inline-clear" aria-label="Clear excluded cards" title="Clear excluded cards" onClick={event => {
+      onClick={() => setOpen(true)}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🚫</span><span className="settings-trigger-label">{t.squad.excludedCards} ({totalExcludedCount})</span></span></button>
+    {<button disabled={totalExcludedCount === 0} type="button" className="settings-inline-clear" aria-label={ui('Clear excluded cards')} title={ui('Clear excluded cards')} onClick={event => {
       event.stopPropagation();
       try { excludedCardVersionsStore.clear(); setClearError(''); }
       catch (error) { setClearError(error.message); }
     }}><TrashIcon /></button>}
     </div>
-    {clearError && <p role="alert">{clearError}</p>}
+    {clearError && <p role="alert">{ui(clearError)}</p>}
     {open && <ExclusionDialog supabase={supabase} onClose={() => setOpen(false)} />}
   </section>;
 }

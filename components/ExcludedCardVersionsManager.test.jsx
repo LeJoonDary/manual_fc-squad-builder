@@ -3,6 +3,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, afterEach, expect, test, vi } from 'vitest';
 import { ExcludedCardVersionsManager } from './ExcludedCardVersionsManager.jsx';
+import { setLanguage } from '../src/i18n/languageStore';
 import { excludedCardVersionsStore, EXCLUDED_CARD_VERSIONS_STORAGE_KEY } from '../utils/excludedCardVersions.js';
 import { searchExclusionCards, fetchExcludedCardDetails, fetchExclusionCardIdsByOvr } from '../utils/exclusionCardSearch.js';
 
@@ -26,6 +27,7 @@ async function type(value) {
 }
 
 beforeEach(async () => {
+  setLanguage('en', false);
   vi.useFakeTimers(); vi.resetAllMocks(); excludedCardVersionsStore.clear(); excludedCardVersionsStore.setSquadOvrRange({ min: 45, max: 99 });
   searchExclusionCards.mockResolvedValue([]); fetchExcludedCardDetails.mockResolvedValue([]);
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
@@ -34,6 +36,19 @@ beforeEach(async () => {
   await click($('.excluded-card-versions-toggle'));
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.useRealTimers(); vi.restoreAllMocks(); });
+
+test('switches the open modal language without clearing its search or exclusions', async () => {
+  await type('Pedri');
+  await act(async () => excludedCardVersionsStore.setMaxFemalePlayers(2));
+  const input = $('#exclusion-card-search');
+  await act(async () => setLanguage('ko'));
+  expect($('#exclusion-manager-title').textContent).toBe('제외 카드 설정 (1)');
+  expect($('#exclusion-card-search')).toBe(input);
+  expect(input.value).toBe('Pedri');
+  expect(excludedCardVersionsStore.getState().maxFemalePlayers).toBe(2);
+  await act(async () => setLanguage('en'));
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards Settings (1)');
+});
 
 test('selects gender with the existing special-limit button styles and retains it on reopen', async () => {
   const group = () => $('[aria-label="Max Female"]');
@@ -49,7 +64,7 @@ test('selects gender with the existing special-limit button styles and retains i
 
 test.each(['exclude', 1, 2, 3, 4, 5])('counts %s everywhere and removes only the gender tag', async gender => {
   await act(async () => excludedCardVersionsStore.setMaxFemalePlayers(gender));
-  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (1)');
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards Settings (1)');
   expect($('.excluded-card-versions-toggle').textContent).toContain('Excluded Cards (1)');
   expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (1)');
   expect($('.settings-inline-clear').disabled).toBe(false);
@@ -58,13 +73,13 @@ test.each(['exclude', 1, 2, 3, 4, 5])('counts %s everywhere and removes only the
     excludedCardVersionsStore.setMaxIcons(0);
     excludedCardVersionsStore.setMaxHeroes(2);
   });
-  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (4)');
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards Settings (4)');
   expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (4)');
   await click($('#exclusion-tab-excluded'));
   expect($('.exclusion-female-rule').textContent).toContain(gender === 'exclude' ? 'Exclude' : String(gender));
   await click($('[aria-label="Remove female player limit"]'));
   expect($('.exclusion-female-rule')).toBeNull();
-  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (3)');
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards Settings (3)');
   expect(excludedCardVersionsStore.getState()).toMatchObject({ maxFemalePlayers: 'any', excludedCardVersionIds: ['123'], maxIcons: 0, maxHeroes: 2 });
 });
 
@@ -74,7 +89,7 @@ test.each(['.modal-header .exclusion-clear', '.exclusion-bulk-actions .exclusion
   await click($(selector));
   expect(excludedCardVersionsStore.getState().maxFemalePlayers).toBe('any');
   expect(localStorage.getItem(EXCLUDED_CARD_VERSIONS_STORAGE_KEY)).toBeNull();
-  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (0)');
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards Settings (0)');
   expect($('.excluded-card-versions-toggle').textContent).toContain('Excluded Cards (0)');
   expect($('#exclusion-tab-excluded').textContent).toBe('Active Exclusions (0)');
   expect($('.settings-inline-clear').disabled).toBe(true);
@@ -339,7 +354,7 @@ test('main button and modal count stay synchronized through range and individual
   await click($('#exclusion-tab-excluded'));
   await click($('[aria-label="Remove exclusion for First"]'));
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual(['2']);
-  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (1)');
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards Settings (1)');
   await click($('.modal-header .exclusion-clear'));
   expect(excludedCardVersionsStore.getState().excludedCardVersionIds).toEqual([]);
   expect(excludedCardVersionsStore.getState().squadOvrRange.min).toBe(80);
@@ -365,12 +380,12 @@ test('counts special limits in both titles and clears them with the panel trash 
     excludedCardVersionsStore.setMaxIcons(0);
     excludedCardVersionsStore.setMaxHeroes(1);
   });
-  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (2)');
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards Settings (2)');
   expect($('.excluded-card-versions-toggle').textContent).toContain('Excluded Cards (2)');
   expect($('.settings-inline-clear').disabled).toBe(false);
   await click($('.settings-inline-clear'));
   expect(excludedCardVersionsStore.getState()).toMatchObject({ excludedCardVersionIds: [], maxIcons: null, maxHeroes: null });
-  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (0)');
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards Settings (0)');
   expect($('.settings-inline-clear').disabled).toBe(true);
 });
 test('modal Clear All clears cards and special limits while preserving the OVR range', async () => {
@@ -379,7 +394,7 @@ test('modal Clear All clears cards and special limits while preserving the OVR r
     excludedCardVersionsStore.setMaxIcons(5);
     excludedCardVersionsStore.setSquadOvrRange({ min: 80, max: 99 });
   });
-  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards (2)');
+  expect($('#exclusion-manager-title').textContent).toBe('Excluded Cards Settings (2)');
   await click($('.exclusion-title-row .exclusion-clear'));
   expect(excludedCardVersionsStore.getState()).toMatchObject({ excludedCardVersionIds: [], maxIcons: null, maxHeroes: null, squadOvrRange: { min: 80, max: 99 } });
 });

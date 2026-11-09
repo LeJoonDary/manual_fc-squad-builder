@@ -1,3 +1,5 @@
+import { LanguageProvider, useTranslation } from '../src/contexts/LanguageContext';
+import { ui, formatMessage } from '../src/i18n/languageStore';
 import { safeBudgetNumber, formatBudgetNumber } from '../utils/budget.ts';
 import { TrashIcon } from './TrashIcon.jsx';
 import React, { useEffect, useRef, useState } from 'react';
@@ -6,7 +8,11 @@ import { ExcludedCardVersionsManager } from './ExcludedCardVersionsManager.jsx';
 import { excludedCardVersionsStore } from '../utils/excludedCardVersions.js';
 import { fetchCandidatePlayers, generateOptimalSquad, getRemainingAutoBuildBudget } from '../utils/autoBuildUtils.ts';
 
-export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {}, getRoleOptions = () => ({}), openTacticalRoles = () => {}, clearRolesAndPlaystyles = () => {} }) {
+export function AutoBuildSettings(props) {
+  return <LanguageProvider><AutoBuildSettingsContent {...props} /></LanguageProvider>;
+}
+function AutoBuildSettingsContent({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {}, getRoleOptions = () => ({}), openTacticalRoles = () => {}, clearRolesAndPlaystyles = () => {} }) {
+  const { t } = useTranslation();
   const budgetHost = useRef(null);
   useEffect(() => {
     // Retain the existing input node and its budget/progress event listeners.
@@ -63,7 +69,7 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
         throw new Error('Could not fill all 11 slots within your budget and eligibility limits. Add candidates, increase your budget, or review exclusions and tactical requirements.');
       }
       applyAutoBuildResult(result, { snapshot, formation, totalBudget });
-      setFeedback(result.status === 'fallback' ? { type: 'warning', text: `Built the closest matching squad. Total Cost: ${result.totalCost.toLocaleString('en-US')} C · ${totalBudget === 0 ? 'Unlimited Budget' : result.totalCost > totalBudget ? `${(result.totalCost - totalBudget).toLocaleString('en-US')} C Over Budget` : 'Within Budget'} · Chemistry: ${result.totalChemistry}/33 (Target ${minChemistry})` } : { type: 'success', text: `Squad built successfully! Total Cost: ${result.totalCost.toLocaleString('en-US')} C · Chemistry: ${result.totalChemistry}/33` });
+      setFeedback(result.status === 'fallback' ? { type: 'warning', text: `Built the closest matching squad. Total Cost: ${result.totalCost.toLocaleString('en-US')} C · ${totalBudget === 0 ? 'Unlimited Budget' : result.totalCost > totalBudget ? `${(result.totalCost - totalBudget).toLocaleString('en-US')} C Over Budget` : 'Within Budget'} · Chemistry: ${result.totalChemistry}/33 (Target ${minChemistry})` } : { type: 'success', key: 'successMsg', params: { cost: result.totalCost.toLocaleString('en-US'), chem: `${result.totalChemistry}/33` } });
     } catch (error) {
       setFeedback({ type: 'error', text: error instanceof Error ? error.message : 'Auto build failed. Please try again.' });
     } finally {
@@ -83,28 +89,28 @@ export function AutoBuildSettings({ formation, getTargetBudget, budgetSection, s
   }
 
   return (
-    <section className="auto-build-settings" aria-labelledby="auto-build-title">
-      <h2 id="auto-build-title" className="sr-only">Auto Build Settings</h2>
+    <section data-i18n-react className="auto-build-settings" aria-labelledby="auto-build-title">
+      <h2 id="auto-build-title" className="sr-only">{ui('Auto Build Settings')}</h2>
       <div className="auto-build-budget" ref={budgetHost} />
-      {isLockedOverBudget && <p className="auto-build-feedback is-error" role="alert">{lockedWarning}</p>}
-      {lockedCost > 0 && <p className="auto-build-total">Locked Player Cost {lockedCost.toLocaleString('en-US')} C · {unlimited ? 'Unlimited budget' : `Available for new selections ${distributableBudget.toLocaleString('en-US')} C`}</p>}
+      {isLockedOverBudget && <p className="auto-build-feedback is-error" role="alert">{ui(lockedWarning)}</p>}
+      {lockedCost > 0 && <p className="auto-build-total">{ui('Locked Player Cost')} {lockedCost.toLocaleString('en-US')} C · {unlimited ? ui('Unlimited budget') : ui('Available for new selections {cost} C', { cost: distributableBudget.toLocaleString('en-US') })}</p>}
       <hr className="auto-build-divider" />
       <div className="auto-build-range">
-        <label htmlFor="min-chemistry">Min Chemistry Target</label>
+        <label htmlFor="min-chemistry">{t.squad.minChem}</label>
         <output htmlFor="min-chemistry">{minChemistry} / 33</output>
         <input id="min-chemistry" type="range" min="20" max="33" step="1" value={minChemistry} disabled={isAutoBuilding}
           onChange={event => setMinChemistry(Number(event.target.value))} />
       </div>
       <hr className="auto-build-divider" />
-      <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><div className="settings-inline-control"><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🎯</span><span className="settings-trigger-label">Advanced Settings ({totalActivePreferences})</span></span></button>{<button disabled={totalActivePreferences === 0} type="button" className="settings-inline-clear" aria-label="Reset All Preferences" title="Reset All Preferences" onClick={event => { event.stopPropagation(); clearRolesAndPlaystyles(); refreshContext(value => value + 1); }}><TrashIcon /></button>}</div></div>
+      <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><div className="settings-inline-control"><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🎯</span><span className="settings-trigger-label">{t.squad.advancedSettings} ({totalActivePreferences})</span></span></button>{<button disabled={totalActivePreferences === 0} type="button" className="settings-inline-clear" aria-label={ui('Reset All Preferences')} title={ui('Reset All Preferences')} onClick={event => { event.stopPropagation(); clearRolesAndPlaystyles(); refreshContext(value => value + 1); }}><TrashIcon /></button>}</div></div>
       <hr className="auto-build-divider" />
       <div className="auto-build-actions">
-        <button type="button" className="auto-build-reset" disabled={isAutoBuilding} onClick={resetSettings}>Reset Settings</button>
+        <button type="button" className="auto-build-reset" disabled={isAutoBuilding} onClick={resetSettings}>{t.squad.resetSettings}</button>
         <button type="button" className="auto-build-button" disabled={isAutoBuilding || isLockedOverBudget} aria-busy={isAutoBuilding} onClick={handleAutoBuild}>
-          {isAutoBuilding ? <><span className="auto-build-spinner" aria-hidden="true" /> Building Squad...</> : '🚀 Auto Build Squad'}
+          {isAutoBuilding ? <><span className="auto-build-spinner" aria-hidden="true" /> {ui('Building Squad...')}</> : t.squad.autoBuild}
         </button>
       </div>
-      {feedback && <p className={`auto-build-feedback is-${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'}>{feedback.text}</p>}
+      {feedback && <p className={`auto-build-feedback is-${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'}>{feedback.key ? formatMessage(t.squad[feedback.key], feedback.params) : feedback.text.split(' · ').map(part => ui(part)).join(' · ')}</p>}
     </section>
   );
 }

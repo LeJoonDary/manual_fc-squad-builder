@@ -1,3 +1,10 @@
+import { mountLanguageToggle } from './src/components/LanguageToggle.tsx';
+import { setCardAction } from './src/i18n/cardActions';
+import { createPlayerDbFilterLabel } from './src/i18n/playerDb';
+import { translations } from './src/locales/translations';
+import { formatMessage } from './src/i18n/languageStore';
+import { startLanguageSync } from './src/i18n/languageStore';
+import { mountDomTranslations } from './src/i18n/domTranslations';
 import { normalizePlaystyles } from './utils/normalizePlaystyles.js';
 import { createPlaystylesGridSelector } from './components/PlaystylesGridSelector.js';
 import { formatSlotPosition } from './utils/pitchCardLabels.js';
@@ -47,6 +54,10 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     });
   });
 }
+
+startLanguageSync();
+mountDomTranslations();
+mountLanguageToggle(document.getElementById('language-control'));
 
 mountAnalytics();
 createLegalModal();
@@ -781,14 +792,14 @@ function setupFilterCommandBar() {
   renderRoleFilterRows();
 
   const commands = {
-    positions: { icon: '⚽', label: 'Position / Roles' },
-    ovr: { icon: '📊', label: 'OVR / Price' },
-    'sm-wf': { icon: '★', label: 'SM / WF' },
-    playstyles: { icon: '✨', label: 'PlayStyles' },
-    affiliation: { icon: '🌐', label: 'Affiliations' },
-    rarity: { icon: '🃏', label: 'Card Rarity' },
-    stats: { icon: '📈', label: 'Detailed Stats' },
-    miscellaneous: { icon: '⚙️', label: 'Physical & Body' },
+    positions: { icon: '⚽', key: 'positionRoles' },
+    ovr: { icon: '📊', key: 'ovrPrice' },
+    'sm-wf': { icon: '★', key: 'smWf' },
+    playstyles: { icon: '✨', key: 'playstyles' },
+    affiliation: { icon: '🌐', key: 'affiliation' },
+    rarity: { icon: '🃏', key: 'cardRarity' },
+    stats: { icon: '📈', key: 'detailedStats' },
+    miscellaneous: { icon: '⚙️', key: 'physicalBody' },
   };
 
   Object.entries(commands).forEach(([section, command]) => {
@@ -801,9 +812,8 @@ function setupFilterCommandBar() {
     const icon = document.createElement('span');
     icon.className = 'command-icon';
     icon.textContent = command.icon;
-    const label = document.createElement('span');
-    label.className = 'command-label';
-    label.textContent = command.label;
+    const label = createPlayerDbFilterLabel(command.key);
+    label.id = `filter-label-${section}`;
     const summary = document.createElement('span');
     summary.className = 'command-summary';
     summary.dataset.commandSummary = section;
@@ -815,7 +825,7 @@ function setupFilterCommandBar() {
     trigger.setAttribute('aria-haspopup', 'dialog');
     trigger.setAttribute('aria-expanded', 'false');
     content.setAttribute('role', 'dialog');
-    content.setAttribute('aria-label', `${command.label} filters`);
+    content.setAttribute('aria-labelledby', label.id);
     // React PopoverContent의 onPointerDown/onClick stopPropagation과 동일한 보호 계층입니다.
     // 슬라이더, input, button의 기본 동작은 취소하지 않고 문서 바깥 클릭 감지로의 전파만 막습니다.
     content.addEventListener('pointerdown', (event) => event.stopPropagation());
@@ -943,7 +953,7 @@ async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions
     } else renderPlayerGrid(playersPager.state.cards, scrollPositions);
     const loaded = playersPager.state.cards.length.toLocaleString('en-US');
     const matching = total.toLocaleString('en-US');
-    playerResultCount.textContent = `Showing ${loaded} of ${matching}`;
+    playerResultCount.textContent = formatMessage(translations.en.playerDb.resultCount, { current: loaded, total: matching });
     playerPaginationStatus.textContent = `Showing ${loaded} of ${matching} matching cards, ranked by OVR.`;
     playerLoadMore.hidden = !playersPager.state.hasMore;
     playerLoadMore.textContent = `Load More (${Math.min(PLAYER_PAGE_SIZE, Math.max(0, total - playersPager.state.offset))} Players)`;
@@ -1093,7 +1103,11 @@ function openTacticalRoles() {
   tacticalRolesDialog = dialog;
   dialog.className = 'tactical-roles-dialog';
   dialog.setAttribute('aria-labelledby', 'tactical-roles-title');
-  dialog.innerHTML = '<header><h2 id="tactical-roles-title">Advanced Settings</h2><button type="button" aria-label="Close Advanced Settings">×</button></header>';
+  dialog.innerHTML = '<header><h2 id="tactical-roles-title" data-i18n="modals.advancedTitle">Advanced Builder Settings</h2><button type="button" aria-label="Close Advanced Settings">×</button></header>';
+  const description = document.createElement('p');
+  description.dataset.i18n = 'modals.advancedDesc';
+  description.textContent = 'Configure specific slot requirements such as Playstyles or Roles.';
+  dialog.append(description);
   const map = document.createElement('div');
   map.innerHTML = '<p class="tactical-formation-name"></p><div class="tactical-mini-pitch" aria-label="Formation slots"></div>';
   const tabs = document.createElement('div');
@@ -1179,11 +1193,11 @@ function renderRoleFilterRows() {
     allChip.textContent = 'Clear slot Playstyle';
     if (tacticalPlaystylesStatus !== 'ready') {
       const status = document.createElement('p');
-      status.textContent = tacticalPlaystylesStatus === 'loading' ? 'Loading Playstyles…' : 'Playstyles를 불러오지 못했습니다.';
+      status.textContent = tacticalPlaystylesStatus === 'loading' ? 'Loading Playstyles…' : 'Unable to load PlayStyles.';
       roleFilterList.append(status);
       if (tacticalPlaystylesStatus === 'error') {
         const retry = document.createElement('button');
-        retry.type = 'button'; retry.textContent = '다시 시도';
+        retry.type = 'button'; retry.textContent = 'Try Again';
         retry.addEventListener('click', loadPlaystyleFilterOptions);
         roleFilterList.append(retry);
       }
@@ -1802,14 +1816,13 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   const removeButton = document.createElement('button');
   removeButton.className = 'remove-player';
   removeButton.type = 'button';
-  removeButton.setAttribute('aria-label', `Remove ${name}`);
+  setCardAction(removeButton, 'remove');
   removeButton.textContent = '×';
   removeButton.addEventListener('click', (event) => handleRemovePlayer(event, slot.dataset.position));
   const detailButton = document.createElement('button');
   detailButton.className = 'detail-player';
   detailButton.type = 'button';
-  detailButton.setAttribute('aria-label', 'View details for ' + name);
-  detailButton.title = 'View details';
+  setCardAction(detailButton, 'details');
   detailButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg>';
   detailButton.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -1820,8 +1833,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   alternativeButton.type = 'button';
   alternativeButton.className = 'alternative-player';
   alternativeButton.textContent = '🔄';
-  alternativeButton.title = 'Suggest alternatives';
-  alternativeButton.setAttribute('aria-label', `Suggest alternatives for ${name}`);
+  setCardAction(alternativeButton, 'swapPosition');
   alternativeButton.addEventListener('click', event => {
     event.stopPropagation();
     openSwapModal(slot.dataset.position, squad[slot.dataset.position]?.card);
@@ -1861,8 +1873,7 @@ function updateSlotLockUI(slot) {
   slot.draggable = Boolean(entry?.card) && !isLocked;
   if (lockButton) {
     lockButton.textContent = isLocked ? '🔒' : '🔓';
-    lockButton.dataset.tooltip = isLocked ? 'Unlock' : 'Lock';
-    lockButton.setAttribute('aria-label', `${isLocked ? 'Unlock' : 'Lock'} ${getCardName(entry.card)}`);
+    setCardAction(lockButton, isLocked ? 'unlock' : 'lock');
     lockButton.setAttribute('aria-pressed', String(isLocked));
   }
   if (removeButton) removeButton.hidden = isLocked;
@@ -1890,8 +1901,7 @@ function updateSlotOwnedUI(slot) {
   slot.classList.toggle('is-owned', isOwned);
   if (ownedButton) {
     ownedButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="m7.5 12.2 3 3 6-6.4"></path></svg>';
-    ownedButton.dataset.tooltip = isOwned ? 'Owned (0 C Cost)' : 'Not Owned (Cost Included)';
-    ownedButton.setAttribute('aria-label', `Mark ${getCardName(entry.card)} as ${isOwned ? 'not owned' : 'owned'}`);
+    setCardAction(ownedButton, isOwned ? 'notOwned' : 'owned');
     ownedButton.setAttribute('aria-pressed', String(isOwned));
   }
   if (priceBadge) {

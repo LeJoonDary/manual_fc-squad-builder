@@ -2,6 +2,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
+import { detectLanguage, setLanguage } from '../src/i18n/languageStore';
 import { GuideControl } from './GuideModal.jsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -13,7 +14,7 @@ beforeEach(() => {
   host = document.createElement('div'); document.body.append(host); root = createRoot(host);
 });
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.restoreAllMocks(); });
-const render = () => act(async () => root.render(<GuideControl />));
+const render = () => act(async () => { setLanguage(detectLanguage(), false); root.render(<GuideControl />); });
 const click = element => act(async () => element.click());
 const modal = () => document.querySelector('.guide-modal');
 
@@ -75,7 +76,7 @@ it('switches immediately and preserves the manual language across reopening and 
   await click(modal().querySelectorAll('.guide-language-toggle button')[1]);
   expect(modal().querySelector('iframe').src).toContain('nwbDLox9DHU');
   expect(modal().querySelectorAll('.guide-language-toggle button')[1].getAttribute('aria-pressed')).toBe('true');
-  expect(localStorage.getItem('metaxi_guide_language')).toBe('ko');
+  expect(localStorage.getItem('metaxi_lang')).toBe('ko');
   await click(modal().querySelector('.guide-close-button'));
   await click(host.querySelector('button'));
   expect(modal().querySelector('iframe').src).toContain('nwbDLox9DHU');
@@ -84,7 +85,7 @@ it('switches immediately and preserves the manual language across reopening and 
   expect(modal().querySelector('iframe').src).toContain('nwbDLox9DHU');
   await click(modal().querySelector('.guide-language-toggle button'));
   expect(modal().querySelector('iframe').src).toContain('HOz_OeMgC68');
-  expect(localStorage.getItem('metaxi_guide_language')).toBe('en');
+  expect(localStorage.getItem('metaxi_lang')).toBe('en');
 });
 
 it('shows the new guide despite the old opt-out and suppresses it after the v2 opt-out', async () => {
