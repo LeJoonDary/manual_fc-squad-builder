@@ -11,7 +11,7 @@ function isHeadshotCard(card: Record<string, any>): boolean {
   return ['gold', 'silver', 'bronze'].includes(version)
     || version.includes('base_icon')
     || version.includes('base_hero')
-    || version.includes('hall_of_fut')
+    || version.includes('base_hall_of_fut')
     || cardType.includes('HEADSHOT');
 }
 

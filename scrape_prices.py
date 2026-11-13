@@ -101,7 +101,7 @@ def get_target_cards(special_limit: int = 200, rotate_gold_limit: int = 40, rota
     log("=" * 65)
     log(f"[INFO] 타겟 선별 시작: 1회 총 {total_target_cap}장 (스페셜 {special_limit}장 + 순환 {rotate_gold_limit + rotate_totw_limit}장)...")
 
-    # 언트레이더블 / 시장 미거래 제외 목록 (★ POTM 추가 완료 ★)
+# 언트레이더블 / 시장 미거래 제외 목록 (★ base_hall_of_fut만 제외하고 unleashed는 허용 ★)
     EXCLUDED_UNTRADEABLES = [
         "squad_foundation",
         "ones_to_watch",
@@ -109,19 +109,19 @@ def get_target_cards(special_limit: int = 200, rotate_gold_limit: int = 40, rota
         "partnerships",
         "special_base_hall_of_fut",
         "base_hall_of_fut",
-        "hall_of_fut",
         "special_sbc",
         "sbc",
         "potm",  # ★ POTM(이달의 선수) SBC 카드 수집 제외
     ]
 
     # 1. 스페셜 군 (오래된 순 200장)
+    # 대소문자 무관하게 sbc가 들어간 card_type과 base_hall_of_fut을 DB 조회 단계부터 제외
     fixed_res = (
         supabase.table("card_versions")
         .select("id, api_id, overall, version, card_type, price, price_updated_at")
         .ilike("version", "%special%")
-        .neq("card_type", "SBC")
-        .neq("card_type", "SPECIAL_SBC")
+        .not_.ilike("card_type", "%sbc%")
+        .not_.ilike("version", "%base_hall_of_fut%")
         .not_.is_("api_id", "null")
         .order("price_updated_at", desc=False, nullsfirst=True)
         .execute()
@@ -137,11 +137,11 @@ def get_target_cards(special_limit: int = 200, rotate_gold_limit: int = 40, rota
         c_type = str(card.get("card_type", "")).lower()
         ovr = int(card.get("overall") or 0)
 
-        # SBC, Hall of FUT, POTM 등 거래 불가 카드 완전 필터링
+        # SBC(special_sbc 포함), Base Hall of FUT, POTM 등 거래 불가 카드 필터링
+        # (special_hall_of_fut_unleashed 중 card_type이 special_sbc가 아닌 카드는 정상 통과됨)
         if (
             any(ex in v_low for ex in EXCLUDED_UNTRADEABLES)
             or "sbc" in c_type
-            or "hall_of_fut" in v_low
             or "potm" in v_low
             or "potm" in c_type
         ):
