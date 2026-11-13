@@ -1929,20 +1929,9 @@ async function generateOptimalSquadPass(
 
 /** Performance only: neither chemistry nor primary-position status contributes. */
 export function pureMetaScore(player: any, slot: string): number {
-  const card = player.card ?? player.raw ?? player;
-  const position = normalizeChemistryPosition(slot);
-  const roles = card.card_roles ?? card.roles ?? [];
-  const roleLevel = roles.reduce((best: number, row: any) => {
-    const role = relation(row.roles ?? row);
-    if (normalizeChemistryPosition(role.position ?? row.position ?? '') !== position) return best;
-    return Math.max(best, Math.min(2, Number(row.role_level ?? row.level) || 0));
-  }, 0);
-  // Small positional trait bonuses, shared equally by primary and alternate positions.
-  const acceleration = String(card.accele_type ?? card.raw?.accele_type ?? '').toLowerCase();
-  const preferredAcceleration = ['CB', 'CDM', 'ST', 'CF'].includes(position) ? 'lengthy'
-    : ['LW', 'RW', 'LM', 'RM', 'CAM', 'LB', 'RB', 'LWB', 'RWB'].includes(position) ? 'explosive' : '';
-  return calculateBaseMetaScore(player, slot) + calculatePlaystyleAndSkillBonus(player, slot)
-    + roleLevel * 2 + (preferredAcceleration && acceleration.includes(preferredAcceleration) ? 2 : 0);
+  const card = player?.card ?? player?.raw ?? player;
+  if (!card) return 0;
+  return calculateBaseMetaScore(card, slot) + calculatePlaystyleAndSkillBonus(card, slot);
 }
 
 export function weightedTopThree<T>(ranked: readonly T[], score: (item: T) => number, random = Math.random): T | undefined {
