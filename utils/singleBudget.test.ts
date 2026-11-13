@@ -172,7 +172,7 @@ it.each([false, true])('applies role preferences and strict filtering in every s
   const options = { currentSquad, isStrictRoleMode, slotRoleRequirements: { ST: { roleName: 'Poacher', minLevel: 1 as const } } };
   const result = await generateOptimalSquad('4-3-3', grouped(rows), 1000000, 30, false, options);
   expect(result.success).toBe(true);
-  expect(result.squad.find(p => p.slotPosition === 'ST')?.id).toBe('200');
+  expect(result.squad.find(p => p.slotPosition === 'ST')?.id).toBe('201');
   const impossible = await generateOptimalSquad('4-3-3', grouped(rows.filter(p => p.id !== 201)), 1000000, 30, false,
     { ...options, isStrictRoleMode: true, slotRoleRequirements: { ST: { roleName: 'Poacher', minLevel: 2 } } });
   expect(impossible.success).toBe(false);

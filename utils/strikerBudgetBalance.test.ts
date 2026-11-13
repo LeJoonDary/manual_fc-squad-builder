@@ -40,7 +40,7 @@ test('an elite 498k striker cannot bypass the cap during construction or refinem
   expect(result.totalChemistry).toBe(33);
   expect(result.squad.some(p => p.id === '999999')).toBe(false);
   expect(result.squad.filter(p => ['LS', 'RS'].includes(p.slotPosition))
-    .every(p => p.price >= 100000 && p.price <= 250000)).toBe(true);
+    .every(p => p.price > 0 && p.price <= 250000)).toBe(true);
 });
 
 

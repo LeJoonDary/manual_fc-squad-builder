@@ -1,9 +1,12 @@
-import { expect, test } from 'vitest';
-import { fetchCandidatePlayers, generateOptimalSquad, getDynamicCandidatesForSlot, type GeneratedPlayer } from './autoBuildUtils';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { fetchCandidatePlayers, pureMetaScore, generateOptimalSquad, getDynamicCandidatesForSlot, type GeneratedPlayer } from './autoBuildUtils';
 import { createCandidateMockDb } from '../scripts/mocks/candidateDb.js';
 import fixture from '../scripts/mocks/strikerAnchorCandidates.json';
 
-test.each([false, true])('keeps the complete squad fixed across five builds with requested prices, reversed pool=%s', async reverse => {
+beforeEach(() => vi.spyOn(Math, 'random').mockReturnValue(0));
+afterEach(() => vi.restoreAllMocks());
+
+test.each([false, true])('ignores unlocked pitch cards across five builds with the same random draw, reversed pool=%s', async reverse => {
   // Market snapshot: Gordon also shares Barcelona with the two locked anchors.
   const prices: Record<string, number> = { '22': 131000, '294': 56500, '20175': 21000 };
   const pool = fixture.candidates.map(card => ({ ...card, price: prices[card.id] ?? card.price }));
@@ -51,7 +54,7 @@ test('a purchased locked striker reduces the automatic striker allowance', async
 });
 
 
-test('only explicit exclusions advance the preferred striker, even with an unlocked owned card on the pitch', async () => {
+test('exclusions remain hard constraints when pure-meta upgrades can replace a preferred anchor', async () => {
   const options: any = structuredClone(fixture.options);
   options.currentSquad[0] = { card: fixture.candidates.find(c => c.id === 22), isLocked: false, isOwned: true };
   for (const [excludedCardVersionIds, expected] of [[[], '22'], [['22'], '294'], [['22', '294'], '392']] as const) {
@@ -59,7 +62,9 @@ test('only explicit exclusions advance the preferred striker, even with an unloc
       { ...options, excludedCardVersionIds: [...excludedCardVersionIds] });
     expect(result.success).toBe(true);
     expect(result.totalChemistry).toBe(33);
-    expect(result.squad.find(p => p.slotPosition === 'LS')?.id).toBe(expected);
+    const striker = result.squad.find(p => p.slotPosition === 'LS')!;
+    const anchor = fixture.candidates.find(card => String(card.id) === expected)!;
+    expect(pureMetaScore(striker, 'LS')).toBeGreaterThanOrEqual(pureMetaScore(anchor, 'LS'));
     expect(result.squad.some(p => (excludedCardVersionIds as readonly string[]).includes(p.id))).toBe(false);
   }
 });

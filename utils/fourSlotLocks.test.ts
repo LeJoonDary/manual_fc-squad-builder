@@ -50,8 +50,10 @@ test('completes the real seven-lock 4-3-3 (2) puzzle without Icons or Heroes', a
   expect(result.totalCost).toBe(197750);
   expect(result.squad.filter(p => !p.isLocked).map(p => p.id).sort()).toEqual(['20', '22', '31', '38']);
   expect(result.squad.some(p => !p.isLocked && (isCardIcon(p) || isCardHero(p)))).toBe(false);
-  // Existing tie order picks Liga F/Germany; the requested PL/Poland also reaches 33.
-  expect(result.manager).toMatchObject({ bestLeagueId: 'league:id:6', bestNationId: 'nation:id:17' });
+  // Post-processing recalculates the manager in final slot order; PL/Poland also reaches 33.
+  expect(result.manager?.maxChemistry).toBe(33);
+  expect(calculateChemistry(result.squad.map(player => ({ position: player.slotPosition, player })),
+    { leagueId: result.manager!.bestLeagueId!, nationId: result.manager!.bestNationId! }).totalChemistry).toBe(33);
   expect(calculateChemistry(result.squad.map(player => ({ position: player.slotPosition, player })),
     { leagueId: 'league:id:3', nationId: 'nation:id:11' }).totalChemistry).toBe(33);
   expect(Number.isFinite(result.finalScore)).toBe(true);

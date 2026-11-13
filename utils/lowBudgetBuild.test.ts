@@ -1,8 +1,11 @@
-import { expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { calculateSquadChemistry, generateOptimalSquad } from './autoBuildUtils';
 import fixture from '../scripts/mocks/strikerAnchorCandidates.json';
+afterEach(() => vi.restoreAllMocks());
 
 test('finishes an empty 100k squad in the main first stage with a coherent affordable core', async () => {
+  // Keep the existing search-efficiency baseline independent of random jitter.
+  vi.spyOn(Math, 'random').mockReturnValue(.5);
   const result = await generateOptimalSquad('4-3-1-2', fixture.candidates as any, 100000, 33, true,
     { excludeZeroPriceCards: true });
   expect(result.success).toBe(true);

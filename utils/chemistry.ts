@@ -145,7 +145,7 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
   const player = relation(rawCard.players);
   if (Object.keys(player).length) rawCard = { ...rawCard, nation_id: player.nation_id ?? null };
   const cardType = String(rawCard.card_type ?? rawCard.cardType ?? '').trim().toUpperCase();
-  const altPositions = [...new Set(['altPositions', 'alt_positions', 'secondary_positions']
+  const altPositions = [...new Set(['altPositions', 'alt_positions', 'alternate_positions', 'secondary_positions']
     .flatMap((field) => {
       const source = rawCard[field];
       if (Array.isArray(source)) return source.map(String);
