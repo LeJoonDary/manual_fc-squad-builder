@@ -715,7 +715,11 @@ function calculateBaseMetaScore(input: any, assignedPosition: string): number {
 
   if (['LB', 'RB', 'LWB', 'RWB'].includes(pos)) return ovr * 0.15 + pac * 0.40 + def * 0.25 + phy * 0.20;
   if (['CM', 'CDM'].includes(pos)) return ovr * 0.15 + pas * 0.30 + dri * 0.25 + def * 0.15 + pac * 0.10 + phy * 0.05;
-  if (pos === 'CB') return ovr * 0.10 + def * 0.35 + pac * 0.35 + phy * 0.20;
+  if (pos === 'CB') {
+    // Shared by pureMetaScore and calculateMetaScore: apply the pace penalty once.
+    const pacePenalty = pac <= 75 ? 5 : pac < 77 ? 4 : pac < 78 ? 1 : 0;
+    return ovr * 0.10 + def * 0.35 + pac * 0.35 + phy * 0.20 - pacePenalty;
+  }
 
   // CAM: 본마티 1티어 & 무시알라 드리블 체감 특화 (합계 100%)
   if (pos === 'CAM') {
@@ -1165,6 +1169,19 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
   const price = Number(sourceCard.price ?? 0);
   if (price > (context.maxPriceCap ?? calculateDynamicSlotCap(position, formationPositions ?? [position], context.remainingBudget ?? budget, budget === 0, budget, formationPositions))) return false;
   if (['ST', 'CF', 'LB', 'RB', 'LWB', 'RWB'].includes(pos) && pace < 82) return false;
+  if (['LB', 'RB'].includes(normSlot)) {
+    const statSources = [sourceCard, sourceCard.raw, sourceCard.stats, sourceCard.face_stats,
+      relation(sourceCard.player_stats ?? sourceCard.raw?.player_stats)].filter(Boolean);
+    const faceStat = (keys: string[]) => {
+      for (const key of keys) for (const source of statSources) {
+        const value = source[key];
+        if (value != null && value !== '' && Number.isFinite(Number(value))) return Number(value);
+      }
+      return 0;
+    };
+    if (faceStat(['faceDribbling', 'dri', 'dribbling']) < 76
+      || faceStat(['facePassing', 'pas', 'passing']) < 65) return false;
+  }
   if (pos === 'CB') {
     // CB: 주/부포지션과 수비력에 관계없이 페이스 75 이상 요구.
     if (pace < 75) return false;
