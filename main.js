@@ -1,3 +1,6 @@
+import { createRecommendationControls, replacementChemBadge } from './components/RecommendationControls.js';
+import { getRecommendedPlayersForEmptySlot, getRecommendedPlayersForSlot, getEmptySlotPriceCap } from './utils/autoBuildUtils';
+import { getLanguage, subscribeLanguage } from './src/i18n/languageStore';
 import { mountLanguageToggle } from './src/components/LanguageToggle.tsx';
 import { setCardAction } from './src/i18n/cardActions';
 import { createPlayerDbFilterLabel } from './src/i18n/playerDb';
@@ -20,8 +23,6 @@ import { preloadImages, preloadCardImages } from './utils/preloadImages.ts';
 import { createAlternativePlayerModal } from './components/AlternativePlayerModal.js';
 import { createMobileFiltersToggle } from './components/MobileFiltersToggle.js';
 import { resetMobileZoom } from './utils/mobileZoom.js';
-import { loadAlternativePlayers, suggestAlternativePlayers, getSwapConflicts, assertUniqueSwapPlayer } from './utils/alternativePlayers.js';
-import { createSwapConflictModal } from './components/SwapConflictModal.js';
 import { fetchModalPlayerPage, MODAL_PAGE_SIZE } from './utils/modalPlayers.js';
 import { loadPlayerDetail } from './utils/playerCatalog.js';
 import { createPlayerPagination, PLAYER_PAGE_SIZE } from './utils/playerPagination.js';
@@ -90,7 +91,7 @@ const modalTitle = document.querySelector('#modal-title');
 const modalDescription = document.querySelector('#modal-description');
 const modalPlayerSearchInput = document.querySelector('#modal-player-search-input');
 const modalPlayerSearchClear = document.querySelector('#modal-player-search-clear');
-const modalPositionButtons = [...document.querySelectorAll('[data-position-mode]')];
+
 let modalPositionMode = 'all';
 const modalPositionLabels = { all: 'All Positions', primary: 'Primary Position', secondary: 'Secondary Position' };
 const playerList = document.querySelector('#player-list');
@@ -167,51 +168,50 @@ let modalPlayerCards = [];
 let dragOriginPosition = null;
 let suppressSlotClick = false;
 const squad = {};
-const swapConflictModal = createSwapConflictModal({ rebuild: () => document.querySelector('.auto-build-button')?.click() });
+function replacementOptions(position, controls = {}) {
+  return { ...excludedCardVersionsStore.getState(), ...getRoleOptions(), currentSquad: squad,
+    formation: currentFormation, slotPosition: position, totalBudget: targetBudget,
+    mode: 'replace', considerManager: true, excludeZeroPriceCards: true, ...controls };
+}
+let replacementSnapshot;
 const alternativeModal = createAlternativePlayerModal({
-  renderCard: (card, onActivate) => buildPlayerCard(card, { actionLabel: 'Swap Player', onActivate, showMetaScore: false }),
-  async load(position, signal) {
-    return loadAlternativePlayers(supabase, {
-      squad, targetPosition: position,
-      manager: getManagerChemistryBonus(), settings: excludedCardVersionsStore.getState(),
-      minChemistryTarget: getSwapChemistryTarget(),
-      maxBudget: targetBudget, minPrice: filters.minPrice, maxPrice: filters.maxPrice,
-    }, normalizeBrowserPlayerCard, signal);
+  getPriceContext: (position, controls) => ({ totalBudget: targetBudget,
+    maxPrice: getEmptySlotPriceCap(replacementOptions(position, controls)) }),
+  renderCard: (card, onActivate, suggestion) => {
+    const article = buildPlayerCard(card, { actionLabel: recommendationText('선수 교체', 'Swap Player'), onActivate,
+      synergyBadge: replacementChemBadge(suggestion.chemDelta) });
+    article.querySelector('.recommendation-badge')?.classList.toggle('is-negative', suggestion.chemDelta < 0);
+    return article;
   },
-  async select(position, card, signal, bestManager) {
-    if (getSwapConflicts(squad, position, excludedCardVersionsStore.getState()).length) throw new Error('Squad settings conflict. Close and reopen Swap.');
+  async load(position, signal, currentCard, controls) {
+    replacementSnapshot = getSquadSnapshot();
+    const rows = await getRecommendedPlayersForSlot(supabase, replacementOptions(position, controls), undefined, signal);
+    return rows.map(row => ({ ...row, card: { ...normalizeBrowserPlayerCard(row.card),
+      meta_score: row.metaScore, score_position: position } }));
+  },
+  async select(position, card, signal, bestManager, controls) {
     const original = squad[position];
-    const detail = card;
+    if (replacementSnapshot !== getSquadSnapshot() || isSquadSlotLocked(original)) throw new Error(recommendationText('스쿼드가 변경되었습니다. 다시 열어주세요.', 'Squad changed. Reopen recommendations.'));
+    const detail = normalizeBrowserPlayerCard(await loadPlayerDetail(supabase, card.id));
     signal.throwIfAborted();
-    if (squad[position] !== original || isSquadSlotLocked(original)) throw new Error('The squad slot has changed');
-    const valid = suggestAlternativePlayers({
-      squad, targetPosition: position, candidates: [detail],
-      manager: bestManager ?? getManagerChemistryBonus(), settings: excludedCardVersionsStore.getState(),
-      minChemistryTarget: getSwapChemistryTarget(),
-      maxBudget: targetBudget, minPrice: filters.minPrice, maxPrice: filters.maxPrice,
-    });
+    if (!detail || replacementSnapshot !== getSquadSnapshot()) throw new Error('The squad slot has changed');
+    const valid = await getRecommendedPlayersForSlot(supabase, replacementOptions(position, controls), [detail.raw ?? detail], signal);
+    signal.throwIfAborted();
+    if (replacementSnapshot !== getSquadSnapshot() || squad[position] !== original || !valid.length) throw new Error(recommendationText('더 이상 선택할 수 없는 선수입니다.', 'This player is no longer eligible'));
     const slot = document.querySelector(`.slot[data-position="${position}"]`);
-    if (!slot || !valid.length) throw new Error('This player is no longer eligible');
-    assertUniqueSwapPlayer(squad, position, detail);
-    const chosenManager = valid[0].bestManager;
-    if (chosenManager) {
-      managerState = autoBuildManagerState({
-        bestLeagueId: chosenManager.leagueId, bestNationId: chosenManager.nationId,
-      }, affiliationCatalog, [...Object.values(squad).map(entry => entry?.card).filter(Boolean), detail]);
-    }
+    if (!slot) return;
     placeCard(slot, detail, false);
-    renderManagerSlot();
-    updateSquadChemistry();
-    status.textContent = `Replaced ${position} with ${getCardName(detail)}.`;
+    squad[position].isLocked = true;
+    squad[position].isOwned = false;
+    updateSlotLockUI(slot);
+    managerState = autoBuildManagerState(valid[0].bestManager, affiliationCatalog, Object.values(squad).map(entry => entry?.card).filter(Boolean));
+    renderManagerSlot(); updateSquadChemistry();
+    window.dispatchEvent(new Event('auto-build-context-change'));
+    status.textContent = recommendationText(`${position} 선수를 ${getCardName(detail)}(으)로 교체했습니다.`, `Replaced ${position} with ${getCardName(detail)}.`);
   },
 });
-function getSwapChemistryTarget() {
-  return Number(document.querySelector('#min-chemistry')?.value ?? 33);
-}
 function openSwapModal(position, currentCard) {
   if (!currentCard || isSquadSlotLocked(squad[position])) return;
-  const conflicts = getSwapConflicts(squad, position, excludedCardVersionsStore.getState());
-  if (conflicts.length) { swapConflictModal.open(conflicts); return; }
   alternativeModal.open(position, currentCard);
 }
 let affiliationCatalog = { nations: [], leagues: [], clubs: [] };
@@ -426,17 +426,7 @@ modalPlayerSearchInput.addEventListener('input', () => {
   updateModalPlayerSearch();
 });
 
-modalPositionButtons.forEach(button => button.addEventListener('click', () => {
-  if (modalPositionMode === button.dataset.positionMode) return;
-  setModalPositionMode(button.dataset.positionMode);
-  resetModalSearch();
-  loadModalPlayerPage();
-}));
-
-function setModalPositionMode(mode) {
-  modalPositionMode = mode;
-  modalPositionButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.positionMode === mode)));
-}
+function setModalPositionMode() { modalPositionMode = 'all'; }
 
 modalPlayerSearchClear.addEventListener('click', () => {
   modalPlayerSearchInput.value = '';
@@ -1415,9 +1405,74 @@ function restorePlayerPanelScrollPositions(scrollPositions) {
   });
 }
 
+let recommendationSort = 'meta_synergy';
+let slotMaxPrice;
+let recommendationControls;
+let recommendationRows = new Map();
+const recommendationPanel = document.createElement('section');
+recommendationPanel.className = 'slot-recommendations';
+recommendationPanel.hidden = true;
+document.querySelector('.modal-player-search')?.after(recommendationPanel);
+// Keep controls immediately below the search row across desktop/mobile layouts.
+if (!recommendationPanel.isConnected) modalPlayerSearchInput.parentElement.after(recommendationPanel);
+const recommendationText = (ko, en) => getLanguage() === 'ko' ? ko : en;
+function recommendationEnabled() {
+  return activeSlot && !squad[activeSlot.dataset.position]?.card
+    && Object.values(squad).some(entry => entry?.isLocked === true);
+}
+function recommendationOptions() {
+  return { ...excludedCardVersionsStore.getState(), ...getRoleOptions(), currentSquad: squad,
+    formation: currentFormation, slotPosition: activeSlot.dataset.position,
+    totalBudget: targetBudget, slotMaxPrice, sort: recommendationSort, excludeZeroPriceCards: true };
+}
+function renderRecommendationControls() {
+  recommendationPanel.hidden = !recommendationEnabled();
+  recommendationPanel.replaceChildren();
+  if (recommendationPanel.hidden) return;
+  const count = Object.values(squad).filter(entry => entry?.isLocked === true).length;
+  const header = document.createElement('h3');
+  header.textContent = recommendationText(`잠긴 선수(${count}명) 기준 맞춤 추천`, `Recommended for Locked Squad (${count})`);
+  recommendationControls?.dispose();
+  recommendationControls = createRecommendationControls({
+    sort: recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
+    onInvalidate: () => { modalAbort?.abort(); modalRequest++; },
+    onSort: value => { recommendationSort = value; renderRecommendationControls(); updateModalPlayerSearch(); },
+    onPrice: value => { slotMaxPrice = value; renderRecommendationControls(); updateModalPlayerSearch(); },
+  });
+  recommendationPanel.append(header, recommendationControls.element);
+}
+async function loadSlotRecommendations() {
+  const requestId = modalRequest;
+  modalAbort?.abort(); modalAbort = new AbortController();
+  recommendationRows.clear(); modalLoadMore.hidden = true;
+  const loading = document.createElement('div'); loading.className = 'alternative-loading recommendation-loading';
+  loading.setAttribute('role', 'status');
+  const spinner = document.createElement('span'); spinner.className = 'alternative-spinner';
+  loading.append(spinner, document.createTextNode(recommendationText('맞춤 추천 선수를 찾는 중…', 'Finding recommended players…')));
+  playerList.replaceChildren(loading);
+  modalDescription.textContent = recommendationText('현재 스쿼드 기준 추천', 'Recommendations for your current squad');
+  try {
+    const rows = await getRecommendedPlayersForEmptySlot(supabase, recommendationOptions(), undefined, modalAbort.signal);
+    if (requestId !== modalRequest || modal.hidden) return;
+    recommendationRows = new Map(rows.map(row => [String(row.card.id), row]));
+    renderPlayerList(rows.map(row => {
+      const card = normalizeBrowserPlayerCard(row.card);
+      return card ? { ...card, meta_score: Number.isFinite(row.metaScore) ? row.metaScore : null, score_position: activeSlot.dataset.position } : null;
+    }).filter(Boolean));
+    if (!rows.length) renderMessage(recommendationText('조건에 맞는 추천 선수가 없습니다. 가격이나 설정을 변경해 보세요.', 'No recommendations match. Try changing the price or settings.'));
+  } catch (error) {
+    if (requestId === modalRequest && !modal.hidden) renderMessage(recommendationText('추천 선수를 불러오지 못했습니다: ', 'Unable to load recommendations: ') + error.message, true);
+  }
+}
+subscribeLanguage(() => {
+  if (!modal.hidden && recommendationEnabled()) { renderRecommendationControls(); updateModalPlayerSearch(); }
+});
+
 async function openPlayerModal(slot) {
   if (isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot;
+  slotMaxPrice = undefined; recommendationSort = 'meta_synergy';
+  renderRecommendationControls();
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
   modalPlayerSearchClear.hidden = true;
@@ -1439,6 +1494,7 @@ function resetModalSearch() {
   modalAbort?.abort();
   modalRequest += 1;
   modalPager.reset();
+  recommendationRows.clear();
   modalPlayerCards = [];
   modalLoadMore.hidden = true;
   const ready = isSearchTermReady(modalPlayerSearchInput.value);
@@ -1449,6 +1505,7 @@ function resetModalSearch() {
 }
 
 async function loadModalPlayerPage() {
+  if (!modal.hidden && recommendationEnabled() && !modalPlayerSearchInput.value.trim()) return loadSlotRecommendations();
   if (modal.hidden || !activeSlot || !isSearchTermReady(modalPlayerSearchInput.value)) return;
   const ticket = modalPager.begin();
   if (!ticket) return;
@@ -1691,6 +1748,7 @@ function renderPlayerList(cards) {
 function updateModalPlayerSearch() {
   modalPlayerSearchClear.hidden = !modalPlayerSearchInput.value;
   resetModalSearch();
+  if (recommendationEnabled() && !modalPlayerSearchInput.value.trim()) { loadSlotRecommendations(); return; }
   if (!isSearchTermReady(modalPlayerSearchInput.value)) return;
   if (searchResultCache.has(modalResultKey())) {
     loadModalPlayerPage();
@@ -1709,9 +1767,13 @@ function buildPlayerCard(card, options) {
 function renderFilteredPlayerList() {
   playerList.replaceChildren();
   modalPlayerCards.forEach(card => {
+    const recommendation = recommendationRows.get(String(card.id));
     const article = buildPlayerCard(card, {
-      actionLabel: 'Select Player',
+      actionLabel: recommendation ? recommendationText('선수 선택', 'Select Player') : 'Select Player',
       textAffiliations: false,
+      synergyBadge: recommendation ? (recommendation.chemDelta > 0
+        ? `+${recommendation.chemDelta} ${recommendationText('케미', 'Chem')} 🔥`
+        : recommendation.linkName ? `${recommendation.linkName} 🔗` : '') : undefined,
       onActivate: async () => {
         if (!activeSlot) return;
         const slot = activeSlot;
@@ -1723,6 +1785,12 @@ function renderFilteredPlayerList() {
           if (selectionId !== modalSelectionRequest || requestId !== modalRequest || activeSlot !== slot || modal.hidden) return;
           if (!detail) throw new Error('Unable to load player details.');
           placeCard(slot, detail);
+          if (recommendation) {
+            squad[slot.dataset.position].isLocked = true;
+            squad[slot.dataset.position].isOwned = false;
+            updateSlotLockUI(slot);
+            window.dispatchEvent(new Event('auto-build-context-change'));
+          }
           status.textContent = `Added ${getCardName(detail)} at ${slot.dataset.position}.`;
           closeModal();
         } catch (error) {
@@ -1744,6 +1812,7 @@ function renderMessage(message, isError = false) {
 }
 
 function closeModal() {
+  recommendationControls?.dispose();
   clearTimeout(modalSearchTimer);
   modalAbort?.abort();
   modalPager.reset();

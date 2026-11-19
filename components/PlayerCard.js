@@ -3,7 +3,7 @@ import { PlayerCard } from './PlayerCard.tsx';
 
 // Shared DOM card component for the Players tab and selection modal.
 export function createPlayerCard(card, {
-  onActivate, actionLabel = 'View player details', showMetaScore = true,
+  onActivate, actionLabel = 'View player details', showMetaScore = true, synergyBadge,
   getCardName, getCardRating, getCardPosition,
   unwrapRelation, affiliationCatalog, createReviewButton,
 }) {
@@ -34,12 +34,20 @@ export function createPlayerCard(card, {
   if (showMetaScore && !card.summary_only) {
     score = document.createElement('div');
     score.className = 'browser-player-meta-score bg-slate-950/85 text-emerald-400 border border-emerald-500/50 font-extrabold px-2 py-0.5 rounded-md';
-    score.textContent = card.meta_score == null ? '[Meta Score: N/A]' : `[Meta Score: ${card.meta_score.toFixed(1)}]`;
+    score.textContent = Number.isFinite(card.meta_score) ? `Meta Score ${card.meta_score.toFixed(1)}` : 'Meta Score N/A';
     score.title = card.score_position ? `${card.score_position} · Excludes 3-back adjustments` : 'Position weights are not available yet.';
   }
   const metadata = document.createElement('div');
   metadata.className = 'browser-player-metadata';
-  if (score) metadata.append(score);
+  if (score || synergyBadge) {
+    const row = document.createElement('div'); row.className = 'browser-player-meta-row';
+    if (synergyBadge) {
+      const badge = document.createElement('span'); badge.className = 'recommendation-badge';
+      badge.textContent = synergyBadge; row.append(badge);
+    }
+    if (score) row.append(score);
+    metadata.append(row);
+  }
   const player = unwrapRelation(card.raw?.players) ?? {};
   const height = card.height ?? player.height;
   const weight = card.weight ?? player.weight;

@@ -1117,7 +1117,7 @@ export function calculateDynamicSlotCap(position: string, unfilledPositions: rea
   return Math.floor(Math.min(calculatedCap, reservedCap));
 }
 
-export interface AnchorBudgetContext { anchorStepIndex?: number; remainingBudget?: number; remainingSlotsCount?: number; maxPriceCap?: number; }
+export interface AnchorBudgetContext { skipFullbackPriceRatio?: boolean; anchorStepIndex?: number; remainingBudget?: number; remainingSlotsCount?: number; maxPriceCap?: number; }
 export function passesNewCandidateFilter(card: any, position: string, budget: number, formationPositions?: readonly string[], context: AnchorBudgetContext = {}): boolean {
   if (!card) return false;
   const getNormalizedSlot = (slot: string): string => {
@@ -1151,7 +1151,7 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
 
   // 풀백 단일 카드 가격은 총예산의 6.5% 이내로 제한.
   if (['LB', 'RB'].includes(normSlot)
-    && totalBudget > 0 && cardPrice > totalBudget * 0.065) {
+    && !context.skipFullbackPriceRatio && totalBudget > 0 && cardPrice > totalBudget * 0.065) {
     return false;
   }
 
@@ -2326,4 +2326,131 @@ export function upgradeSquadToTargetBudgetRatio(
     if (!replaced) break;
   }
   return current;
+}
+
+
+export interface EmptySlotRecommendationOptions extends AutoBuildOptions {
+  formation: string;
+  slotPosition: string;
+  totalBudget: number;
+  slotMaxPrice?: number | null;
+  sort?: 'meta_synergy' | 'instant_chem' | 'maintain_chem';
+  mode?: 'empty' | 'replace';
+  considerManager?: boolean;
+}
+export function getEmptySlotPriceCap(options: EmptySlotRecommendationOptions): number | null {
+  if (options.slotMaxPrice != null) {
+    if (!Number.isFinite(options.slotMaxPrice) || options.slotMaxPrice < 0) throw new RangeError('Invalid slot price');
+    return options.slotMaxPrice;
+  }
+  if (!options.totalBudget) return null;
+  const layout = FORMATIONS.find(item => item.name === options.formation);
+  const entries = options.mode === 'replace'
+    ? getNormalizedSquadArray(options.currentSquad, layout?.slots.length ?? 11, layout?.slots ?? [])
+    : Object.values(options.currentSquad ?? {});
+  const targetIndex = layout?.slots.findIndex(slot => slot.position === options.slotPosition);
+  const spent = entries.filter((_, index) => options.mode !== 'replace' || index !== targetIndex).reduce((sum, entry) =>
+    sum + (entry && !entry.isOwned ? getCardCoinPrice(rawEntryCard(entry)) : 0), 0);
+  return Math.max(0, options.totalBudget - spent);
+}
+
+/** Compatibility entry point: empty-slot activation and ranking stay unchanged. */
+export function getRecommendedPlayersForEmptySlot(
+  supabase: SupabaseClient, options: EmptySlotRecommendationOptions, candidates?: any[], signal?: AbortSignal,
+) {
+  return getRecommendedPlayersForSlot(supabase, { ...options, mode: 'empty' }, candidates, signal);
+}
+export const getSlotRecommendationPriceCap = getEmptySlotPriceCap;
+export type SlotRecommendationOptions = EmptySlotRecommendationOptions;
+
+/** Shared DB, eligibility, chemistry and meta pipeline; independent of auto-build search. */
+export async function getRecommendedPlayersForSlot(
+  supabase: SupabaseClient, options: EmptySlotRecommendationOptions, candidates?: any[], signal?: AbortSignal,
+) {
+  const layout = FORMATIONS.find(item => item.name === options.formation);
+  if (!layout) throw new Error('Unsupported formation');
+  const entries = getNormalizedSquadArray(options.currentSquad, layout.slots.length, layout.slots);
+  const replacing = options.mode === 'replace';
+  const targetIndex = layout.slots.findIndex(slot => slot.position === options.slotPosition);
+  if (targetIndex < 0) throw new Error('Unsupported slot');
+  const target = entries[targetIndex];
+  if (replacing ? !target?.card : target?.card || !entries.some(entry => entry?.isLocked === true)) return [];
+  const sort = options.sort ?? (replacing ? 'maintain_chem' : 'meta_synergy');
+  const considerManager = replacing && (options.considerManager ?? true);
+  const fullSquad = entries.flatMap((entry, index) => {
+    if (!entry) return [];
+    const player = prepareCandidate(rawEntryCard(entry), layout.slots[index].position, false, entry.isOwned, true);
+    return player ? [player] : [];
+  });
+  const current = replacing ? fullSquad.filter(player => player.slotPosition !== options.slotPosition) : fullSquad;
+  const replacedId = replacing ? getCardVersionId(target!.card) : null;
+  const cap = getEmptySlotPriceCap(options);
+  const range = validateSquadOvrRange(options.squadOvrRange);
+  const minOvr = Math.max(80, range.min, cap !== null && cap < 5000000 ? 0 : (!options.totalBudget || options.totalBudget >= 5000000 ? 85 : 0));
+  const excluded = new Set(normalizeExcludedCardVersionIds(options.excludedCardVersionIds));
+  if (!candidates) {
+    let query = supabase.from('card_versions')
+      .select(AUTO_BUILD_CANDIDATE_SELECT + ', candidate_positions:card_positions!inner(positions!inner(name))')
+      .eq('candidate_positions.positions.name', normalizeChemistryPosition(options.slotPosition))
+      .gte('overall', minOvr).lte('overall', range.max).gt('price', 0);
+    if (cap !== null) query = query.lte('price', cap);
+    if (options.maxFemalePlayers === 'exclude') query = query.or('gender.is.null,and(gender.not.ilike.*women*,gender.not.ilike.*female*)', { referencedTable: 'players' });
+    const stars = slotRequirement(options.slotPosition, options);
+    if (stars?.minSm ?? stars?.minSkillMoves) query = query.gte('sm', (stars.minSm ?? stars.minSkillMoves)!);
+    if (stars?.minWf ?? stars?.minWeakFoot) query = query.gte('wf', (stars.minWf ?? stars.minWeakFoot)!);
+    const usedIds = [...current.map(player => getCardVersionId(player.card)), replacedId].filter(Boolean);
+    if (usedIds.length) query = query.not('id', 'in', `(${usedIds.join(',')})`);
+    if (excluded.size) query = query.not('id', 'in', `(${[...excluded].join(',')})`);
+    if (signal) query = query.abortSignal(signal);
+    const { data, error } = await query.order('overall', { ascending: false }).order('id', { ascending: true }).limit(300);
+    if (error) throw error;
+    candidates = data ?? [];
+  }
+  const counts = linkCounts(current);
+  const leagues = counts.league;
+  const icons = current.filter(isCardIcon).length, heroes = current.filter(isCardHero).length;
+  const dynamicMax = Math.min(5, 3 + icons + (heroes > 0 ? 1 : 0));
+  const baseline = calculateSquadChemistry(fullSquad, considerManager, replacing).totalChemistry;
+  const deficits = getChemistryDeficits(current);
+  const results = [];
+  for (const card of candidates) {
+    const candidate = prepareCandidate(card, options.slotPosition, false);
+    if (!candidate || !isPositionMatched(options.slotPosition, candidate)
+      || candidate.id === replacedId
+      || current.some(p => p.id === candidate.id || p.playerKey === candidate.playerKey)
+      || excluded.has(getCardVersionId(card)) || !passesMarketPriceFilter(card, options)
+      || card.overall < minOvr || card.overall > range.max || (cap !== null && Number(card.price) > cap)
+      || !matchesSlotRequirements(card, slotRequirement(options.slotPosition, options), options.slotPosition)
+      || !passesNewCandidateFilter(card, options.slotPosition, cap !== null ? Math.max(1, cap) : options.totalBudget,
+        layout.slots.map(s => s.position), { maxPriceCap: cap ?? Infinity, skipFullbackPriceRatio: true })) continue;
+    const trial = [...current, candidate];
+    // Recommendation limits count everyone already on the pitch.
+    const limitPlayers = trial.map(p => ({ ...p, isLocked: false }));
+    if (!withinFemaleLimit(limitPlayers, options) || !withinCardLimits(limitPlayers, options)
+      || trial.filter(isSpecialCard).length > specialLimit(options)) continue;
+    const keys = linkKeys(candidate);
+    const shares = (kind: LinkKind) => keys[kind] !== null && counts[kind].has(keys[kind]!);
+    const chemistry = calculateSquadChemistry(trial, considerManager, replacing);
+    const allowed = isCardIcon(candidate) || shares('league') || shares('club')
+      || (isCardHero(candidate) ? shares('nation')
+        : shares('nation') && (leagues.size < dynamicMax || chemistry.playerChemMap[candidate.id] >= 2));
+    if (!allowed) continue;
+    const chemDelta = chemistry.totalChemistry - baseline;
+    if (replacing && sort === 'maintain_chem' && chemDelta < 0) continue;
+    const hitsDeficit = LINK_KINDS.some(kind => keys[kind] !== null && deficits[kind].has(keys[kind]!));
+    if (sort === 'instant_chem' && chemDelta <= 0 && !hitsDeficit) continue;
+    const calculatedMeta = pureMetaScore(candidate, options.slotPosition);
+    const meta = Number.isFinite(calculatedMeta) ? calculatedMeta : 0;
+    const link = LINK_KINDS.find(shares);
+    const linkName = isCardIcon(candidate) ? 'ICON' : isCardHero(candidate) ? 'HERO'
+      : link === 'club' ? relation(card.clubs).name ?? keys.club
+      : link === 'league' ? relation(card.leagues).name ?? keys.league
+      : link === 'nation' ? relation(relation(card.players).nations).name ?? keys.nation : '';
+    results.push({ card, beforeChem: baseline, afterChem: chemistry.totalChemistry, bestManager: chemistry.manager, chemDelta, hitsDeficit, linkName, meta, metaScore: meta,
+      score: meta + anchorSynergyScore(candidate, current) + (chemDelta > 0 ? chemDelta * 2 : replacing ? chemDelta * 1.5 : 0) });
+  }
+  return results.sort((a, b) => (sort === 'maintain_chem' && replacing ? b.meta - a.meta || b.chemDelta - a.chemDelta
+    : sort === 'instant_chem'
+    ? b.chemDelta - a.chemDelta || Number(b.hitsDeficit) - Number(a.hitsDeficit) || b.meta - a.meta
+    : b.score - a.score) || Number(a.card.price) - Number(b.card.price) || String(a.card.id).localeCompare(String(b.card.id))) .slice(0, 40);
 }

@@ -2242,3 +2242,20 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   .metaxi-brand-name { display: none; }
 }
 .tactical-roles-dialog > p { color: #a9b7cb; padding-inline: 16px; line-height: 1.5; }
+
+.slot-recommendations { margin: 12px 0; }
+.slot-recommendations[hidden] { display: none; }
+.slot-recommendations h3 { font-size: 14px; margin: 8px 0; }
+.recommendation-tabs, .recommendation-prices { display: flex; gap: 6px; margin: 8px 0; }
+.recommendation-prices { flex-wrap: wrap; align-items: center; }
+.recommendation-prices .budget-input-wrap { width: 160px; }
+.recommendation-tabs button, .recommendation-prices button { white-space: nowrap; border: 1px solid #475569; border-radius: 8px; padding: 7px 10px; background: #182435; color: #e2e8f0; cursor: pointer; }
+.recommendation-tabs button[aria-pressed="true"] { background: #165e52; border-color: #34d399; }
+.recommendation-badge { display: block; padding: 5px 8px; color: #6ee7b7; font-size: 12px; text-align: center; }
+
+.recommendation-loading { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; min-height: 220px; }
+.browser-player-meta-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 6px; }
+.browser-player-meta-row .browser-player-meta-score { margin-left: auto; flex-shrink: 0; }
+.browser-player-meta-row .recommendation-badge { min-width: 0; padding: 5px 0; text-align: left; overflow-wrap: anywhere; }
+
+.browser-player-meta-row .recommendation-badge.is-negative { color: #fb923c; }
