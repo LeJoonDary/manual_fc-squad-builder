@@ -1,0 +1,46 @@
+// @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { expect, test, vi } from 'vitest';
+import { buildSquadShareUrl, decodeSquadSharePayload } from './squadShareUtils';
+const mocks=vi.hoisted(()=>({finish:null,services:null}));
+vi.mock('./squadShareHydration.js',()=>({loadSharedSquadCards:vi.fn(async(_db,_payload,normalize)=>{
+  await new Promise(resolve=>{mocks.finish=resolve;});
+  const card=normalize({id:123,player_id:123,overall:90,price:40000,version:'Gold',players:{id:123,name:'Shared Player',nation_id:52},club_id:1,league_id:13,
+    card_positions:[{is_primary:true,positions:{name:'ST'}}],player_stats:[{pac:90,sho:90,def:80,phy:90}],card_playstyles:[],card_roles:[]});
+  return {ST:{card,isLocked:true,isOwned:true}};
+})}));
+vi.mock('./preloadImages.ts',()=>({preloadImages:vi.fn(),preloadCardImages:vi.fn()}));
+vi.mock('./playstyleFilters.js',async original=>({...await original(),fetchPlaystyleOptions:async()=>[]}));
+vi.mock('./affiliations.js',async original=>({...await original(),fetchAffiliations:async()=>({leagues:[{id:13,name:'League'}],nations:[{id:52,name:'Nation'}],clubs:[]})}));
+vi.mock('../components/AutoBuildSettings.jsx',()=>({mountAutoBuildSettings:(_el,_f,_b,services)=>{mocks.services=services;return ()=>{};}}));
+vi.mock('../components/GuideModal.jsx',()=>({mountGuideControl:()=>{}}));
+vi.mock('../components/Analytics.jsx',()=>({mountAnalytics:()=>{}}));
+test('URL hydration applies formation, flags, manager and budget without overwriting saved slots',async()=>{
+  vi.stubGlobal('ResizeObserver',class{observe(){}disconnect(){}});
+  vi.stubGlobal('matchMedia',()=>({matches:false,addEventListener(){},removeEventListener(){}}));
+  vi.stubEnv('VITE_SUPABASE_URL','');vi.stubEnv('VITE_SUPABASE_ANON_KEY','');
+  HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+  HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new Event('close'));};
+  const payload={version:'v1',formation:'4-3-3',slots:Array(11).fill(null),manager:{leagueId:'13',nationId:'52'},budget:1000000};
+  payload.slots[1]={cardVersionId:'123',isLocked:true,isOwned:true};
+  history.replaceState(null,'',buildSquadShareUrl(location.origin+'/',payload));
+  localStorage.setItem('metaxi_saved_slots','[]');
+  const write=vi.spyOn(Storage.prototype,'setItem');
+  document.documentElement.innerHTML=readFileSync('index.html','utf8');
+  await import('../main.js');
+  expect(document.querySelector('.squad-share-loading')).not.toBeNull();
+  expect(document.querySelector('.squad-workspace').inert).toBe(true);
+  mocks.finish();
+  await vi.waitFor(()=>expect(document.querySelector('.squad-share-loading')).toBeNull());
+  expect(document.querySelector('#formation-current').textContent).toBe('4-3-3');
+  const slot=document.querySelector('.slot[data-position="ST"]');
+  expect(slot.classList.contains('is-locked')).toBe(true);expect(slot.classList.contains('is-owned')).toBe(true);
+  expect(document.querySelector('#target-budget').value).toBe('1,000,000');
+  expect(document.querySelector('#manager-slot').textContent).toContain('League');
+  expect(document.querySelector('#total-cost').value).toBe('0');
+  expect(write.mock.calls.filter(([key])=>key==='metaxi_saved_slots')).toEqual([]);
+  document.querySelector('.squad-share-trigger').click();
+  const exported=decodeSquadSharePayload(new URL(document.querySelector('.share-url').value).searchParams.get('s'));
+  expect(exported).toEqual(payload);
+  expect(document.querySelector('.share-summary').textContent).toContain('90.0');
+});

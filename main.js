@@ -1,3 +1,6 @@
+import { buildSquadShareUrl, decodeSquadSharePayload } from './utils/squadShareUtils';
+import { loadSharedSquadCards } from './utils/squadShareHydration.js';
+import { createSquadShareModal } from './components/SquadShareModal.js';
 import { createRecommendationControls, replacementChemBadge } from './components/RecommendationControls.js';
 import { getRecommendedPlayersForEmptySlot, getRecommendedPlayersForSlot, getEmptySlotPriceCap } from './utils/autoBuildUtils';
 import { getLanguage, subscribeLanguage } from './src/i18n/languageStore';
@@ -479,7 +482,7 @@ document.querySelectorAll('[data-rating-filter]').forEach((button) => {
 loadPlaystyleFilterOptions();
 renderRoleFilterRows();
 setupFilterCommandBar();
-void loadAffiliationFilterOptions();
+const shareAffiliationsReady = loadAffiliationFilterOptions();
 
 [nationFilter, leagueFilter, clubFilter].forEach((select) => {
   select.addEventListener('change', () => {
@@ -2539,3 +2542,61 @@ const squadSlots = createSquadSlots({
   notify: message => { status.textContent = message; },
 });
 window.addEventListener('auto-build-context-change', () => squadSlots.sync());
+
+
+const shareModal = createSquadShareModal({
+  mount: document.querySelector('.pitch-heading'),
+  getCurrent: () => {
+    const formation = FORMATIONS.find(f => f.name === currentFormation);
+    const entries = formation.slots.map(slot => squad[slot.position] ?? null);
+    const occupied = entries.filter(entry => entry?.card);
+    const manager = managerState ? {
+      leagueId: managerState.leagueId != null ? String(managerState.leagueId) : managerState.league ? `league:name:${managerState.league}` : null,
+      nationId: managerState.nationId != null ? String(managerState.nationId) : managerState.nation ? `nation:name:${managerState.nation}` : null,
+    } : null;
+    const payload = { version: 'v1', formation: currentFormation, manager, budget: targetBudget,
+      slots: entries.map(entry => entry?.card ? {
+        cardVersionId: String(entry.card.raw?.id ?? entry.card.id), isLocked: entry.isLocked === true, isOwned: entry.isOwned === true,
+      } : null) };
+    return { url: buildSquadShareUrl(window.location.href, payload), formation: currentFormation,
+      count: occupied.length, chemistry: calculateChemistry(getChemistrySquad(), getManagerChemistryBonus()).totalChemistry,
+      cost: calculateSquadTotalCost(squad),
+      averageOvr: occupied.length ? occupied.reduce((sum, entry) => sum + (Number(getCardRating(entry.card)) || 0), 0) / occupied.length : 0 };
+  },
+});
+window.addEventListener('auto-build-context-change', () => shareModal.sync());
+function showSquadShareToast(success) {
+  const toast = document.createElement('div'); toast.className = 'squad-share-toast'; toast.setAttribute('role', 'status');
+  const render = () => { toast.textContent = success
+    ? recommendationText('공유된 스쿼드를 불러왔습니다!', 'Shared squad loaded!')
+    : recommendationText('유효하지 않은 공유 링크입니다.', 'Invalid share link.'); };
+  render(); const unsubscribe = subscribeLanguage(render); document.body.append(toast);
+  setTimeout(() => { unsubscribe(); toast.remove(); }, 3000);
+}
+async function hydrateSquadShare() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('s')) return;
+  const payload = decodeSquadSharePayload(params.get('s'));
+  if (!payload) { showSquadShareToast(false); return; }
+  const workspace = document.querySelector('.squad-workspace');
+  const loading = document.createElement('div'); loading.className = 'squad-share-loading'; loading.setAttribute('role', 'status');
+  const spinner = document.createElement('span'); spinner.className = 'alternative-spinner';
+  loading.append(spinner, document.createTextNode(recommendationText('공유 스쿼드를 불러오는 중…', 'Loading shared squad…')));
+  pitchFrame.append(loading);
+  const wasInert = workspace.inert; workspace.inert = true; workspace.setAttribute('aria-busy', 'true');
+  try {
+    const [players] = await Promise.all([loadSharedSquadCards(supabase, payload, normalizeBrowserPlayerCard), shareAffiliationsReady]);
+    const cards = Object.values(players).map(entry => entry?.card).filter(Boolean);
+    managerState = payload.manager ? autoBuildManagerState({ bestLeagueId: payload.manager.leagueId, bestNationId: payload.manager.nationId }, affiliationCatalog, cards) : null;
+    targetBudget = payload.budget; targetBudgetInput.value = targetBudget ? formatBudgetNumber(targetBudget) : '';
+    applyFormation(FORMATIONS.find(f => f.name === payload.formation), players);
+    renderManagerSlot(); updateSquadChemistry(); showSquadShareToast(true);
+  } catch {
+    managerState = null; targetBudget = 0; targetBudgetInput.value = '';
+    applyFormation(FORMATIONS.find(f => f.name === '4-3-1-2'), {});
+    renderManagerSlot(); showSquadShareToast(false);
+  } finally {
+    loading.remove(); workspace.inert = wasInert; workspace.removeAttribute('aria-busy'); shareModal.sync();
+  }
+}
+void hydrateSquadShare();
