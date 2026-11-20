@@ -1,7 +1,7 @@
 import { buildSquadShareUrl, decodeSquadSharePayload } from './utils/squadShareUtils';
 import { loadSharedSquadCards } from './utils/squadShareHydration.js';
 import { createSquadShareModal } from './components/SquadShareModal.js';
-import { createRecommendationControls, replacementChemBadge } from './components/RecommendationControls.js';
+import { createRecommendationControls, replacementChemBadge, emptySlotRecommendationBadge } from './components/RecommendationControls.js';
 import { getRecommendedPlayersForEmptySlot, getRecommendedPlayersForSlot, getEmptySlotPriceCap } from './utils/autoBuildUtils';
 import { getLanguage, subscribeLanguage } from './src/i18n/languageStore';
 import { mountLanguageToggle } from './src/components/LanguageToggle.tsx';
@@ -47,7 +47,6 @@ import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts'
 import { calculateBudgetStatus, safeBudgetNumber, parseBudgetInput, formatBudgetNumber } from './utils/budget.ts';
 import { mountAutoBuildSettings } from './components/AutoBuildSettings.jsx';
 import { autoBuildManagerState } from './utils/autoBuildUi.js';
-import { mountGuideControl } from './components/GuideModal.jsx';
 import { createLegalModal } from './components/LegalModal.js';
 import { mountAnalytics } from './components/Analytics.jsx';
 
@@ -65,7 +64,6 @@ mountLanguageToggle(document.getElementById('language-control'));
 
 mountAnalytics();
 createLegalModal();
-mountGuideControl(document.getElementById('guide-control'));
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1420,8 +1418,7 @@ document.querySelector('.modal-player-search')?.after(recommendationPanel);
 if (!recommendationPanel.isConnected) modalPlayerSearchInput.parentElement.after(recommendationPanel);
 const recommendationText = (ko, en) => getLanguage() === 'ko' ? ko : en;
 function recommendationEnabled() {
-  return activeSlot && !squad[activeSlot.dataset.position]?.card
-    && Object.values(squad).some(entry => entry?.isLocked === true);
+  return activeSlot && !squad[activeSlot.dataset.position]?.card;
 }
 function recommendationOptions() {
   return { ...excludedCardVersionsStore.getState(), ...getRoleOptions(), currentSquad: squad,
@@ -1434,10 +1431,11 @@ function renderRecommendationControls() {
   if (recommendationPanel.hidden) return;
   const count = Object.values(squad).filter(entry => entry?.isLocked === true).length;
   const header = document.createElement('h3');
-  header.textContent = recommendationText(`잠긴 선수(${count}명) 기준 맞춤 추천`, `Recommended for Locked Squad (${count})`);
+  header.textContent = count ? recommendationText(`잠긴 선수(${count}명) 기준 맞춤 추천`, `Recommended for Locked Squad (${count})`)
+    : recommendationText('포지션별 메타 추천', 'Meta Recommendations');
   recommendationControls?.dispose();
   recommendationControls = createRecommendationControls({
-    sort: recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
+    lockedCount: count, sort: recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
     onInvalidate: () => { modalAbort?.abort(); modalRequest++; },
     onSort: value => { recommendationSort = value; renderRecommendationControls(); updateModalPlayerSearch(); },
     onPrice: value => { slotMaxPrice = value; renderRecommendationControls(); updateModalPlayerSearch(); },
@@ -1474,7 +1472,7 @@ subscribeLanguage(() => {
 async function openPlayerModal(slot) {
   if (isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot;
-  slotMaxPrice = undefined; recommendationSort = 'meta_synergy';
+  slotMaxPrice = undefined; recommendationSort = Object.values(squad).some(entry => entry?.card && entry.isLocked === true) ? 'meta_synergy' : 'all_meta';
   renderRecommendationControls();
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
@@ -1771,12 +1769,11 @@ function renderFilteredPlayerList() {
   playerList.replaceChildren();
   modalPlayerCards.forEach(card => {
     const recommendation = recommendationRows.get(String(card.id));
+    const badge = recommendation ? emptySlotRecommendationBadge(recommendation, Object.values(squad).filter(entry => entry?.isLocked === true).length) : null;
     const article = buildPlayerCard(card, {
       actionLabel: recommendation ? recommendationText('선수 선택', 'Select Player') : 'Select Player',
       textAffiliations: false,
-      synergyBadge: recommendation ? (recommendation.chemDelta > 0
-        ? `+${recommendation.chemDelta} ${recommendationText('케미', 'Chem')} 🔥`
-        : recommendation.linkName ? `${recommendation.linkName} 🔗` : '') : undefined,
+      synergyBadge: badge?.text,
       onActivate: async () => {
         if (!activeSlot) return;
         const slot = activeSlot;
@@ -1803,6 +1800,7 @@ function renderFilteredPlayerList() {
         }
       },
     });
+    if (badge?.tone) article.querySelector('.recommendation-badge')?.classList.add(badge.tone);
     playerList.append(article);
   });
 }

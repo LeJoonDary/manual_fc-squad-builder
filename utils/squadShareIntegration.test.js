@@ -13,7 +13,6 @@ vi.mock('./preloadImages.ts',()=>({preloadImages:vi.fn(),preloadCardImages:vi.fn
 vi.mock('./playstyleFilters.js',async original=>({...await original(),fetchPlaystyleOptions:async()=>[]}));
 vi.mock('./affiliations.js',async original=>({...await original(),fetchAffiliations:async()=>({leagues:[{id:13,name:'League'}],nations:[{id:52,name:'Nation'}],clubs:[]})}));
 vi.mock('../components/AutoBuildSettings.jsx',()=>({mountAutoBuildSettings:(_el,_f,_b,services)=>{mocks.services=services;return ()=>{};}}));
-vi.mock('../components/GuideModal.jsx',()=>({mountGuideControl:()=>{}}));
 vi.mock('../components/Analytics.jsx',()=>({mountAnalytics:()=>{}}));
 test('URL hydration applies formation, flags, manager and budget without overwriting saved slots',async()=>{
   vi.stubGlobal('ResizeObserver',class{observe(){}disconnect(){}});

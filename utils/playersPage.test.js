@@ -9,7 +9,6 @@ vi.mock('./playerFilters.js', async original => ({ ...(await original()), fetchP
 vi.mock('./playstyleFilters.js', async original => ({ ...(await original()), fetchPlaystyleOptions: async () => [] }));
 vi.mock('./affiliations.js', async original => ({ ...(await original()), fetchAffiliations: async () => ({ leagues: [], nations: [], clubs: [] }) }));
 vi.mock('../components/AutoBuildSettings.jsx', () => ({ mountAutoBuildSettings: () => () => {} }));
-vi.mock('../components/GuideModal.jsx', () => ({ mountGuideControl: () => {} }));
 vi.mock('../components/Analytics.jsx', () => ({ mountAnalytics: () => {} }));
 
 const rows = (offset, count) => Array.from({ length: count }, (_, i) => ({

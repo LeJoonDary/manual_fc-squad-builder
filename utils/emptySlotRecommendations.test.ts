@@ -8,8 +8,8 @@ const options = (extra = {}) => ({ formation: '4-3-3', slotPosition: 'CM', total
   currentSquad: { LB: locked(card(1, { position: 'LB' })) }, ...extra });
 const run = (cards: any[], extra = {}) => recommend(null as any, options(extra), cards);
 
-test('no locked player disables recommendations without querying', async () => {
-  expect(await run([card(2)], { currentSquad: { LB: { card: card(1), isLocked: false } } })).toEqual([]);
+test('no locked player disables synergy mode', async () => {
+  expect(await run([card(2)], { sort: 'meta_synergy', currentSquad: { LB: { card: card(1), isLocked: false } } })).toEqual([]);
 });
 test.each(['LB', 'RB'])('explicit price permits 80–84 OVR %s and preserves auto-build ratio', async position => {
   const cheap = card(2, { position, overall: 83, price: 30000 });

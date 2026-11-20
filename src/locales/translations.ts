@@ -23,7 +23,7 @@ export const translations = {
       excludedRemoved: 'Removed from auto build exclusions.', playerAdded: '{position} assigned to {name}.',
       playerRemoved: '{name} removed from squad.', playerOwned: '{name} marked as owned.', playerNotOwned: '{name} marked as not owned.',
     },
-    nav: { builder: 'Squad Builder', players: 'Players', guide: 'Guide' },
+    nav: { builder: 'Squad Builder', players: 'Players' },
     squad: {
       title: 'SQUAD BUILDER', subtitle: 'Select a position to add a player.',
       appliedMsg: 'Applied the auto-built squad of {count} players and manager settings.',
@@ -68,7 +68,7 @@ export const translations = {
       excludedRemoved: '자동 완성 제외 목록에서 삭제되었습니다.', playerAdded: '{position}에 {name} 선수를 배치했습니다.',
       playerRemoved: '{name} 선수를 스쿼드에서 제거했습니다.', playerOwned: '{name} 선수를 보유로 표시했습니다.', playerNotOwned: '{name} 선수를 미보유로 표시했습니다.',
     },
-    nav: { builder: '스쿼드 빌더', players: '선수 DB', guide: '이용 가이드' },
+    nav: { builder: '스쿼드 빌더', players: '선수 DB' },
     squad: {
       title: '스쿼드 빌더', subtitle: '포지션을 클릭하여 선수를 선택하세요.',
       appliedMsg: '{count}명의 선수와 추천 감독으로 자동 완성된 스쿼드입니다.',

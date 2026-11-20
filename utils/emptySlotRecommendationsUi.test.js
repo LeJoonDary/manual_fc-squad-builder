@@ -10,7 +10,6 @@ vi.mock('./preloadImages.ts', () => ({ preloadImages: vi.fn(), preloadCardImages
 vi.mock('./playstyleFilters.js', async original => ({ ...(await original()), fetchPlaystyleOptions: async () => [] }));
 vi.mock('./affiliations.js', async original => ({ ...(await original()), fetchAffiliations: async () => ({ leagues: [], nations: [], clubs: [] }) }));
 vi.mock('../components/AutoBuildSettings.jsx', () => ({ mountAutoBuildSettings: (_el, _formation, _budget, services) => { mocks.services = services; return () => {}; } }));
-vi.mock('../components/GuideModal.jsx', () => ({ mountGuideControl: () => {} }));
 vi.mock('../components/Analytics.jsx', () => ({ mountAnalytics: () => {} }));
 const raw = (id, position) => ({ id, player_id:id, overall:90, price:1000, version:'Gold',
   players:{id,name:`Player ${id}`,nation_id:1}, club_id:1,league_id:1,
@@ -28,18 +27,31 @@ test('empty-slot UI gates recommendations, prioritizes search, debounces price, 
   const firstCard=raw(700,first.dataset.position);
   mocks.search.mockResolvedValue([firstCard]); mocks.detail.mockResolvedValue(firstCard);
   expect(document.querySelector('[data-position-mode]')).toBeNull();
+  mocks.recommend.mockResolvedValue([{card:firstCard,chemDelta:0,linkName:'',leagueLabel:'Premier League',metaScore:88}]);
   first.click();
-  expect(document.querySelector('.slot-recommendations').hidden).toBe(true);
-  expect(mocks.recommend).not.toHaveBeenCalled();
+  expect(document.querySelector('.slot-recommendations').hidden).toBe(false);
+  const tabs = [...document.querySelectorAll('.recommendation-tabs button')];
+  expect(tabs).toHaveLength(3);
+  expect(tabs.map(button=>button.disabled)).toEqual([true,true,false]);
+  expect(tabs[2].getAttribute('aria-pressed')).toBe('true');
+  expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('all_meta');
+  await vi.waitFor(()=>expect(document.querySelector('.recommendation-badge')?.textContent).toBe('Premier League'));
+  expect(document.querySelector('.slot-recommendations').textContent).toContain('Meta Recommendations');
+  expect(document.querySelector('#guide-control')).toBeNull();
   type('Player');
   await vi.waitFor(() => expect(document.querySelector('#player-list .browser-player-card')).not.toBeNull());
+  expect(document.querySelector('#player-list .recommendation-badge')).toBeNull();
+  expect(mocks.search).toHaveBeenCalled();
+  type('');
+  await vi.waitFor(()=>expect(document.querySelector('.recommendation-badge')?.textContent).toBe('Premier League'));
+  expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('all_meta');
   document.querySelector('#player-list .browser-player-card').click();
-  await vi.waitFor(() => expect(first.classList.contains('occupied')).toBe(true));
-  first.querySelector('.lock-player').click();
+  await vi.waitFor(() => expect(first.classList.contains('is-locked')).toBe(true));
   const second=document.querySelector('.slot:not(.occupied)');
   const next=raw(701,second.dataset.position);
   mocks.recommend.mockResolvedValue([{card:next,chemDelta:2,linkName:'Club',metaScore:89.4}]); mocks.detail.mockResolvedValue(next);
   second.click();
+  expect([...document.querySelectorAll('.recommendation-tabs button')].every(button=>!button.disabled)).toBe(true);
   expect(document.querySelector('.recommendation-loading[role="status"]')).not.toBeNull();
   await vi.waitFor(() => expect(document.querySelector('.recommendation-badge')?.textContent).toBe('+2 Chem 🔥'));
   expect(document.querySelector('.slot-recommendations').textContent).toContain('Recommended for Locked Squad (1)');

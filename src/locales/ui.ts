@@ -98,7 +98,6 @@ export const uiTranslations: Record<string, string> = {
   '{name} marked as owned.': '{name} 선수를 보유로 표시했습니다.', '{name} marked as not owned.': '{name} 선수의 보유 표시를 해제했습니다.',
   'Swapped players at {first} and {second}.': '{first}와 {second} 선수를 교환했습니다.', 'Moved {name} from {first} to {second}.': '{name} 선수를 {first}에서 {second}(으)로 이동했습니다.',
   'Icons': '아이콘', 'ICON BONUS': '아이콘 보너스', 'All Leagues +{count}': '모든 리그 +{count}', '{count} players': '{count}명',
-  'META XI Quick Guide': 'META XI 이용 가이드', 'Guide language': '가이드 언어', 'Close guide': '가이드 닫기',
   "Don't show again": '다시 보지 않기', 'Contact & Feedback': '문의 및 피드백', 'Terms of Service': '이용약관', 'Privacy Policy': '개인정보 처리방침', 'Disclaimer': '면책 안내',
   'Close player details': '선수 상세 닫기', 'BIO & CARD SPECS': '선수 및 카드 정보', 'ATTRIBUTES / SUB-STATS': '능력치 / 세부 스탯',
 };

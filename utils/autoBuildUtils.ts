@@ -2351,7 +2351,7 @@ export interface EmptySlotRecommendationOptions extends AutoBuildOptions {
   slotPosition: string;
   totalBudget: number;
   slotMaxPrice?: number | null;
-  sort?: 'meta_synergy' | 'instant_chem' | 'maintain_chem';
+  sort?: 'meta_synergy' | 'instant_chem' | 'maintain_chem' | 'all_meta';
   mode?: 'empty' | 'replace';
   considerManager?: boolean;
 }
@@ -2391,8 +2391,9 @@ export async function getRecommendedPlayersForSlot(
   const targetIndex = layout.slots.findIndex(slot => slot.position === options.slotPosition);
   if (targetIndex < 0) throw new Error('Unsupported slot');
   const target = entries[targetIndex];
-  if (replacing ? !target?.card : target?.card || !entries.some(entry => entry?.isLocked === true)) return [];
-  const sort = options.sort ?? (replacing ? 'maintain_chem' : 'meta_synergy');
+  const lockedCount = entries.filter(entry => entry?.card && entry.isLocked === true).length;
+  const sort = options.sort ?? (replacing ? 'maintain_chem' : lockedCount ? 'meta_synergy' : 'all_meta');
+  if (replacing ? !target?.card : target?.card || (!lockedCount && sort !== 'all_meta')) return [];
   const considerManager = replacing && (options.considerManager ?? true);
   const fullSquad = entries.flatMap((entry, index) => {
     if (!entry) return [];
@@ -2451,7 +2452,7 @@ export async function getRecommendedPlayersForSlot(
     const allowed = isCardIcon(candidate) || shares('league') || shares('club')
       || (isCardHero(candidate) ? shares('nation')
         : shares('nation') && (leagues.size < dynamicMax || chemistry.playerChemMap[candidate.id] >= 2));
-    if (!allowed) continue;
+    if (sort !== 'all_meta' && !allowed) continue;
     const chemDelta = chemistry.totalChemistry - baseline;
     if (replacing && sort === 'maintain_chem' && chemDelta < 0) continue;
     const hitsDeficit = LINK_KINDS.some(kind => keys[kind] !== null && deficits[kind].has(keys[kind]!));
@@ -2463,10 +2464,15 @@ export async function getRecommendedPlayersForSlot(
       : link === 'club' ? relation(card.clubs).name ?? keys.club
       : link === 'league' ? relation(card.leagues).name ?? keys.league
       : link === 'nation' ? relation(relation(card.players).nations).name ?? keys.nation : '';
-    results.push({ card, beforeChem: baseline, afterChem: chemistry.totalChemistry, bestManager: chemistry.manager, chemDelta, hitsDeficit, linkName, meta, metaScore: meta,
+    const leagueLabel = isCardIcon(candidate) ? 'ICON' : isCardHero(candidate) ? 'HERO'
+      : relation(card.leagues).name ?? card.league ?? keys.league ?? '';
+    const newLeagueWarning = lockedCount > 0 && !isCardIcon(candidate) && !isCardHero(candidate)
+      && !link && keys.league !== null && !leagues.has(keys.league) && leagues.size >= dynamicMax;
+    results.push({ card, lockedCount, leagueLabel, newLeagueWarning, beforeChem: baseline, afterChem: chemistry.totalChemistry, bestManager: chemistry.manager, chemDelta, hitsDeficit, linkName, meta, metaScore: meta,
       score: meta + anchorSynergyScore(candidate, current) + (chemDelta > 0 ? chemDelta * 2 : replacing ? chemDelta * 1.5 : 0) });
   }
-  return results.sort((a, b) => (sort === 'maintain_chem' && replacing ? b.meta - a.meta || b.chemDelta - a.chemDelta
+  return results.sort((a, b) => (sort === 'all_meta' ? b.meta - a.meta
+    : sort === 'maintain_chem' && replacing ? b.meta - a.meta || b.chemDelta - a.chemDelta
     : sort === 'instant_chem'
     ? b.chemDelta - a.chemDelta || Number(b.hitsDeficit) - Number(a.hitsDeficit) || b.meta - a.meta
     : b.score - a.score) || Number(a.card.price) - Number(b.card.price) || String(a.card.id).localeCompare(String(b.card.id))) .slice(0, 40);
