@@ -10,9 +10,9 @@ export function createRecommendationControls({ mode = 'empty', lockedCount = 1, 
     ['maintain_chem', recommendationText('✅ 케미 유지/상승', '✅ Maintain / Boost Chem')],
     ['meta_synergy', recommendationText('⚡ 전체 성능+시너지', '⚡ All Meta + Synergy')],
   ] : [
-    ['meta_synergy', recommendationText('⚡ 성능+시너지', '⚡ Meta + Synergy')],
-    ['instant_chem', recommendationText('🔗 즉시 케미 상승', '🔗 Instant Chem Boost')],
     ['all_meta', recommendationText('🌍 전체 메타', '🌍 All Meta')],
+    ['meta_synergy', recommendationText('⚡ 성능+시너지', '⚡ Meta + Synergy')],
+    ['chem_boost', recommendationText('🔗 즉시 케미 상승', '🔗 Instant Chem Boost')],
   ];
   let timer;
   const dispose = () => clearTimeout(timer);
@@ -21,7 +21,7 @@ export function createRecommendationControls({ mode = 'empty', lockedCount = 1, 
     button.disabled = mode === 'empty' && lockedCount === 0 && key !== 'all_meta';
     if (button.disabled) button.title = recommendationText('선수를 1명 이상 잠그면 활성화됩니다', 'Lock 1+ player to unlock');
     button.setAttribute('aria-pressed', String(sort === key));
-    button.onclick = () => { dispose(); onSort(key); }; tabs.append(button);
+    button.onclick = () => { if (mode === 'empty' && key === sort) return; dispose(); onSort(key); }; tabs.append(button);
   }
   const prices = document.createElement('div'); prices.className = 'recommendation-prices';
   const wrap = document.createElement('label'); wrap.className = 'budget-input-wrap';

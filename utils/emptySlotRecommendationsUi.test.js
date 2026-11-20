@@ -32,8 +32,8 @@ test('empty-slot UI gates recommendations, prioritizes search, debounces price, 
   expect(document.querySelector('.slot-recommendations').hidden).toBe(false);
   const tabs = [...document.querySelectorAll('.recommendation-tabs button')];
   expect(tabs).toHaveLength(3);
-  expect(tabs.map(button=>button.disabled)).toEqual([true,true,false]);
-  expect(tabs[2].getAttribute('aria-pressed')).toBe('true');
+  expect(tabs.map(button=>button.disabled)).toEqual([false,true,true]);
+  expect(tabs[0].getAttribute('aria-pressed')).toBe('true');
   expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('all_meta');
   await vi.waitFor(()=>expect(document.querySelector('.recommendation-badge')?.textContent).toBe('Premier League'));
   expect(document.querySelector('.slot-recommendations').textContent).toContain('Meta Recommendations');
@@ -114,4 +114,33 @@ test('replacement shares controls, passes mode and locks the selected upgrade', 
   await vi.waitFor(()=>expect(dialog.open).toBe(false));
   const selected = mocks.services.getCurrentSquad().find(entry=>String(entry?.card_id)==='702');
   expect(selected.isLocked).toBe(true); expect(selected.isOwned).toBe(false);
+});
+
+test('empty slot remembers tabs, resets when all locks are removed, and fetches once per opening', async () => {
+  setLanguage('en',false);
+  mocks.recommend.mockResolvedValue([]);
+  const openSlot = document.querySelector('.slot:not(.occupied)');
+  const tabs = () => [...document.querySelectorAll('#player-modal .recommendation-tabs button')];
+  const close = () => document.querySelector('#player-modal [data-close-modal]').click();
+  mocks.recommend.mockClear(); openSlot.click();
+  expect(mocks.recommend).toHaveBeenCalledTimes(1);
+  expect(tabs().map(button=>button.textContent)).toEqual(['🌍 All Meta','⚡ Meta + Synergy','🔗 Instant Chem Boost']);
+  expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('all_meta');
+  tabs()[0].click(); expect(mocks.recommend).toHaveBeenCalledTimes(1);
+  tabs()[1].click(); expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('meta_synergy');
+  close(); mocks.recommend.mockClear();
+  document.querySelectorAll('.slot:not(.occupied)')[1].click();
+  expect(mocks.recommend).toHaveBeenCalledTimes(1);
+  expect(tabs()[1].getAttribute('aria-pressed')).toBe('true');
+  tabs()[2].click(); expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('instant_chem');
+  close(); mocks.recommend.mockClear(); openSlot.click();
+  expect(mocks.recommend).toHaveBeenCalledTimes(1);
+  expect(tabs()[2].getAttribute('aria-pressed')).toBe('true');
+  close();
+  document.querySelectorAll('.slot.is-locked .lock-player').forEach(button=>button.click());
+  document.querySelector('.slot.occupied .lock-player').click();
+  mocks.recommend.mockClear(); openSlot.click();
+  expect(mocks.recommend).toHaveBeenCalledTimes(1);
+  expect(mocks.recommend.mock.calls[0][1].sort).toBe('all_meta');
+  expect(tabs()[0].getAttribute('aria-pressed')).toBe('true'); close();
 });

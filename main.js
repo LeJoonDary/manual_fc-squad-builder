@@ -1,3 +1,4 @@
+import { createEmptySlotTabState } from './utils/emptySlotTabState.js';
 import { buildSquadShareUrl, decodeSquadSharePayload } from './utils/squadShareUtils';
 import { loadSharedSquadCards } from './utils/squadShareHydration.js';
 import { createSquadShareModal } from './components/SquadShareModal.js';
@@ -1406,7 +1407,15 @@ function restorePlayerPanelScrollPositions(scrollPositions) {
   });
 }
 
-let recommendationSort = 'meta_synergy';
+const emptySlotTabs = createEmptySlotTabState();
+const lockedSquadCount = () => Object.values(squad).filter(entry => entry?.card && entry.isLocked === true).length;
+let recommendationSort = 'all_meta';
+window.addEventListener('auto-build-context-change', () => {
+  const next = emptySlotTabs.active(lockedSquadCount());
+  if (next === recommendationSort) return;
+  recommendationSort = next;
+  if (!modal.hidden && recommendationEnabled()) { renderRecommendationControls(); updateModalPlayerSearch(); }
+});
 let slotMaxPrice;
 let recommendationControls;
 let recommendationRows = new Map();
@@ -1423,7 +1432,7 @@ function recommendationEnabled() {
 function recommendationOptions() {
   return { ...excludedCardVersionsStore.getState(), ...getRoleOptions(), currentSquad: squad,
     formation: currentFormation, slotPosition: activeSlot.dataset.position,
-    totalBudget: targetBudget, slotMaxPrice, sort: recommendationSort, excludeZeroPriceCards: true };
+    totalBudget: targetBudget, slotMaxPrice, sort: recommendationSort === 'chem_boost' ? 'instant_chem' : recommendationSort, excludeZeroPriceCards: true };
 }
 function renderRecommendationControls() {
   recommendationPanel.hidden = !recommendationEnabled();
@@ -1437,7 +1446,7 @@ function renderRecommendationControls() {
   recommendationControls = createRecommendationControls({
     lockedCount: count, sort: recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
     onInvalidate: () => { modalAbort?.abort(); modalRequest++; },
-    onSort: value => { recommendationSort = value; renderRecommendationControls(); updateModalPlayerSearch(); },
+    onSort: value => { recommendationSort = emptySlotTabs.select(value, lockedSquadCount()); renderRecommendationControls(); updateModalPlayerSearch(); },
     onPrice: value => { slotMaxPrice = value; renderRecommendationControls(); updateModalPlayerSearch(); },
   });
   recommendationPanel.append(header, recommendationControls.element);
@@ -1472,7 +1481,7 @@ subscribeLanguage(() => {
 async function openPlayerModal(slot) {
   if (isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot;
-  slotMaxPrice = undefined; recommendationSort = Object.values(squad).some(entry => entry?.card && entry.isLocked === true) ? 'meta_synergy' : 'all_meta';
+  slotMaxPrice = undefined; recommendationSort = emptySlotTabs.active(lockedSquadCount());
   renderRecommendationControls();
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
