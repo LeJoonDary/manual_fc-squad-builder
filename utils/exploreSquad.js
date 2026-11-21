@@ -45,7 +45,8 @@ export async function fetchExploreCards(db, tab) {
   let query = db.from('card_versions').select(EXPLORE_CARD_SELECT);
   query = tab === 'sbc' ? query.eq('card_type', 'SPECIAL_SBC')
     : query.not('card_type', 'in', '(NORMAL,GOLD,SILVER,BRONZE,RARE_GOLD,RARE_SILVER,RARE_BRONZE)');
-  const { data, error } = await query.order('id', { ascending: false }).limit(14);
+  const { data, error } = await query.order('released_at', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false }).limit(14);
   if (error) throw error;
   return data ?? [];
 }

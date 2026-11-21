@@ -6,7 +6,7 @@ export interface SquadPreset {
   shareCode: string; autoBuildOnLoad?: boolean;
 }
 export const squadPresets: SquadPreset[] = [
-  { id: 'starter', labelKo: '입문 4-4-2', labelEn: 'Starter 4-4-2', tag: '75K', shareCode: 'djF8NC00LTJ8LCwsLCwsLCwsLHx8NzUwMDA', autoBuildOnLoad: true },
+  { id: 'BF-60k', labelKo: '블프 4312', labelEn: 'BF 4312', tag: '60K', shareCode: 'djF8NC0zLTEtMnwyOTQuMSwxOTk4MC4xLDY2LjEsMTg5LDg4LjEsMjAwMzgsMTUzLDE5OTY3LjEsNTUsMTM3LDk5fDQsN3wxMDAwMDA', autoBuildOnLoad: false },
   { id: 'balanced', labelKo: '균형 4-3-3', labelEn: 'Balanced 4-3-3', tag: '300K', shareCode: 'djF8NC0zLTN8LCwsLCwsLCwsLHx8MzAwMDAw', autoBuildOnLoad: true },
   { id: 'diamond', labelKo: '중앙 다이아몬드', labelEn: 'Diamond', tag: '500K', shareCode: 'djF8NC0zLTEtMnwsLCwsLCwsLCwsfHw1MDAwMDA', autoBuildOnLoad: true },
 ];
