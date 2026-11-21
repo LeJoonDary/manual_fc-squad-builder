@@ -6,7 +6,7 @@ export interface SquadPreset {
   shareCode: string; autoBuildOnLoad?: boolean;
 }
 export const squadPresets: SquadPreset[] = [
-  { id: 'BF-60k', labelKo: '블프 4-3-1-2', labelEn: 'BF 4-3-1-2', tag: '60K', shareCode: 'djF8NC0zLTEtMnwyOTQuMSwxOTk4MC4xLDY2LjEsMTg5LDg4LjEsMjAwMzgsMTUzLDE5OTY3LjEsNTUsMTM3LDk5fDQsN3wxMDAwMDA', autoBuildOnLoad: false },
-  { id: '220k', labelKo: '블프 4-3-1-2', labelEn: 'BF 4-3-1-2', tag: '220K', shareCode: 'djF8NC0zLTEtMnwxOTk4MC4xLDcyLjEsOC4xLDU4LjEsODguMSwyMC4xLDI5NiwxNDEuMSwxMzcuMSwxMTcuMSwzMXwxLDV8MzAwMDAw', autoBuildOnLoad: false },
-  { id: '150k', labelKo: '블프 4-2-1-3', labelEn: 'BF 4-2-1-3', tag: '150k', shareCode: 'djF8NC0yLTEtM3wxOTk4MC4xLDE5OTE0LjEsMTk5NTYuMSw2Ni4xLDIwMzc0LjEsNjg3LjEsNTg2LjEsMTQxLjEsMjAxNTQsNjk1LDQ1MC4xfDQsMTd8MzAwMDAw', autoBuildOnLoad: false },
+  { id: '100k', labelKo: '블프 4-3-1-2', labelEn: 'BF 4-3-1-2', tag: '60K', shareCode: 'djF8NC0zLTEtMnwyOTQuMSwxOTk4MC4xLDY2LjEsMTg5LDg4LjEsMjAwMzgsMTUzLDE5OTY3LjEsNTUsMTM3LDk5fDQsN3wxMDAwMDA', autoBuildOnLoad: false },
+  { id: '300k', labelKo: '블프 4-3-1-2', labelEn: 'BF 4-3-1-2', tag: '220K', shareCode: 'djF8NC0zLTEtMnwxOTk4MC4xLDcyLjEsOC4xLDU4LjEsODguMSwyMC4xLDI5NiwxNDEuMSwxMzcuMSwxMTcuMSwzMXwxLDV8MzAwMDAw', autoBuildOnLoad: false },
+  { id: '500k', labelKo: '블프 4-2-1-3', labelEn: 'BF 4-2-1-3', tag: '150k', shareCode: 'djF8NC0yLTEtM3wxOTk4MC4xLDE5OTE0LjEsMTk5NTYuMSw2Ni4xLDIwMzc0LjEsNjg3LjEsNTg2LjEsMTQxLjEsMjAxNTQsNjk1LDQ1MC4xfDQsMTd8MzAwMDAw', autoBuildOnLoad: false },
 ];
