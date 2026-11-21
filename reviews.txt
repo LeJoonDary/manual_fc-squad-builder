@@ -86,3 +86,13 @@
 #hulk, 85, hall, https://www.youtube.com/shorts/7dqHJA_2Y2o
 
 #calafiori, 86, champions, https://www.youtube.com/shorts/N40SHCjtehk
+
+#florenzi, 87, hall, https://www.youtube.com/shorts/ZWubD0bEE0g
+#goretzka, 86, heritage, https://www.youtube.com/shorts/Jb9zCFuhCTo
+#danjuma, 85, heritage, https://www.youtube.com/shorts/eYvd9idtJbw
+#chiesa, 86, heritage, https://www.youtube.com/shorts/hM2JLGidjpA
+#brobbey, 85, europa, https://www.youtube.com/shorts/O_pHIDBMB78
+#akinfenwa, 86, hall, https://www.youtube.com/shorts/44YA38Xes_A
+#fellaini, 88, hall, https://www.youtube.com/shorts/U7bB4TSV8ZU
+
+#diaby, 86, thunderstuck, https://www.youtube.com/shorts/l8FMuAZiRSA
