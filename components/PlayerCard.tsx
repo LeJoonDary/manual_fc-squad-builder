@@ -4,16 +4,7 @@ import { normalizePlaystyles } from '../utils/normalizePlaystyles.js';
 import { createPlaystyleIcons } from './PlaystyleIcons.js';
 import { getCardBackground } from '../utils/cardBackground.js';
 
-// Shared by catalog and pitch cards; preserve the base families alongside DB-tagged headshots.
-function isHeadshotCard(card: Record<string, any>): boolean {
-  const version = typeof card.version === 'string' ? card.version.toLowerCase().trim() : '';
-  const cardType = typeof card.card_type === 'string' ? card.card_type.toUpperCase() : '';
-  return ['gold', 'silver', 'bronze'].includes(version)
-    || version.includes('base_icon')
-    || version.includes('base_hero')
-    || version.includes('base_hall_of_fut')
-    || cardType.includes('HEADSHOT');
-}
+import { isHeadshotCard } from '../utils/cardPortrait';
 
 const unwrap = (value: any) => Array.isArray(value) ? value[0] : value;
 const element = (tag: string, className: string, text?: unknown): any => {

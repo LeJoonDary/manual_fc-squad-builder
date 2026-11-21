@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, vi } from 'vitest';
 import { buildSquadShareUrl, decodeSquadSharePayload } from './squadShareUtils';
+vi.mock('./exploreSquad.js', async original => ({ ...await original(), fetchExploreCards: async () => [{ id: 321, player_id: 123, overall: 91, price: 68000, players: { id: 123, name: 'Explorer Player' }, card_positions: [{ is_primary: true, positions: { name: 'ST' } }] }] }));
 const mocks=vi.hoisted(()=>({finish:null,services:null}));
 vi.mock('./squadShareHydration.js',()=>({loadSharedSquadCards:vi.fn(async(_db,_payload,normalize)=>{
   await new Promise(resolve=>{mocks.finish=resolve;});
@@ -42,4 +43,42 @@ test('URL hydration applies formation, flags, manager and budget without overwri
   const exported=decodeSquadSharePayload(new URL(document.querySelector('.share-url').value).searchParams.get('s'));
   expect(exported).toEqual(payload);
   expect(document.querySelector('.share-summary').textContent).toContain('90.0');
+  const workspace = document.querySelector('.squad-workspace');
+  expect(workspace.dataset.panel).toBe('build');
+  document.querySelector('.explore-edge-tab').click();
+  expect(workspace.dataset.panel).toBe('explore');
+  const tile = document.querySelector('.explore-tile');
+  const transfer = { types: ['application/x-squad-explore'], setData: vi.fn() };
+  const start = new Event('dragstart'); start.dataTransfer = transfer; tile.dispatchEvent(start);
+  expect(slot.classList.contains('explore-compatible')).toBe(true);
+  const badDrop = new Event('drop'); badDrop.dataTransfer = transfer;
+  document.querySelector('.slot[data-position="GK"]').dispatchEvent(badDrop);
+  expect(document.querySelector('.slot[data-position="GK"]').classList.contains('occupied')).toBe(false);
+  tile.dispatchEvent(start);
+  const drop = new Event('drop'); drop.dataTransfer = transfer; slot.dispatchEvent(drop);
+  expect(workspace.dataset.panel).toBe('explore');
+  expect(slot.classList.contains('is-locked')).toBe(true);
+  expect(slot.dataset.card).toBe('Explorer Player');
+  await new Promise(resolve => setTimeout(resolve, 1));
+  document.querySelector('.pitch').click(); expect(workspace.dataset.panel).toBe('explore');
+  slot.querySelector('.slot-card-body').click(); expect(workspace.dataset.panel).toBe('explore');
+  for (const width of [1440, 1100, 900, 600, 1440]) {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+    window.dispatchEvent(new Event('resize'));
+    expect(workspace.dataset.panel).toBe('explore');
+  }
+  tile.dispatchEvent(new Event('dragend'));
+  await new Promise(resolve => setTimeout(resolve, 360));
+  tile.click();
+  expect(document.querySelector('#player-detail-modal').hidden).toBe(false);
+  expect(slot.dataset.card).toBe('Explorer Player');
+  document.querySelector('#player-detail-close').click();
+  slot.querySelector('.lock-player').click(); expect(workspace.dataset.panel).toBe('build');
+  document.querySelector('.explore-edge-tab').click();
+  document.querySelector('.slot[data-position="GK"]').click(); expect(workspace.dataset.panel).toBe('build');
+  document.querySelector('.explore-edge-tab').click();
+  document.querySelector('.explore-presets button').click();
+  mocks.finish();
+  await vi.waitFor(() => expect(workspace.dataset.panel).toBe('build'));
+  expect(document.querySelector('#formation-current').textContent).toBe('4-4-2');
 });

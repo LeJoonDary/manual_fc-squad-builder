@@ -1,3 +1,5 @@
+import { createExplorePanel } from './components/ExplorePanel.js';
+import { EXPLORE_DRAG_TYPE, initialSquadPanel, nextSquadPanel, canExplorePlay, pitchPanelAction, placeExplorePlayer, fetchExploreCards } from './utils/exploreSquad.js';
 import { createEmptySlotTabState } from './utils/emptySlotTabState.js';
 import { buildSquadShareUrl, decodeSquadSharePayload } from './utils/squadShareUtils';
 import { loadSharedSquadCards } from './utils/squadShareHydration.js';
@@ -2114,6 +2116,7 @@ function handleSlotDragStart(event) {
 }
 
 function handleSlotDragOver(event) {
+  if (exploreDragCard && event.dataTransfer.types.includes(EXPLORE_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; return; }
   const slot = event.currentTarget;
   if (!dragOriginPosition || isSquadSlotLocked(squad[slot.dataset.position])) return;
   event.preventDefault();
@@ -2135,6 +2138,11 @@ function handleSlotDragLeave(event) {
 }
 
 function handleSlotDrop(event) {
+  if (event.dataTransfer.types.includes(EXPLORE_DRAG_TYPE)) {
+    event.preventDefault(); event.stopPropagation();
+    if (exploreDragCard) applyExploreCard(exploreDragCard, event.currentTarget.dataset.position);
+    endExploreDrag(); return;
+  }
   event.preventDefault();
   const targetSlot = event.currentTarget;
   const originPosition = dragOriginPosition || event.dataTransfer.getData('text/plain');
@@ -2580,10 +2588,10 @@ function showSquadShareToast(success) {
   render(); const unsubscribe = subscribeLanguage(render); document.body.append(toast);
   setTimeout(() => { unsubscribe(); toast.remove(); }, 3000);
 }
-async function hydrateSquadShare() {
+async function hydrateSquadShare(shareCode = null) {
   const params = new URLSearchParams(window.location.search);
-  if (!params.has('s')) return;
-  const payload = decodeSquadSharePayload(params.get('s'));
+  if (shareCode === null && !params.has('s')) return false;
+  const payload = decodeSquadSharePayload(shareCode ?? params.get('s'));
   if (!payload) { showSquadShareToast(false); return; }
   const workspace = document.querySelector('.squad-workspace');
   const loading = document.createElement('div'); loading.className = 'squad-share-loading'; loading.setAttribute('role', 'status');
@@ -2598,12 +2606,124 @@ async function hydrateSquadShare() {
     targetBudget = payload.budget; targetBudgetInput.value = targetBudget ? formatBudgetNumber(targetBudget) : '';
     applyFormation(FORMATIONS.find(f => f.name === payload.formation), players);
     renderManagerSlot(); updateSquadChemistry(); showSquadShareToast(true);
+    return true;
   } catch {
-    managerState = null; targetBudget = 0; targetBudgetInput.value = '';
-    applyFormation(FORMATIONS.find(f => f.name === '4-3-1-2'), {});
+    if (shareCode === null) {
+      managerState = null; targetBudget = 0; targetBudgetInput.value = '';
+      applyFormation(FORMATIONS.find(f => f.name === '4-3-1-2'), {});
+    }
     renderManagerSlot(); showSquadShareToast(false);
   } finally {
     loading.remove(); workspace.inert = wasInert; workspace.removeAttribute('aria-busy'); shareModal.sync();
   }
 }
+let exploreDragCard = null;
+let activeSquadPanel = initialSquadPanel(window.location.search);
+const exploreMount = document.createElement('aside');
+const exploreBackdrop = document.createElement('div'); exploreBackdrop.className = 'explore-backdrop';
+const exploreToggle = document.createElement('button'); exploreToggle.className = 'explore-edge-tab';
+const buildToggle = document.createElement('button'); buildToggle.className = 'build-edge-tab';
+const mobileExploreToggle = document.createElement('button'); mobileExploreToggle.className = 'explore-mobile-toggle';
+for (const button of [exploreToggle, buildToggle, mobileExploreToggle]) button.type = 'button';
+squadWorkspace.prepend(exploreMount, exploreBackdrop, exploreToggle);
+squadWorkspace.append(buildToggle);
+squadWorkspace.append(mobileExploreToggle);
+function setSquadPanel(action) {
+  activeSquadPanel = nextSquadPanel(activeSquadPanel, action);
+  squadWorkspace.dataset.panel = activeSquadPanel;
+  exploreToggle.setAttribute('aria-expanded', String(activeSquadPanel === 'explore'));
+  buildToggle.setAttribute('aria-expanded', String(activeSquadPanel === 'build'));
+  requestAnimationFrame(updatePitchViewport);
+}
+function closeExploreDrawer() {
+  const wasOpen = squadWorkspace.classList.contains('explore-drawer-open');
+  squadWorkspace.classList.remove('explore-drawer-open');
+  mobileExploreToggle.setAttribute('aria-expanded', 'false');
+  if (wasOpen) mobileExploreToggle.focus();
+}
+exploreToggle.onclick = () => setSquadPanel('explore');
+buildToggle.onclick = () => setSquadPanel('build');
+mobileExploreToggle.setAttribute('aria-controls', 'explore-panel');
+mobileExploreToggle.setAttribute('aria-expanded', 'false');
+mobileExploreToggle.onclick = () => {
+  squadWorkspace.classList.add('explore-drawer-open');
+  mobileExploreToggle.setAttribute('aria-expanded', 'true');
+  exploreMount.querySelector('button')?.focus();
+};
+exploreBackdrop.onclick = closeExploreDrawer;
+exploreMount.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeExploreDrawer();
+  if (event.key === 'Tab' && squadWorkspace.classList.contains('explore-drawer-open')) {
+    const buttons = [...exploreMount.querySelectorAll('button:not(:disabled)')];
+    const first = buttons[0], last = buttons.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  }
+});
+pitchFrame.addEventListener('click', event => {
+  const action = pitchPanelAction(event.target);
+  if (action && !suppressSlotClick && !exploreDragCard) setSquadPanel(action);
+}, true);
+function syncExploreLabels() {
+  exploreToggle.textContent = recommendationText('🔥 프리셋 · 최신', '🔥 Presets · New');
+  mobileExploreToggle.textContent = recommendationText('🔥 프리셋 · 최신', '🔥 Presets · New');
+  buildToggle.textContent = recommendationText('⚡ 자동 완성', '⚡ Auto Build');
+  buildToggle.classList.toggle('has-players', Object.values(squad).some(entry => entry?.card));
+}
+subscribeLanguage(syncExploreLabels);
+window.addEventListener('auto-build-context-change', syncExploreLabels);
+function exploreToast(message) {
+  const toast = document.createElement('div'); toast.className = 'squad-share-toast'; toast.setAttribute('role', 'status');
+  toast.textContent = message; document.body.append(toast); setTimeout(() => toast.remove(), 3000);
+}
+async function applyExploreCard(card, position) {
+  // List rows are intentionally lean. Hydrate before locking a player so the engine
+  // receives the same complete card data as a modal selection or shared squad.
+  if (card.summary_only && canExplorePlay(card, position)) {
+    const formation = currentFormation;
+    const originalTarget = squad[position];
+    try {
+      const detail = normalizeBrowserPlayerCard(await loadPlayerDetail(supabase, card.id));
+      if (!detail || formation !== currentFormation || squad[position] !== originalTarget) throw new Error('Squad changed');
+      card = detail;
+    } catch {
+      exploreToast(recommendationText('선수를 불러오지 못했거나 스쿼드가 변경되었습니다. 다시 시도해주세요.', 'Could not load player or squad changed. Please try again.'));
+      return false;
+    }
+  }
+  const next = placeExplorePlayer(squad, position, card);
+  if (!next) {
+    exploreToast(recommendationText(`${getCardName(card)} 선수는 ${formatSlotPosition(position)} 포지션으로 뛸 수 없습니다`, `${getCardName(card)} cannot play at ${formatSlotPosition(position)}`));
+    return false;
+  }
+  for (const [key, entry] of Object.entries(squad)) {
+    if (entry && !next[key]) resetSlot(document.querySelector(`.slot[data-position="${key}"]`), false);
+  }
+  const slot = document.querySelector(`.slot[data-position="${position}"]`);
+  placeCard(slot, card, false); squad[position].isLocked = true; updateSlotLockUI(slot); updateSquadChemistry();
+  return true;
+}
+function endExploreDrag() {
+  exploreDragCard = null;
+  document.querySelectorAll('.explore-compatible').forEach(slot => slot.classList.remove('explore-compatible'));
+  suppressSlotClick = true; setTimeout(() => { suppressSlotClick = false; }, 0);
+}
+createExplorePanel({
+  mount: exploreMount, name: getCardName, image: getCardImage, rating: getCardRating,
+  load: async tab => (await fetchExploreCards(supabase, tab)).map(row => normalizeBrowserPlayerCard({ ...row, summary_only: Boolean(supabase) })).filter(Boolean),
+  close: () => { setSquadPanel('close'); closeExploreDrawer(); },
+  preset: async preset => {
+    if (await hydrateSquadShare(preset.shareCode)) {
+      setSquadPanel('preset'); closeExploreDrawer();
+      if (preset.autoBuildOnLoad) requestAnimationFrame(() => document.querySelector('.auto-build-button')?.click());
+    }
+  },
+  openDetail: card => { closeExploreDrawer(); void playerDetail.open(card); },
+  drag: card => {
+    exploreDragCard = card; suppressSlotClick = true;
+    document.querySelectorAll('.pitch .slot').forEach(slot => slot.classList.toggle('explore-compatible', canExplorePlay(card, slot.dataset.position)));
+  },
+  endDrag: endExploreDrag,
+});
+setSquadPanel(activeSquadPanel === 'explore' ? 'explore' : 'build'); syncExploreLabels();
 void hydrateSquadShare();

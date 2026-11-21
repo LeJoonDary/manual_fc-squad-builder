@@ -2274,3 +2274,104 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .recommendation-tabs button:disabled { opacity: .4; cursor: not-allowed; }
 .recommendation-hint { font-size: 12px; color: #94a3b8; margin: 6px 0; }
 .browser-player-meta-row .recommendation-badge.is-neutral { color: #94a3b8; }
+/* Mutually exclusive desktop explorer / auto-build panels. */
+.explore-panel { display: none; background: #101b2b; color: #e2e8f0; border: 1px solid #334155; border-radius: 12px; padding: 16px 12px 12px; min-height: 0; box-sizing: border-box; }
+.explore-panel header { display: flex; flex: none; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+.explore-panel button, .explore-mobile-toggle, .explore-edge-tab, .build-edge-tab { color: #e2e8f0; background: #1e293b; border: 1px solid #40516a; border-radius: 7px; cursor: pointer; font: inherit; }
+.explore-panel button:focus-visible, .explore-mobile-toggle:focus-visible, .explore-edge-tab:focus-visible, .build-edge-tab:focus-visible { outline: 2px solid #6ee7b7; outline-offset: 2px; }
+.explore-panel header button { padding: 6px 10px; }
+.explore-presets, .explore-tabs { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; margin-bottom: 12px; flex: none; }
+.explore-presets { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.explore-presets button { display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 3px; min-width: 0; height: 48px; box-sizing: border-box; padding: 6px 8px; font-size: 11px; }
+.explore-preset-tag { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.explore-preset-label { font-size: 11px; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.explore-tabs button { padding: 8px 3px; font-size: 13px; }
+.explore-tabs button[aria-pressed=true] { border-color: #34d399; color: #6ee7b7; background: #153a35; }
+.explore-list { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.explore-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; align-content: start; }
+@media (min-width: 1024px) {
+  .explore-grid.is-distributed { min-height: 100%; align-content: space-between; }
+}
+.explore-grid .explore-tile { display: flex; align-items: center; text-align: left; gap: 5px; height: 58px; padding: 3px; min-width: 0; cursor: grab; }
+.explore-tile:hover { border-color: #6ee7b7; background: #24384b; }
+.explore-tile:active { cursor: grabbing; }
+.explore-tile img { width: 36px; height: 49px; object-fit: contain; flex: none; }
+.explore-tile > span { display: grid; min-width: 0; gap: 1px; }
+.explore-tile span span { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.explore-tile b { font-size: 12px; color: #6ee7b7; }
+.explore-tile small { font-size: 11px; color: #cbd5e1; }
+.explore-message { grid-column: 1 / -1; padding: 20px 8px; }
+.explore-edge-tab, .build-edge-tab, .explore-backdrop { display: none; }
+.explore-mobile-toggle { padding: 7px 10px; font-size: 12px; }
+.pitch .slot.explore-compatible { outline: 3px dashed #4ade80; outline-offset: 5px; filter: drop-shadow(0 0 9px #22c55e); }
+@media (min-width: 1024px) {
+  .app-shell.is-squad-active .squad-workspace { position: relative; padding-inline: 34px; box-sizing: border-box; gap: 16px; }
+  .explore-mobile-toggle { display: none; }
+  .squad-workspace[data-panel=explore] .explore-panel { display: flex; flex-direction: column; width: 350px; flex: 0 0 350px; height: 100%; }
+  .app-shell.is-squad-active .squad-workspace[data-panel=explore] .chemistry-panel { display: none; }
+  .explore-edge-tab, .build-edge-tab { position: absolute; top: 45%; writing-mode: vertical-rl; padding: 15px 7px; z-index: 5; font-size: 13px; }
+  .explore-edge-tab { left: 0; }
+  .build-edge-tab { right: 0; background: #065f46; border-color: #34d399; color: #ecfdf5; }
+  .squad-workspace[data-panel=build] .explore-edge-tab, .squad-workspace[data-panel=explore] .build-edge-tab { display: block; }
+  .build-edge-tab.has-players { box-shadow: 0 0 16px #34d39955; border-color: #a7f3d0; }
+}
+@media (max-width: 1023px) {
+  .explore-drawer-open .explore-panel { display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0; width: min(390px, 94vw); height: 100dvh; z-index: 1001; border-radius: 0 12px 12px 0; animation: explore-slide .18s ease-out; }
+  .explore-drawer-open .explore-backdrop { display: block; position: fixed; inset: 0; background: #020617b3; z-index: 1000; }
+}
+@keyframes explore-slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .explore-drawer-open .explore-panel { animation: none; } }
+
+/* Preserve the selected panel at every width: resizing never opens Auto Build. */
+.app-shell.is-squad-active .squad-workspace[data-panel=explore] .chemistry-panel { display: none; }
+@media (min-width: 1280px) {
+  .squad-workspace[data-panel=explore] .explore-panel { width: 390px; flex-basis: 390px; }
+}
+@media (max-width: 1023px) {
+  .squad-workspace[data-panel=explore] .build-edge-tab { display: block; position: fixed; right: 0; top: 45%; writing-mode: vertical-rl; padding: 14px 7px; z-index: 5; background: #065f46; border-color: #34d399; }
+}
+.explore-grid .explore-tile { height: 122px; position: relative; display: block; overflow: hidden; isolation: isolate; background: #172334; padding: 0; }
+.explore-tile img.explore-card-background { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; pointer-events: none; user-select: none; }
+.explore-tile img.explore-portrait { position: absolute; left: 62%; right: auto; top: -40px; transform: translateX(-50%); width: 125%; height: 165%; max-width: none; object-fit: contain; object-position: center top; z-index: 10; pointer-events: none; user-select: none; }
+.explore-tile img.explore-portrait.is-headshot { width: 78%; height: 112%; left: 63%; right: auto; top: -6px; transform: translateX(-50%); object-position: center top; }
+.explore-tile .explore-card-shade { position: absolute; inset: auto 0 0; height: 48%; z-index: 20; pointer-events: none; user-select: none; background: linear-gradient(to top, rgb(0 0 0 / .7), rgb(0 0 0 / .15) 50%, transparent); }
+.explore-tile .explore-meta { position: absolute; top: 5px; left: 6px; display: block; background: #020617a6; border-radius: 4px; padding: 2px 4px; color: #a7f3d0; font-size: 12px; font-weight: 700; }
+.explore-tile .explore-card-info { position: absolute; inset: 31px 7px 5px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.explore-tile .explore-card-info b { color: #f8fafc; text-shadow: 0 1px 3px #000; font-size: 13px; }
+.explore-tile .explore-card-info span { width: 100%; margin-top: auto; font-size: 13px; color: white; font-weight: 600; }
+.explore-tile .explore-card-info small { color: #e2e8f0; font-size: 12px; }
+
+.explore-tile .explore-meta, .explore-tile .explore-card-info { z-index: 30; filter: drop-shadow(0 1px 3px rgb(0 0 0 / .95)); }
+
+/* Compact squad controls below lg; keep desktop and explorer artwork unchanged. */
+@media (max-width: 1023px) {
+  body.is-squad-active { height: auto; min-height: 100dvh; overflow-y: auto; }
+  body.is-squad-active .app-header { height: 56px; flex-basis: 56px; }
+  body.is-squad-active .app-header-inner { height: 56px; min-height: 56px; padding-block: 0; }
+  .app-shell.is-squad-active { height: auto; min-height: 0; padding: 8px 12px 4px; overflow: visible; }
+  .app-shell.is-squad-active #squad-builder-page { height: auto; }
+  .app-shell.is-squad-active .squad-content { height: auto; flex: none; }
+  .app-shell.is-squad-active .squad-workspace { height: auto; flex: none; flex-direction: column; gap: 8px; }
+  .app-shell.is-squad-active .pitch-column { height: auto; width: 100%; flex: none; }
+  #squad-builder-page .pitch-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; margin: 0 0 6px; padding: 0; }
+  #squad-builder-page .pitch-heading-title { grid-column: 1 / -1; min-width: 0; }
+  #squad-builder-page .pitch-heading .eyebrow { display: none; }
+  /* Keep dynamic slot/save feedback available to screen readers without header height. */
+  #squad-builder-page .pitch-heading .status { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #squad-builder-page .pitch-heading h1 { margin: 0; font-size: 20px; line-height: 24px; white-space: nowrap; }
+  #squad-builder-page .pitch-heading .squad-slots { display: flex; flex-wrap: nowrap; width: 100%; min-width: 0; margin: 0; gap: 6px; align-items: center; }
+  #squad-builder-page .pitch-heading .squad-slots-label,
+  #squad-builder-page .pitch-heading .squad-slot-info { display: none; }
+  #squad-builder-page .pitch-heading .squad-slot { flex: 1 1 0; min-width: 0; }
+  #squad-builder-page .pitch-heading .squad-slot-main { box-sizing: border-box; width: 100%; height: 34px; min-height: 34px; padding: 4px 5px; flex-direction: row; justify-content: center; white-space: nowrap; }
+  #squad-builder-page .pitch-heading .squad-share-trigger { box-sizing: border-box; width: auto; min-width: 76px; height: 34px; min-height: 34px; margin: 0; padding: 4px 8px; font-size: 12px; white-space: nowrap; }
+  #squad-builder-page .squad-slot-actions { position: absolute; top: 100%; right: 0; display: none; flex-wrap: nowrap; margin: 0; }
+  #squad-builder-page .squad-slot:hover .squad-slot-actions,
+  #squad-builder-page .squad-slot:focus-within .squad-slot-actions { display: flex; }
+  .app-shell.is-squad-active .pitch-scroll { flex: none; height: min(640px, calc((100vw - 24px) * 1.25), calc(100svh - 160px)); min-height: 280px; max-height: none; aspect-ratio: auto; margin: 0; padding: 0; overflow: hidden; }
+  .app-shell.is-squad-active .chemistry-panel { width: 100%; height: auto; max-height: none; margin-top: 0; overflow: visible; }
+  .squad-workspace .explore-mobile-toggle,
+  .squad-workspace[data-panel=explore] .build-edge-tab { display: block; position: fixed; top: 32%; bottom: auto; width: 30px; box-sizing: border-box; padding: 12px 5px; writing-mode: vertical-rl; text-orientation: mixed; font-size: 12px; line-height: 18px; border-radius: 8px; box-shadow: 0 3px 12px #0005; z-index: 5; }
+  .squad-workspace .explore-mobile-toggle { left: 0; right: auto; background: #78350f; border-color: #f59e0b; color: #fef3c7; }
+  .squad-workspace[data-panel=explore] .build-edge-tab { right: 0; left: auto; }
+}
