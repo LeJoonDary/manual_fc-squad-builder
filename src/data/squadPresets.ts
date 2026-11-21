@@ -7,6 +7,6 @@ export interface SquadPreset {
 }
 export const squadPresets: SquadPreset[] = [
   { id: 'BF-60k', labelKo: '블프 4312', labelEn: 'BF 4312', tag: '60K', shareCode: 'djF8NC0zLTEtMnwyOTQuMSwxOTk4MC4xLDY2LjEsMTg5LDg4LjEsMjAwMzgsMTUzLDE5OTY3LjEsNTUsMTM3LDk5fDQsN3wxMDAwMDA', autoBuildOnLoad: false },
-  { id: 'balanced', labelKo: '균형 4-3-3', labelEn: 'Balanced 4-3-3', tag: '300K', shareCode: 'djF8NC0zLTN8LCwsLCwsLCwsLHx8MzAwMDAw', autoBuildOnLoad: true },
-  { id: 'diamond', labelKo: '중앙 다이아몬드', labelEn: 'Diamond', tag: '500K', shareCode: 'djF8NC0zLTEtMnwsLCwsLCwsLCwsfHw1MDAwMDA', autoBuildOnLoad: true },
+  { id: '220k', labelKo: '블프 4312', labelEn: 'BF 4312', tag: '220K', shareCode: 'djF8NC0zLTEtMnwxOTk4MC4xLDcyLjEsOC4xLDU4LjEsODguMSwyMC4xLDI5NiwxNDEuMSwxMzcuMSwxMTcuMSwzMXwxLDV8MzAwMDAw', autoBuildOnLoad: false },
+  { id: '150k', labelKo: '블프 4213', labelEn: 'BF 4213', tag: '150k', shareCode: 'djF8NC0yLTEtM3wxOTk4MC4xLDE5OTE0LjEsMTk5NTYuMSw2Ni4xLDIwMzc0LjEsNjg3LjEsNTg2LjEsMTQxLjEsMjAxNTQsNjk1LDQ1MC4xfDQsMTd8MzAwMDAw', autoBuildOnLoad: false },
 ];
