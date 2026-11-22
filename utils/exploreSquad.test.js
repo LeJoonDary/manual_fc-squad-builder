@@ -34,22 +34,27 @@ describe('explorer placement', () => {
     expect(findExploreSlot({ LS: { card }, LW: { card } }, ['LW', 'LS'], card)).toBeUndefined();
   });
 });
-it('queries the newest 14 cards with live prices and tab filters', async () => {
+it('queries the newest 30 cards with live prices and tab filters', async () => {
   const query = {}; for (const method of ['select', 'not', 'eq', 'order']) query[method] = vi.fn(() => query);
   query.limit = vi.fn(async () => ({ data: [{ id: 1, price: 68000 }] })); const db = { from: vi.fn(() => query) };
   expect(await fetchExploreCards(db, 'new')).toEqual([{ id: 1, price: 68000 }]);
   expect(query.select).toHaveBeenCalledWith(EXPLORE_CARD_SELECT);
   expect(EXPLORE_CARD_SELECT).toContain('card_positions(is_primary,meta_score,positions(name))');
   expect(query.not).toHaveBeenCalledWith('card_type', 'in', expect.stringContaining('NORMAL'));
-  expect(query.order).toHaveBeenCalledWith('id', { ascending: false }); expect(query.limit).toHaveBeenCalledWith(14);
+  expect(query.order).toHaveBeenNthCalledWith(1, 'released_at', { ascending: false, nullsFirst: false });
+  expect(query.order).toHaveBeenNthCalledWith(2, 'id', { ascending: false });
+  expect(query.order).toHaveBeenCalledWith('id', { ascending: false }); expect(query.limit).toHaveBeenCalledWith(30);
   await fetchExploreCards(db, 'sbc'); expect(query.eq).toHaveBeenCalledWith('card_type', 'SPECIAL_SBC');
-  expect(query.limit).toHaveBeenNthCalledWith(2, 14);
+  expect(query.limit).toHaveBeenNthCalledWith(2, 30);
 });
 it('all three preset codes hydrate through the existing share decoder and card loader', async () => {
   expect(squadPresets).toHaveLength(3);
   for (const preset of squadPresets) {
     const payload = decodeSquadSharePayload(preset.shareCode); expect(payload).not.toBeNull();
-    expect(Object.keys(await loadSharedSquadCards(null, payload, x => x))).toHaveLength(11);
+    const db = { from: () => ({ select: () => ({ in: async (_column, ids) => ({ data: ids.map(id => ({ id })), error: null }) }) }) };
+    const players = await loadSharedSquadCards(db, payload, x => x);
+    expect(Object.keys(players)).toHaveLength(11);
+    expect(Object.values(players).filter(Boolean)).toHaveLength(payload.slots.filter(Boolean).length);
   }
 });
 it('renders tiles and uses a distinct drag payload while suppressing post-drag clicks', async () => {
@@ -63,7 +68,10 @@ it('renders tiles and uses a distinct drag payload while suppressing post-drag c
     expect(button.querySelector('.explore-preset-label').textContent).not.toBe('');
     expect(button.title).toContain(button.querySelector('.explore-preset-label').textContent);
   });
-  const tile = mount.querySelector('.explore-tile'); tile.click(); expect(openDetail).toHaveBeenCalledWith(card);
+  const autoPlace = vi.fn(); mount.addEventListener('click', autoPlace);
+  const tile = mount.querySelector('.explore-tile'); tile.click(); expect(openDetail).toHaveBeenCalledExactlyOnceWith(card);
+  expect(autoPlace).not.toHaveBeenCalled();
+  expect(mount.querySelector('.explore-grid').classList.contains('is-distributed')).toBe(false);
   openDetail.mockClear(); const event = new Event('dragstart'); event.dataTransfer = { setData: vi.fn() }; tile.dispatchEvent(event);
   expect(event.dataTransfer.setData).toHaveBeenCalledWith(EXPLORE_DRAG_TYPE, JSON.stringify({ source: 'explore_panel', id: 20 }));
   expect(drag).toHaveBeenCalledWith(card); tile.click(); expect(openDetail).not.toHaveBeenCalled();
@@ -113,4 +121,12 @@ it('keeps the explore visibility guard outside media queries and adjusts desktop
   expect(desktop).toMatch(/@media \(min-width: 1024px\)[\s\S]*?flex: 0 0 350px/);
   expect(guard).toMatch(/@media \(min-width: 1280px\)[\s\S]*?flex-basis: 390px/);
   expect(desktop).toContain('@media (max-width: 1023px)');
+});
+
+it('themes every scroll surface and keeps details above the drawer', () => {
+  const css = readFileSync('style.css', 'utf8');
+  expect(css).toMatch(/:root, body, body \* \{ scrollbar-width: thin; scrollbar-color: rgba\(148, 163, 184, \.28\) transparent;/);
+  for (const selector of ['::-webkit-scrollbar {', '::-webkit-scrollbar-track {', '::-webkit-scrollbar-thumb {', '::-webkit-scrollbar-thumb:hover {']) expect(css).toContain(selector);
+  expect(css).toContain('.player-detail-modal { z-index: 1020; }');
+  expect(css).not.toContain('.explore-grid.is-distributed');
 });

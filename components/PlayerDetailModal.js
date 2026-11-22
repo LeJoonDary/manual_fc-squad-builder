@@ -1,3 +1,4 @@
+import { getLanguage, subscribeLanguage } from '../src/i18n/languageStore';
 import { renderDetailStatGroups } from '../utils/detailStats.js';
 import { getCardBackground } from '../utils/cardBackground.js';
 import { loadPlayerDetail } from '../utils/playerCatalog.js';
@@ -17,6 +18,19 @@ export function createPlayerDetailModal({
   const playerDetailRoles = document.querySelector('#player-detail-roles');
   const playerDetailPlaystyles = document.querySelector('#player-detail-playstyles');
   let selectedPlayer = null;
+  let addToPitch = null;
+  const addButton = document.createElement('button'); addButton.type = 'button'; addButton.className = 'player-detail-add'; addButton.hidden = true;
+  const labelAdd = () => { addButton.textContent = getLanguage() === 'ko' ? '피치에 추가' : 'Add to Pitch'; };
+  labelAdd(); const unsubscribeAddLabel = subscribeLanguage(labelAdd);
+  playerDetailModal.querySelector('.player-detail-panel').append(addButton);
+  addButton.addEventListener('click', async event => {
+    event.stopPropagation();
+    if (!addToPitch || !selectedPlayer || addButton.disabled) return;
+    const action = addToPitch, card = selectedPlayer, requestId = playerDetailRequest;
+    addButton.disabled = true;
+    try { await action(card); }
+    finally { if (requestId === playerDetailRequest) addButton.disabled = false; }
+  });
   let playerDetailRequest = 0;
   let returnFocus = null;
   let review = null;
@@ -58,7 +72,8 @@ export function createPlayerDetailModal({
       if (button) button.hidden = false;
     } catch { /* Reviews are optional; player details remain usable. */ }
   }
-  async function openPlayerDetailModal(card) {
+  async function openPlayerDetailModal(card, { onAddToPitch = null } = {}) {
+    addToPitch = onAddToPitch; addButton.hidden = !addToPitch; addButton.disabled = false;
     closeReview();
     review = null;
     if (playerDetailModal.hidden) returnFocus = document.activeElement;
@@ -97,6 +112,7 @@ export function createPlayerDetailModal({
     review = null;
     playerDetailModal.hidden = true;
     selectedPlayer = null;
+    addToPitch = null; addButton.hidden = true;
     playerDetailRequest += 1;
     if (returnFocus?.isConnected) returnFocus.focus();
     returnFocus = null;
@@ -243,7 +259,7 @@ export function createPlayerDetailModal({
     openReview,
     open: openPlayerDetailModal,
     close: closePlayerDetailModal,
-    destroy() { closePlayerDetailModal(); reviewDialog.remove(); },
+    destroy() { closePlayerDetailModal(); unsubscribeAddLabel(); addButton.remove(); reviewDialog.remove(); },
     get isOpen() { return !playerDetailModal.hidden; },
   };
 }

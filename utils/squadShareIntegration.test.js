@@ -1,3 +1,4 @@
+import { squadPresets } from '../src/data/squadPresets';
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
 import { expect, test, vi } from 'vitest';
@@ -69,10 +70,18 @@ test('URL hydration applies formation, flags, manager and budget without overwri
   }
   tile.dispatchEvent(new Event('dragend'));
   await new Promise(resolve => setTimeout(resolve, 360));
+  document.querySelector('.explore-mobile-toggle').click();
+  const beforeDetail = mocks.services.getSquadSnapshot();
   tile.click();
+  expect(workspace.classList.contains('explore-drawer-open')).toBe(true);
+  expect(workspace.dataset.panel).toBe('explore');
+  expect(mocks.services.getSquadSnapshot()).toBe(beforeDetail);
   expect(document.querySelector('#player-detail-modal').hidden).toBe(false);
   expect(slot.dataset.card).toBe('Explorer Player');
   document.querySelector('#player-detail-close').click();
+  expect(workspace.classList.contains('explore-drawer-open')).toBe(true);
+  expect(mocks.services.getSquadSnapshot()).toBe(beforeDetail);
+  document.querySelector('.explore-backdrop').click();
   slot.querySelector('.lock-player').click(); expect(workspace.dataset.panel).toBe('build');
   document.querySelector('.explore-edge-tab').click();
   document.querySelector('.slot[data-position="GK"]').click(); expect(workspace.dataset.panel).toBe('build');
@@ -80,5 +89,12 @@ test('URL hydration applies formation, flags, manager and budget without overwri
   document.querySelector('.explore-presets button').click();
   mocks.finish();
   await vi.waitFor(() => expect(workspace.dataset.panel).toBe('build'));
-  expect(document.querySelector('#formation-current').textContent).toBe('4-4-2');
+  expect(document.querySelector('#formation-current').textContent).toBe(decodeSquadSharePayload(squadPresets[0].shareCode).formation);
+  document.querySelector('.explore-mobile-toggle').click(); tile.click();
+  const add = document.querySelector('.player-detail-add'); expect(add.hidden).toBe(false);
+  expect(document.querySelector('.slot[data-position="LS"]').classList.contains('occupied')).toBe(false);
+  add.click();
+  await vi.waitFor(() => expect(document.querySelector('#player-detail-modal').hidden).toBe(true));
+  expect(document.querySelector('.slot[data-position="LS"]').classList.contains('is-locked')).toBe(true);
+  expect(workspace.classList.contains('explore-drawer-open')).toBe(false);
 });

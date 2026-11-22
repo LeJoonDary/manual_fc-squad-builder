@@ -1,5 +1,5 @@
 import { createExplorePanel } from './components/ExplorePanel.js';
-import { EXPLORE_DRAG_TYPE, initialSquadPanel, nextSquadPanel, canExplorePlay, pitchPanelAction, placeExplorePlayer, fetchExploreCards } from './utils/exploreSquad.js';
+import { EXPLORE_DRAG_TYPE, initialSquadPanel, nextSquadPanel, canExplorePlay, findExploreSlot, pitchPanelAction, placeExplorePlayer, fetchExploreCards } from './utils/exploreSquad.js';
 import { createEmptySlotTabState } from './utils/emptySlotTabState.js';
 import { buildSquadShareUrl, decodeSquadSharePayload } from './utils/squadShareUtils';
 import { loadSharedSquadCards } from './utils/squadShareHydration.js';
@@ -2718,7 +2718,13 @@ createExplorePanel({
       if (preset.autoBuildOnLoad) requestAnimationFrame(() => document.querySelector('.auto-build-button')?.click());
     }
   },
-  openDetail: card => { closeExploreDrawer(); void playerDetail.open(card); },
+  openDetail: card => {
+    void playerDetail.open(card, { onAddToPitch: async selectedCard => {
+      const position = findExploreSlot(squad, FORMATIONS.find(f => f.name === currentFormation).slots.map(slot => slot.position), selectedCard);
+      if (!position) { exploreToast(recommendationText('뛸 수 있는 빈 슬롯이 없습니다.', 'No compatible empty slot.')); return; }
+      if (await applyExploreCard(selectedCard, position)) { playerDetail.close(); closeExploreDrawer(); }
+    } });
+  },
   drag: card => {
     exploreDragCard = card; suppressSlotClick = true;
     document.querySelectorAll('.pitch .slot').forEach(slot => slot.classList.toggle('explore-compatible', canExplorePlay(card, slot.dataset.position)));

@@ -2289,9 +2289,6 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .explore-tabs button[aria-pressed=true] { border-color: #34d399; color: #6ee7b7; background: #153a35; }
 .explore-list { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .explore-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; align-content: start; }
-@media (min-width: 1024px) {
-  .explore-grid.is-distributed { min-height: 100%; align-content: space-between; }
-}
 .explore-grid .explore-tile { display: flex; align-items: center; text-align: left; gap: 5px; height: 58px; padding: 3px; min-width: 0; cursor: grab; }
 .explore-tile:hover { border-color: #6ee7b7; background: #24384b; }
 .explore-tile:active { cursor: grabbing; }
@@ -2374,4 +2371,21 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   .squad-workspace[data-panel=explore] .build-edge-tab { display: block; position: fixed; top: 32%; bottom: auto; width: 30px; box-sizing: border-box; padding: 12px 5px; writing-mode: vertical-rl; text-orientation: mixed; font-size: 12px; line-height: 18px; border-radius: 8px; box-shadow: 0 3px 12px #0005; z-index: 5; }
   .squad-workspace .explore-mobile-toggle { left: 0; right: auto; background: #78350f; border-color: #f59e0b; color: #fef3c7; }
   .squad-workspace[data-panel=explore] .build-edge-tab { right: 0; left: auto; }
+}
+
+/* Keep page, drawer, and modal scrolling consistent with the dark UI. */
+:root, body, body * { scrollbar-width: thin; scrollbar-color: rgba(148, 163, 184, .28) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(15, 23, 42, .35); }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, .22); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, .42); }
+::-webkit-scrollbar-corner { background: transparent; }
+/* Details must cover the explorer drawer (1001), without closing it. */
+.player-detail-modal { z-index: 1020; }
+.player-detail-add { display: block; margin: 16px 0 0 auto; padding: 10px 16px; border: 1px solid #34d399; border-radius: 8px; background: #065f46; color: #ecfdf5; font: inherit; cursor: pointer; }
+.player-detail-add[hidden] { display: none; }
+.player-detail-add:disabled { opacity: .5; cursor: wait; }
+
+@supports selector(::-webkit-scrollbar) {
+  :root, body, body * { scrollbar-width: auto; scrollbar-color: auto; }
 }

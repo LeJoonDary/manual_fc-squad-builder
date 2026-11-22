@@ -45,7 +45,6 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
       button.setAttribute('aria-pressed', String(tab === key)); button.onclick = () => { tab = key; void refresh(); }; tabs.append(button);
     }
     grid.replaceChildren(); grid.setAttribute('aria-busy', String(loading));
-    grid.classList.toggle('is-distributed', !loading && !failed && cards.length >= 10);
     if (loading || failed || !cards.length) {
       const message = document.createElement('button'); message.type = 'button'; message.className = 'explore-message';
       message.textContent = loading ? text('불러오는 중…', 'Loading…') : failed ? text('조회 실패 · 다시 시도', 'Failed · Retry') : text('등록된 카드가 없습니다', 'No cards found');
@@ -75,7 +74,7 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
       let suppressClickUntil = 0;
       tile.ondragstart = event => { dragged = true; event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData(EXPLORE_DRAG_TYPE, JSON.stringify({ source: 'explore_panel', id: card.id })); drag(card); };
       tile.ondragend = () => { endDrag(); dragged = false; suppressClickUntil = Date.now() + 350; };
-      tile.onclick = () => { if (!dragged && Date.now() >= suppressClickUntil) openDetail(card); }; grid.append(tile);
+      tile.onclick = event => { event.stopPropagation(); if (!dragged && Date.now() >= suppressClickUntil) openDetail(card); }; grid.append(tile);
     }
   }
   subscribeLanguage(render); void refresh();
