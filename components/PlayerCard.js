@@ -1,4 +1,5 @@
 import { PlayerCard } from './PlayerCard.tsx';
+import { CardCostBadge } from './CardCostBadge';
 
 
 // Shared DOM card component for the Players tab and selection modal.
@@ -64,7 +65,7 @@ export function createPlayerCard(card, {
   if (metadata.childElementCount) content.prepend(metadata);
   const priceBar = document.createElement('div');
   priceBar.className = 'browser-player-price';
-  priceBar.textContent = `🪙 ${Number(card.price || 0).toLocaleString()} C`;
+  priceBar.append(CardCostBadge(card, { coinIcon: true }));
   footer.append(priceBar);
   article.append(content, footer);
   return article;

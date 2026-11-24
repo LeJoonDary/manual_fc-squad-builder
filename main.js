@@ -1,4 +1,6 @@
 import { createExplorePanel } from './components/ExplorePanel.js';
+import { CardCostBadge } from './components/CardCostBadge';
+import { getCardCost } from './utils/cardCost';
 import { EXPLORE_DRAG_TYPE, initialSquadPanel, nextSquadPanel, canExplorePlay, findExploreSlot, pitchPanelAction, placeExplorePlayer, fetchExploreCards } from './utils/exploreSquad.js';
 import { createEmptySlotTabState } from './utils/emptySlotTabState.js';
 import { buildSquadShareUrl, decodeSquadSharePayload } from './utils/squadShareUtils';
@@ -1592,6 +1594,9 @@ function normalizePlayerCard(row) {
     player_id: cardVersion.player_id ?? player.id,
     version: cardVersion.version,
     card_type: cardVersion.card_type,
+    sbc_price: cardVersion.sbc_price,
+    token_cost: cardVersion.token_cost,
+    season_pass_level: cardVersion.season_pass_level,
     overall: cardVersion.overall,
     sm: cardVersion.sm,
     wf: cardVersion.wf,
@@ -1987,12 +1992,12 @@ function updateSlotOwnedUI(slot) {
   }
   if (priceBadge) {
     priceBadge.replaceChildren();
-    if (isOwned) {
+    if (isOwned && getCardCost(entry.card).kind === 'market') {
       const originalPrice = document.createElement('s');
       originalPrice.textContent = formattedPrice;
       priceBadge.append(originalPrice, document.createTextNode(' → 0 C'));
     } else {
-      priceBadge.textContent = `${formattedPrice} C`;
+      priceBadge.append(CardCostBadge(entry.card, { compact: true }));
     }
   }
 }

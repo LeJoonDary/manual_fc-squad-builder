@@ -2313,7 +2313,7 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .explore-tile:active { cursor: grabbing; }
 .explore-tile img { width: 36px; height: 49px; object-fit: contain; flex: none; }
 .explore-tile > span { display: grid; min-width: 0; gap: 1px; }
-.explore-tile span span { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.explore-tile span > span { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .explore-tile b { font-size: 12px; color: #6ee7b7; }
 .explore-tile small { font-size: 11px; color: #cbd5e1; }
 .explore-message { grid-column: 1 / -1; padding: 20px 8px; }
@@ -2354,8 +2354,10 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .explore-tile .explore-meta { position: absolute; top: 5px; left: 6px; display: block; background: #020617a6; border-radius: 4px; padding: 2px 4px; color: #a7f3d0; font-size: 12px; font-weight: 700; }
 .explore-tile .explore-card-info { position: absolute; inset: 31px 7px 5px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .explore-tile .explore-card-info b { color: #f8fafc; text-shadow: 0 1px 3px #000; font-size: 13px; }
-.explore-tile .explore-card-info span { width: 100%; margin-top: auto; font-size: 13px; color: white; font-weight: 600; }
+.explore-tile .explore-card-info > span { width: 100%; margin-top: auto; font-size: 13px; color: white; font-weight: 600; }
 .explore-tile .explore-card-info small { color: #e2e8f0; font-size: 12px; }
+.explore-tile .card-cost--market { color: #fbbf24; font-weight: 600; }
+.explore-tile .card-cost > .coin-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 12px; height: 12px; font-size: 12px; line-height: 1; overflow: visible; }
 
 .explore-tile .explore-meta, .explore-tile .explore-card-info { z-index: 30; filter: drop-shadow(0 1px 3px rgb(0 0 0 / .95)); }
 
@@ -2401,6 +2403,16 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 ::-webkit-scrollbar-corner { background: transparent; }
 /* Details must cover the explorer drawer (1001), without closing it. */
 .player-detail-modal { z-index: 1020; }
+
+/* Shared acquisition-cost display; market-price calculations stay independent. */
+.card-cost { display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
+.card-cost--token { color: #5eead4; font-weight: 600; }
+.card-cost--sbc { color: #60a5fa; font-weight: 600; }
+.card-cost--season { color: #7dd3fc; font-weight: 600; }
+.card-cost--objective { color: #6ee7b7; font-weight: 600; }
+.token-icon { width: 14px; height: 14px; flex-shrink: 0; }
+.card-cost--compact .token-icon { width: 12px; height: 12px; }
+.pitch .slot.occupied > .card-price-badge { flex-wrap: nowrap; white-space: nowrap; overflow-wrap: normal; padding-inline: 6px; }
 .player-detail-add { display: block; margin: 16px 0 0 auto; padding: 10px 16px; border: 1px solid #34d399; border-radius: 8px; background: #065f46; color: #ecfdf5; font: inherit; cursor: pointer; }
 .player-detail-add[hidden] { display: none; }
 .player-detail-add:disabled { opacity: .5; cursor: wait; }

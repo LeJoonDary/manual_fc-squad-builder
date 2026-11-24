@@ -1,4 +1,5 @@
 import { getCardBackground } from '../utils/cardBackground.js';
+import { CardCostBadge } from './CardCostBadge';
 import { squadPresets } from '../src/data/squadPresets';
 import { getLanguage, subscribeLanguage } from '../src/i18n/languageStore';
 import { EXPLORE_DRAG_TYPE, explorePositions, primaryPosition, getPrimaryMetaScore } from '../utils/exploreSquad.js';
@@ -68,7 +69,7 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
       const info = document.createElement('span'); info.className = 'explore-card-info';
       const badge = document.createElement('b'); badge.textContent = `${rating(card)} · ${primaryPosition(card)}`;
       const playerName = document.createElement('span'); playerName.textContent = name(card);
-      const price = document.createElement('small'); price.textContent = (card.card_type ?? card.raw?.card_type) === 'SPECIAL_SBC' ? 'SBC' : `${Number(card.price ?? 0).toLocaleString('en-US')} C`;
+      const price = document.createElement('small'); price.append(CardCostBadge(card, { coinIcon: true }));
       info.append(badge, playerName, price); tile.append(thumbnail, info);
       let dragged = false;
       let suppressClickUntil = 0;

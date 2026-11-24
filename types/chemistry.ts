@@ -1,4 +1,6 @@
-export interface PlayerCard {
+import type { CardCostFields } from './cardCost';
+
+export interface PlayerCard extends CardCostFields {
   id: string;
   name: string;
   position: string;

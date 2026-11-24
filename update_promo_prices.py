@@ -129,6 +129,26 @@ EXCLUDED_UNTRADEABLES = [
     "potm",
 ]
 
+# card_type 기준 시세 수집 제외 키워드 (TOKEN, SBC, SEASON, OBJ, POTM)
+EXCLUDED_CARD_TYPE_KEYWORDS = (
+    "sbc",
+    "token",
+    "tocken",
+    "season",
+    "obj",
+    "potm",
+)
+
+
+def is_excluded_card(card: dict) -> bool:
+    v_low = str(card.get("version") or "").lower()
+    c_type = str(card.get("card_type") or "").lower()
+    return (
+        any(ex in v_low for ex in EXCLUDED_UNTRADEABLES)
+        or any(kw in c_type for kw in EXCLUDED_CARD_TYPE_KEYWORDS)
+        or "potm" in v_low
+    )
+
 
 def parse_retry_after(header_val):
     if not header_val:
@@ -207,7 +227,7 @@ def fetch_futgg_price(api_id: int, max_429_retries: int = 4):
                 error_msg = price_res.text.strip().replace("\n", " ")[:60]
                 return None, f"HTTP_{price_res.status_code} ({error_msg})"
 
-            # 3단계: 가격 및 귀속/SBC 여부 파싱
+            # 3단계: 가격 및 귀속/SBC/시즌패스 여부 파싱
             price_data = price_res.json().get("data", {})
             curr = price_data.get("currentPrice", {}) or {}
             overview = price_data.get("overview", {}) or {}
@@ -217,6 +237,8 @@ def fetch_futgg_price(api_id: int, max_429_retries: int = 4):
                 curr.get("isSbc") is True
                 or curr.get("isObjective") is True
                 or curr.get("isUntradeable") is True
+                or curr.get("premiumSeasonPassLevel") is not None
+                or curr.get("standardSeasonPassLevel") is not None
             ):
                 return None, "SBC_OR_UNTRADEABLE"
 
@@ -271,6 +293,11 @@ res = (
     .select("id, api_id, player_id, overall, price, version, card_type, players(name)")
     .ilike("version", f"%{raw_ver}%")
     .not_.ilike("card_type", "%sbc%")
+    .not_.ilike("card_type", "%token%")
+    .not_.ilike("card_type", "%tocken%")
+    .not_.ilike("card_type", "%season%")
+    .not_.ilike("card_type", "%obj%")
+    .not_.ilike("card_type", "%potm%")
     .not_.is_("api_id", "null")
     .order("overall", desc=True)
     .execute()
@@ -281,14 +308,7 @@ cards = []
 excluded_cnt = 0
 
 for card in raw_cards:
-    v_low = str(card.get("version", "")).lower()
-    c_type = str(card.get("card_type", "")).lower()
-    if (
-        any(ex in v_low for ex in EXCLUDED_UNTRADEABLES)
-        or "sbc" in c_type
-        or "potm" in v_low
-        or "potm" in c_type
-    ):
+    if is_excluded_card(card):
         excluded_cnt += 1
         continue
     cards.append(card)
@@ -297,7 +317,7 @@ if not cards:
     log(f"[경고] '*{raw_ver}*' 조건에 맞는 거래 가능 카드가 DB에 없습니다. (제외됨: {excluded_cnt}장)")
     sys.exit(0)
 
-log(f"총 {len(cards)}장의 카드를 대상으로 시세를 수집합니다. (SBC/거래불가 {excluded_cnt}장 사전 제외)")
+log(f"총 {len(cards)}장의 카드를 대상으로 시세를 수집합니다. (TOKEN/SBC/SEASON/거래불가 {excluded_cnt}장 추가 제외)")
 
 success_count = 0
 skip_count = 0
@@ -367,7 +387,7 @@ for idx, card in enumerate(cards, start=1):
     elif status_or_date == "SBC_OR_UNTRADEABLE":
         log(
             f"[{idx}/{total}] {p_name} (OVR: {ovr} / {ver_name} / API: {api_id}) -> "
-            "건너뜀 (SBC/귀속 카드)"
+            "건너뜀 (SBC/시즌패스/귀속 카드)"
         )
         skip_count += 1
     else:

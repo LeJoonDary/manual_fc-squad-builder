@@ -1,6 +1,7 @@
 import { normalizeChemistryPosition } from './chemistry.ts';
 import { getSwapPlayerId } from './alternativePlayers.js';
 // Keep the initial explorer page lean; the existing detail modal loads full stats/traits on demand.
+// The wildcard preserves all cost metadata alongside the market price.
 export const EXPLORE_CARD_SELECT = `*, players!inner(*, nations(name, flag_url)), clubs(id,name,logo_url), leagues(id,name,logo_url), card_positions(is_primary,meta_score,positions(name))`;
 
 
@@ -43,7 +44,7 @@ export function placeExplorePlayer(squad, position, card) {
 export async function fetchExploreCards(db, tab) {
   if (!db) throw new Error('Database unavailable');
   let query = db.from('card_versions').select(EXPLORE_CARD_SELECT);
-  query = tab === 'sbc' ? query.eq('card_type', 'SPECIAL_SBC')
+  query = tab === 'sbc' ? query.or('card_type.ilike.*SBC*,card_type.ilike.*POTM*,card_type.ilike.*TOKEN*,card_type.ilike.*SEASON*,card_type.ilike.*OBJ*')
     : query.not('card_type', 'in', '(NORMAL,GOLD,SILVER,BRONZE,RARE_GOLD,RARE_SILVER,RARE_BRONZE)');
   const { data, error } = await query.order('released_at', { ascending: false, nullsFirst: false })
     .order('id', { ascending: false }).limit(30);

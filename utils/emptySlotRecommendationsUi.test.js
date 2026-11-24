@@ -144,3 +144,25 @@ test('empty slot remembers tabs, resets when all locks are removed, and fetches 
   expect(mocks.recommend.mock.calls[0][1].sort).toBe('all_meta');
   expect(tabs()[0].getAttribute('aria-pressed')).toBe('true'); close();
 });
+
+test.each([
+  [800, { card_type: 'SPECIAL_SBC', sbc_price: null }, 'SBC'],
+  [801, { card_type: 'SPECIAL_SBC', sbc_price: 99570 }, 'SBC 99.6K'],
+  [802, { card_type: 'SPECIAL_TOKEN', token_cost: 300 }, '300'],
+])('preserves acquisition costs from selection to pitch for card %s', async (id, costs, expected) => {
+  const slot = document.querySelector('.slot:not(.occupied)');
+  const card = { ...raw(id, slot.dataset.position), price: 0, ...costs };
+  mocks.search.mockResolvedValue([card]);
+  mocks.detail.mockResolvedValue(card);
+  mocks.recommend.mockResolvedValue([{ card, metaScore: 90, chemDelta: 0 }]);
+  slot.click();
+  await vi.waitFor(() => expect(document.querySelector('#player-list .card-cost')?.textContent).toBe(expected));
+  type(`Player ${id}`);
+  await vi.waitFor(() => expect(document.querySelector('#player-list .browser-player-card')?.getAttribute('aria-label')).toContain(`Player ${id}`));
+  expect(document.querySelector('#player-list .card-cost').textContent).toBe(expected);
+  document.querySelector('#player-list .browser-player-card').click();
+  await vi.waitFor(() => expect(slot.querySelector('.card-price-badge .card-cost')?.textContent).toBe(expected));
+  slot.querySelector('.owned-player').click();
+  expect(slot.querySelector('.card-price-badge').textContent).toBe(expected);
+  if (costs.token_cost) expect(slot.querySelector('.card-price-badge svg')).not.toBeNull();
+});

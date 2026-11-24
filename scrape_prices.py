@@ -15,10 +15,12 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
+
 # ★ 실시간 날짜/시간 타임스탬프 로거 (scraper.txt에 깔끔하게 누적 기록) ★
 def log(msg: str):
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{now_str}] {msg}", flush=True)
+
 
 # 1. 환경변수 로드
 env_path = Path(".env")
@@ -79,6 +81,40 @@ session.headers.update({
 GAME_VERSION = "27"
 PLATFORM = "ps5"
 
+# 언트레이더블 / 시장 미거래 제외 목록 (★ base_hall_of_fut만 제외하고 unleashed는 허용 ★)
+EXCLUDED_UNTRADEABLES = [
+    "squad_foundation",
+    "ones_to_watch",
+    "debut_international_icon",
+    "partnerships",
+    "special_base_hall_of_fut",
+    "base_hall_of_fut",
+    "special_sbc",
+    "sbc",
+    "potm",  # ★ POTM(이달의 선수) SBC 카드 수집 제외
+]
+
+# card_type 기준 시세 수집 제외 키워드 (TOKEN, SBC, SEASON, OBJ, POTM)
+EXCLUDED_CARD_TYPE_KEYWORDS = (
+    "sbc",
+    "token",
+    "tocken",
+    "season",
+    "obj",
+    "potm",
+)
+
+
+def is_excluded_card(card: dict) -> bool:
+    v_low = str(card.get("version") or "").lower()
+    c_type = str(card.get("card_type") or "").lower()
+    return (
+        any(ex in v_low for ex in EXCLUDED_UNTRADEABLES)
+        or any(kw in c_type for kw in EXCLUDED_CARD_TYPE_KEYWORDS)
+        or "potm" in v_low
+    )
+
+
 def parse_retry_after(header_val):
     if not header_val:
         return None
@@ -92,35 +128,29 @@ def parse_retry_after(header_val):
         except Exception:
             return None
 
+
 def countdown_sleep(seconds: int, reason: str = ""):
     log(f"[대기 안내] {reason}속도 제한 해제까지 {seconds}초 대기합니다.")
     time.sleep(seconds)
+
 
 def get_target_cards(special_limit: int = 200, rotate_gold_limit: int = 40, rotate_totw_limit: int = 10):
     total_target_cap = special_limit + rotate_gold_limit + rotate_totw_limit
     log("=" * 65)
     log(f"[INFO] 타겟 선별 시작: 1회 총 {total_target_cap}장 (스페셜 {special_limit}장 + 순환 {rotate_gold_limit + rotate_totw_limit}장)...")
 
-# 언트레이더블 / 시장 미거래 제외 목록 (★ base_hall_of_fut만 제외하고 unleashed는 허용 ★)
-    EXCLUDED_UNTRADEABLES = [
-        "squad_foundation",
-        "ones_to_watch",
-        "debut_international_icon",
-        "partnerships",
-        "special_base_hall_of_fut",
-        "base_hall_of_fut",
-        "special_sbc",
-        "sbc",
-        "potm",  # ★ POTM(이달의 선수) SBC 카드 수집 제외
-    ]
-
     # 1. 스페셜 군 (오래된 순 200장)
-    # 대소문자 무관하게 sbc가 들어간 card_type과 base_hall_of_fut을 DB 조회 단계부터 제외
+    # 대소문자 무관하게 SBC/TOKEN/SEASON/OBJ/POTM card_type과 base_hall_of_fut을 DB 조회 단계부터 제외
     fixed_res = (
         supabase.table("card_versions")
         .select("id, api_id, overall, version, card_type, price, price_updated_at")
         .ilike("version", "%special%")
         .not_.ilike("card_type", "%sbc%")
+        .not_.ilike("card_type", "%token%")
+        .not_.ilike("card_type", "%tocken%")
+        .not_.ilike("card_type", "%season%")
+        .not_.ilike("card_type", "%obj%")
+        .not_.ilike("card_type", "%potm%")
         .not_.ilike("version", "%base_hall_of_fut%")
         .not_.is_("api_id", "null")
         .order("price_updated_at", desc=False, nullsfirst=True)
@@ -134,17 +164,10 @@ def get_target_cards(special_limit: int = 200, rotate_gold_limit: int = 40, rota
 
     for card in specials:
         v_low = str(card.get("version", "")).lower()
-        c_type = str(card.get("card_type", "")).lower()
         ovr = int(card.get("overall") or 0)
 
-        # SBC(special_sbc 포함), Base Hall of FUT, POTM 등 거래 불가 카드 필터링
-        # (special_hall_of_fut_unleashed 중 card_type이 special_sbc가 아닌 카드는 정상 통과됨)
-        if (
-            any(ex in v_low for ex in EXCLUDED_UNTRADEABLES)
-            or "sbc" in c_type
-            or "potm" in v_low
-            or "potm" in c_type
-        ):
+        # TOKEN / SBC / SEASON / OBJ / Base Hall of FUT / POTM 등 거래 불가 카드 2차 필터링
+        if is_excluded_card(card):
             excluded_cnt += 1
             continue
 
@@ -163,8 +186,12 @@ def get_target_cards(special_limit: int = 200, rotate_gold_limit: int = 40, rota
         .select("id, api_id, overall, version, card_type, price, price_updated_at")
         .gte("overall", 82)
         .not_.ilike("version", "%special%")
-        .neq("card_type", "SBC")
-        .neq("card_type", "SPECIAL_SBC")
+        .not_.ilike("card_type", "%sbc%")
+        .not_.ilike("card_type", "%token%")
+        .not_.ilike("card_type", "%tocken%")
+        .not_.ilike("card_type", "%season%")
+        .not_.ilike("card_type", "%obj%")
+        .not_.ilike("card_type", "%potm%")
         .not_.is_("api_id", "null")
         .order("price_updated_at", desc=False, nullsfirst=True)
         .limit(rotate_gold_limit + 30)
@@ -172,20 +199,19 @@ def get_target_cards(special_limit: int = 200, rotate_gold_limit: int = 40, rota
     )
     candidate_gold = [
         c for c in (gold_res.data or [])
-        if not any(ex in str(c.get("version", "")).lower() for ex in EXCLUDED_UNTRADEABLES)
-        and "sbc" not in str(c.get("card_type", "")).lower()
-        and "potm" not in str(c.get("version", "")).lower()
+        if not is_excluded_card(c)
     ]
     selected_gold = candidate_gold[:rotate_gold_limit]
 
     target_cards = selected_specials + selected_totw + selected_gold
 
-    log(f"[스페셜군] {len(selected_specials)}장 (아이콘/히어로/85+ TOTW) [SBC/POTM 등 {excluded_cnt}장 제외됨]")
+    log(f"[스페셜군] {len(selected_specials)}장 (아이콘/히어로/85+ TOTW) [TOKEN/SBC/SEASON/POTM 등 {excluded_cnt}장 추가 제외]")
     log(f"[순환군] {len(selected_totw) + len(selected_gold)}장 (골드 {len(selected_gold)}장 + 저오버롤 TOTW {len(selected_totw)}장)")
     log(f"[타겟] 이번 회차 총 수집 대상: {len(target_cards)}장 (예상 소요시간: 약 {int(len(target_cards)*4.3//60)}분)")
     log("=" * 65)
 
     return target_cards
+
 
 def fetch_futgg_price(api_id: int):
     sign_url = "https://www.fut.gg/api/fut/price-access/sign/"
@@ -233,14 +259,29 @@ def fetch_futgg_price(api_id: int):
                 return None, f"HTTP_{price_res.status_code}"
 
             price_data = price_res.json().get("data", {})
-            curr = price_data.get("currentPrice", {})
-            overview = price_data.get("overview", {})
-            prange = price_data.get("priceRange", {})
+            curr = price_data.get("currentPrice", {}) or {}
+            overview = price_data.get("overview", {}) or {}
+            prange = price_data.get("priceRange", {}) or {}
+
+            # API 응답에서 SBC / 목표 / 시즌패스 / 거래불가 확인 시 즉시 건너뜀
+            if (
+                curr.get("isSbc") is True
+                or curr.get("isObjective") is True
+                or curr.get("isUntradeable") is True
+                or curr.get("premiumSeasonPassLevel") is not None
+                or curr.get("standardSeasonPassLevel") is not None
+            ):
+                return None, "SBC_OR_UNTRADEABLE"
+
             updated_at = curr.get("priceUpdatedAt") or datetime.datetime.now(datetime.timezone.utc).isoformat()
 
             price = curr.get("price")
             if price is None or price == 0:
-                price = overview.get("averageBin") or overview.get("cheapestSale") or (prange.get("maxPrice") if curr.get("isExtinct") else None)
+                price = (
+                    overview.get("averageBin")
+                    or overview.get("cheapestSale")
+                    or (prange.get("maxPrice") if curr.get("isExtinct") else None)
+                )
 
             if price is not None and price > 0:
                 return price, updated_at
@@ -255,14 +296,16 @@ def fetch_futgg_price(api_id: int):
                 return None, f"ERROR_{str(e)}"
             countdown_sleep(4, "재시도 - ")
 
+
 def update_card_price(card_id: int, price: int, updated_at: str):
     supabase.table("card_versions").update({
         "price": price,
         "price_updated_at": updated_at if updated_at and not updated_at.startswith("ERROR") else datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }).eq("id", card_id).execute()
 
+
 def main():
-    parser = argparse.ArgumentParser(description="FUT.GG 시세 자동 수집기 (POTM 제외 + 타임스탬프 로깅)")
+    parser = argparse.ArgumentParser(description="FUT.GG 시세 자동 수집기 (TOKEN/SBC/SEASON/POTM 제외 + 타임스탬프 로깅)")
     parser.add_argument("--special", type=int, default=200, help="1회당 수집할 스페셜 카드 수 (기본값: 200장)")
     parser.add_argument("--gold", type=int, default=40, help="1회당 수집할 82+ 골드 카드 수 (기본값: 40장)")
     parser.add_argument("--totw", type=int, default=10, help="1회당 수집할 저오버롤 TOTW 수 (기본값: 10장)")
@@ -272,7 +315,7 @@ def main():
     cards = get_target_cards(
         special_limit=args.special,
         rotate_gold_limit=args.gold,
-        rotate_totw_limit=args.totw
+        rotate_totw_limit=args.totw,
     )
     total = len(cards)
     if total == 0:
@@ -280,6 +323,7 @@ def main():
         return
 
     success_count = 0
+    skip_count = 0
     fail_count = 0
     consecutive_403_count = 0
 
@@ -296,7 +340,7 @@ def main():
         if status_or_date == "CLOUDFLARE_403_BLOCKED":
             consecutive_403_count += 1
             log(f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> ⚠️ Cloudflare 403 감지 ({consecutive_403_count}/2회)")
-            
+
             if consecutive_403_count >= 2:
                 log("!" * 65)
                 log("[서킷 브레이커 발동] Cloudflare 차단 챌린지 감지! 추가 요청을 중단하고 안전하게 종료합니다.")
@@ -321,6 +365,9 @@ def main():
             update_card_price(card_db_id, current_price, now_iso)
             log(f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 거래내역 없음 (순번 갱신)")
             success_count += 1
+        elif status_or_date == "SBC_OR_UNTRADEABLE":
+            log(f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 건너뜀 (SBC/시즌패스/귀속 카드)")
+            skip_count += 1
         else:
             log(f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 수집 실패 ({status_or_date})")
             fail_count += 1
@@ -333,7 +380,8 @@ def main():
             log(f"[안전 대기] 50건 수집 완료. 휴식 중 ({rest_time:.1f}초)...")
             time.sleep(rest_time)
 
-    log(f"[완료] 총 {total}개 중 성공: {success_count}개, 실패: {fail_count}개")
+    log(f"[완료] 총 {total}개 중 성공: {success_count}개, 건너뜀: {skip_count}개, 실패: {fail_count}개")
+
 
 if __name__ == "__main__":
     main()

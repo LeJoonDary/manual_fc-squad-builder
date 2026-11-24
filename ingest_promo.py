@@ -42,6 +42,270 @@ HEADERS = {
     "Referer": "https://www.fut.gg/",
 }
 
+_WARNED_MISSING_COLS = False
+_TOKEN_STORE_CACHE = None
+_SBC_PRICE_CACHE = None  # tuple: (sbc_by_set_id, sbc_by_card_id)
+
+
+# -------------------------------------------------------------
+# 숫자/금액/카드타입/목록 페이지 파싱 헬퍼 (토큰, SBC 가격, 시즌패스)
+# -------------------------------------------------------------
+def parse_coin_amount(raw_val):
+    """'335.4K', '1.2M', '80,000', 80000 형태를 정수 코인으로 변환"""
+    if raw_val is None:
+        return None
+    if isinstance(raw_val, (int, float)):
+        val = int(round(raw_val))
+        return val if val > 0 else None
+
+    s = str(raw_val).strip().upper().replace(",", "").replace(" ", "")
+    m = re.match(r"^(\d+(?:\.\d+)?)([KM])?$", s)
+    if not m:
+        return None
+    num = float(m.group(1))
+    unit = m.group(2)
+    if unit == "K":
+        num *= 1_000
+    elif unit == "M":
+        num *= 1_000_000
+    val = int(round(num))
+    return val if val > 0 else None
+
+
+def normalize_card_type(raw_type):
+    """--card-type 입력값 정규화 (소문자 -> 대문자, TOCKEN 오타 자동 보정)"""
+    if not raw_type:
+        return None
+    normalized = raw_type.strip().upper().replace("-", "_").replace(" ", "_")
+    normalized = normalized.replace("TOCKEN", "TOKEN")
+    return normalized
+
+
+def parse_token_store_html(html_text):
+    """/token-store/ HTML + JS에서 {card_api_id: token_cost} 추출"""
+    token_map = {}
+
+    js_pattern = re.compile(
+        r'tokenCost\s*:\s*(\d+)\b[^\}]{0,600}?player\s*:\s*(?:\$R\[\d+\]\s*=\s*)?\{[^\}]{0,160}?eaId\s*:\s*(\d+)',
+        re.DOTALL,
+    )
+    for m in js_pattern.finditer(html_text):
+        cost = int(m.group(1))
+        ea_id = int(m.group(2))
+        if cost > 0:
+            token_map[ea_id] = cost
+
+    soup = BeautifulSoup(html_text, "html.parser")
+    for a in soup.find_all("a", href=re.compile(r"/players/\d+-[^/]+/27-(\d+)/?")):
+        m_id = re.search(r"/27-(\d+)/?", a["href"])
+        if not m_id:
+            continue
+        ea_id = int(m_id.group(1))
+        if ea_id in token_map:
+            continue
+        parent = a.parent
+        if not parent:
+            continue
+        for part in parent.get_text("|", strip=True).split("|"):
+            clean_num = part.strip().replace(",", "")
+            if clean_num.isdigit():
+                val = int(clean_num)
+                if 1 <= val <= 100000:
+                    token_map[ea_id] = val
+                    break
+
+    return token_map
+
+
+def get_token_store_map():
+    """FUT.GG /token-store/ 페이지를 1회만 조회해 메모리 캐싱"""
+    global _TOKEN_STORE_CACHE
+    if _TOKEN_STORE_CACHE is not None:
+        return _TOKEN_STORE_CACHE
+
+    _TOKEN_STORE_CACHE = {}
+    try:
+        resp = requests.get(f"{BASE_URL}/token-store/", headers=HEADERS, timeout=15)
+        if resp.status_code == 200:
+            _TOKEN_STORE_CACHE = parse_token_store_html(resp.text)
+            print(f"  🪙 [Token Store 캐시 완료] 토큰 선수 {len(_TOKEN_STORE_CACHE)}명 확인")
+        else:
+            print(f"  ⚠️ Token Store 조회 실패 (HTTP {resp.status_code})")
+    except Exception as e:
+        print(f"  ⚠️ Token Store 조회 예외: {e}")
+
+    return _TOKEN_STORE_CACHE
+
+
+def parse_sbc_players_html(html_text):
+    """/sbc/category/players/ JS 데이터에서 실제 코인 가격(cost) 추출 (scoreRequirement 다이아 제외)"""
+    sbc_by_set = {}
+    sbc_by_card = {}
+
+    total_pages = 1
+    m_tp = re.search(r"totalPages\s*:\s*(\d+)", html_text)
+    if m_tp:
+        total_pages = max(1, int(m_tp.group(1)))
+
+    # 각 SBC 항목 시작 지점 매칭 (예: eaId:186,slug:"27-186-ronald-araujo")
+    item_matches = list(
+        re.finditer(r'\beaId\s*:\s*(\d+)\s*,\s*slug\s*:\s*"\d+-\1-[^"]+"', html_text)
+    )
+
+    for idx, m in enumerate(item_matches):
+        sbc_ea_id = int(m.group(1))
+        start = m.start()
+        end = (
+            item_matches[idx + 1].start()
+            if idx + 1 < len(item_matches)
+            else min(len(html_text), start + 6000)
+        )
+        chunk = html_text[start:min(end, start + 6000)]
+
+        # 콘솔 실제 코인 가격만 추출 (scoreRequirement 및 costPc 제외, null이면 스킵)
+        m_cost = re.search(r'\bcost\s*:\s*(\d+)\b', chunk)
+        if not m_cost:
+            continue
+
+        coin_cost = int(m_cost.group(1))
+        if coin_cost <= 0:
+            continue
+
+        sbc_by_set[sbc_ea_id] = coin_cost
+
+        # 보상 선수 카드 api_id(playerEaId) 보조 인덱스 매핑
+        for p_ea_id in re.findall(r'\bplayerEaId\s*:\s*(\d+)\b', chunk):
+            sbc_by_card[int(p_ea_id)] = coin_cost
+
+    return sbc_by_set, sbc_by_card, total_pages
+
+
+def get_sbc_price_map():
+    """FUT.GG /sbc/category/players/ 및 /sbc/category/icons/를 1회 조회해 메모리 캐싱"""
+    global _SBC_PRICE_CACHE
+    if _SBC_PRICE_CACHE is not None:
+        return _SBC_PRICE_CACHE
+
+    sbc_by_set = {}
+    sbc_by_card = {}
+    categories = ("players", "icons")
+
+    for cat in categories:
+        try:
+            resp = requests.get(f"{BASE_URL}/sbc/category/{cat}/", headers=HEADERS, timeout=15)
+            if resp.status_code != 200:
+                print(f"  ⚠️ SBC 목록({cat}) 조회 실패 (HTTP {resp.status_code})")
+                continue
+
+            s_set, s_card, total_pages = parse_sbc_players_html(resp.text)
+            sbc_by_set.update(s_set)
+            sbc_by_card.update(s_card)
+
+            for page in range(2, min(total_pages, 10) + 1):
+                time.sleep(0.4)
+                p_resp = requests.get(
+                    f"{BASE_URL}/sbc/category/{cat}/?page={page}",
+                    headers=HEADERS,
+                    timeout=15,
+                )
+                if p_resp.status_code == 200:
+                    p_set, p_card, _ = parse_sbc_players_html(p_resp.text)
+                    sbc_by_set.update(p_set)
+                    sbc_by_card.update(p_card)
+        except Exception as e:
+            print(f"  ⚠️ SBC 목록({cat}) 조회 예외: {e}")
+
+    print(f"  🧩 [SBC 가격 캐시 완료] 활성 선수/아이콘 SBC {len(sbc_by_set)}건 확인")
+    _SBC_PRICE_CACHE = (sbc_by_set, sbc_by_card)
+    return _SBC_PRICE_CACHE
+
+
+def extract_acquisition_info(html_text, clean_full, card, card_api_id, override_type=None):
+    """토큰 상점, SBC 목록, playerDef에서 토큰/SBC 가격/시즌패스/목표 여부 자동 추출"""
+    token_cost = None
+    sbc_price = None
+    season_pass_level = None
+
+    # 1) Token Store 매핑 확인 (/token-store/ 캐시 1순위)
+    token_map = get_token_store_map()
+    if int(card_api_id) in token_map:
+        token_cost = token_map[int(card_api_id)]
+
+    if token_cost is None:
+        m_token = re.search(r"Token\s+Store\s+Cost\s*[:\s]*([\d,]+)", clean_full, re.IGNORECASE)
+        if m_token:
+            try:
+                val = int(m_token.group(1).replace(",", ""))
+                if val > 0:
+                    token_cost = val
+            except ValueError:
+                pass
+
+    # 2) SBC 여부 및 SBC 예상 가격 추출 (/sbc/category/players/ 캐시 1순위)
+    sbc_set_ea_id = card.get("sbcSetEaId")
+    is_sbc = bool(
+        card.get("isSbcItem") is True
+        or sbc_set_ea_id
+        or card.get("sbcChallengeEaId")
+        or (override_type and "sbc" in str(override_type).lower())
+    )
+
+    if is_sbc:
+        sbc_by_set, sbc_by_card = get_sbc_price_map()
+        if sbc_set_ea_id is not None:
+            try:
+                sbc_price = sbc_by_set.get(int(sbc_set_ea_id))
+            except (TypeError, ValueError):
+                pass
+        if sbc_price is None:
+            sbc_price = sbc_by_card.get(int(card_api_id))
+
+    if sbc_price is None:
+        m_sbc = re.search(r"SBC\s+(?:Price|Cost)\s*[:\s]*([\d,.]+\s*[KM]?)", clean_full, re.IGNORECASE)
+        if m_sbc:
+            sbc_price = parse_coin_amount(m_sbc.group(1))
+            if sbc_price:
+                is_sbc = True
+
+    # 3) 시즌 패스 레벨 추출
+    for key in ("premiumSeasonPassLevel", "standardSeasonPassLevel"):
+        lvl = card.get(key)
+        if lvl is not None:
+            try:
+                val = int(lvl)
+                if val > 0:
+                    season_pass_level = val
+                    break
+            except (TypeError, ValueError):
+                pass
+
+    if season_pass_level is None:
+        m_sp = re.search(
+            r"Season\s+Pass\s*(?:Level|Lv\.?)\s*[:\s]*(\d+)",
+            clean_full,
+            re.IGNORECASE,
+        )
+        if m_sp:
+            val = int(m_sp.group(1))
+            if val > 0:
+                season_pass_level = val
+
+    # 4) 목표(Objective) 보상 카드 여부
+    is_objective = bool(
+        card.get("isObjectiveItem") is True
+        or card.get("objectiveGroupEaId")
+        or card.get("objectiveGroupObjectiveEaId")
+    )
+
+    return {
+        "token_cost": token_cost,
+        "sbc_price": sbc_price,
+        "season_pass_level": season_pass_level,
+        "is_sbc": is_sbc,
+        "is_objective": is_objective,
+    }
+
+
 # -------------------------------------------------------------
 # Storage 업로드 및 HTML 직통 에셋 추출 헬퍼
 # -------------------------------------------------------------
@@ -52,11 +316,11 @@ def upload_to_supabase_storage(source_url, storage_path, content_type="image/web
         resp = requests.get(source_url, headers=HEADERS, timeout=12)
         if resp.status_code != 200:
             return None
-        
+
         supabase.storage.from_(STORAGE_BUCKET).upload(
             path=storage_path,
             file=resp.content,
-            file_options={"content-type": content_type, "upsert": "true"}
+            file_options={"content-type": content_type, "upsert": "true"},
         )
         public_url = f"{STORAGE_BASE_URL}/{storage_path}"
         print(f"  ☁ [Storage 업로드 완료] {storage_path}")
@@ -65,18 +329,20 @@ def upload_to_supabase_storage(source_url, storage_path, content_type="image/web
         print(f"  ⚠️ Storage 업로드 실패 ({storage_path}): {e}")
         return None
 
+
 def extract_asset_url_from_html(html_text, asset_type):
     """HTML 본문 전체에서 /club/ 또는 /league/ 이미지 URL 직접 추출"""
     full_pattern = rf'https?://game-assets\.fut\.gg/[^"\'\s)]+/{asset_type}/[^"\'\s)]+\.png'
     m = re.search(full_pattern, html_text)
     if m:
         return m.group(0)
-    
+
     rel_pattern = rf'202\d/{asset_type}/[^"\'\s)]+\.png'
     m = re.search(rel_pattern, html_text)
     if m:
         return f"https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=80/{m.group(0)}"
     return None
+
 
 # -------------------------------------------------------------
 # EA 고유 ID -> DB ID 1:1 직결 매핑
@@ -139,7 +405,7 @@ LEAGUE_ALIAS_MAP = {
     "liga f moeve": 6, "liga-f-moeve": 6, "liga f": 6, "liga-f": 6,
     "arkema pl": 10, "arkema première ligue": 10, "arkema premiere ligue": 10,
     "national women's soccer league": 8, "nwsl": 8, "google pixel frauen-bundesliga": 9,
-    "gpfbl": 9, "calcio a femminile": 15
+    "gpfbl": 9, "calcio a femminile": 15,
 }
 
 CLUB_ALIAS_MAP = {
@@ -148,21 +414,16 @@ CLUB_ALIAS_MAP = {
     "juventus fc": "Juventus", "juventus": "Juventus", "psg": "Paris SG", "paris saint-germain": "Paris SG",
     "ss lazio": "Latium", "lazio": "Latium", "inter": "Lombardia FC", "inter milan": "Lombardia FC",
     "ac milan": "Milano FC", "milan": "Milano FC", "atalanta": "Bergamo Calcio", "as roma": "Roma",
-    "bayern munich": "FC Bayern München", "bayern münchen": "FC Bayern München"
+    "bayern munich": "FC Bayern München", "bayern münchen": "FC Bayern München",
 }
 
 NATION_ALIAS_MAP = {
-    # 네덜란드 (DB의 16번 정식 명칭인 Netherlands로 통일 매핑)
     "netherlands": "Netherlands",
     "holland": "Netherlands",
-
-    # 보스니아 (FUT.GG의 'and' 누락 명칭을 DB 65번 정식 명칭으로 매핑)
     "bosnia herzegovina": "Bosnia and Herzegovina",
     "bosnia-herzegovina": "Bosnia and Herzegovina",
     "bosnia and herzegovina": "Bosnia and Herzegovina",
     "bosnia": "Bosnia and Herzegovina",
-
-    # 기타 주요 국가 명칭
     "czechia": "Czech Republic",
     "czech republic": "Czech Republic",
     "south korea": "Korea Republic",
@@ -189,20 +450,24 @@ NATION_ALIAS_MAP = {
     "china pr": "China PR",
 }
 
+
 def get_table_columns(table_name):
     res = supabase.table(table_name).select("*").limit(1).execute()
     return set(res.data[0].keys()) if res.data else set()
 
+
 def get_or_create_league(name, raw_img_url=None):
-    if not name: return None
+    if not name:
+        return None
     clean = name.strip()
     alias_id = LEAGUE_ALIAS_MAP.get(clean.lower()) or LEAGUE_ALIAS_MAP.get(clean.replace("-", " ").lower())
-    
+
     league_id = alias_id
     existing_logo = None
     if league_id:
         res = supabase.table("leagues").select("id, logo_url").eq("id", league_id).execute()
-        if res.data: existing_logo = res.data[0].get("logo_url")
+        if res.data:
+            existing_logo = res.data[0].get("logo_url")
     else:
         res = supabase.table("leagues").select("id, logo_url").ilike("name", clean).execute()
         if res.data:
@@ -220,10 +485,13 @@ def get_or_create_league(name, raw_img_url=None):
 
     return league_id
 
+
 def get_or_create_club(name, league_id=None, raw_logo_url=None):
-    if not name: return None
+    if not name:
+        return None
     clean = name.strip()
-    if clean.lower() in CLUB_ALIAS_MAP: clean = CLUB_ALIAS_MAP[clean.lower()]
+    if clean.lower() in CLUB_ALIAS_MAP:
+        clean = CLUB_ALIAS_MAP[clean.lower()]
     else:
         unslug = re.sub(r"^\d+-", "", clean).replace("-", " ")
         clean = CLUB_ALIAS_MAP.get(unslug.lower(), unslug.title())
@@ -245,7 +513,8 @@ def get_or_create_club(name, league_id=None, raw_logo_url=None):
         max_res = supabase.table("clubs").select("id").order("id", desc=True).limit(1).execute()
         club_id = (max_res.data[0]["id"] + 1) if max_res.data else 1000
         payload = {"id": club_id, "name": clean}
-        if league_id: payload["league_id"] = league_id
+        if league_id:
+            payload["league_id"] = league_id
         supabase.table("clubs").insert(payload).execute()
 
     if (not existing_logo or "fc-assets" not in str(existing_logo)) and raw_logo_url:
@@ -255,39 +524,40 @@ def get_or_create_club(name, league_id=None, raw_logo_url=None):
 
     return club_id
 
+
 def get_or_create_nation(name):
-    if not name: return None
+    if not name:
+        return None
     clean = name.strip()
     canonical_name = NATION_ALIAS_MAP.get(clean.lower(), clean)
 
-    # ★ 1. 네덜란드 전용 안전장치 (DB의 16번 무조건 고정 반환)
     if canonical_name in ["Netherlands", "Holland"]:
         res16 = supabase.table("nations").select("id").eq("id", 16).execute()
         if res16.data:
             return 16
-        # 만약 16번이 없더라도 이름으로 조회
         res = supabase.table("nations").select("id").or_("name.ilike.Netherlands,name.ilike.Holland").execute()
         if res.data:
             return res.data[0]["id"]
 
-    # ★ 2. 보스니아 전용 안전장치 (DB의 65번 무조건 고정 반환)
     if "bosnia" in canonical_name.lower():
         res65 = supabase.table("nations").select("id").eq("id", 65).execute()
         if res65.data:
             return 65
 
-    # 3. 일반 국가 정규화 명칭으로 1차 조회 (대소문자 무시)
     res = supabase.table("nations").select("id").ilike("name", canonical_name).execute()
-    if res.data: return res.data[0]["id"]
+    if res.data:
+        return res.data[0]["id"]
 
-    # 4. 공백, 'and', 하이픈 누락 대비 퍼지 검색 (2단어 이상)
-    words = [w for w in re.split(r"[\s\-_]+", canonical_name) if w.lower() not in ["and", "of", "the", "pr", "dr", "republic", "islands"]]
+    words = [
+        w for w in re.split(r"[\s\-_]+", canonical_name)
+        if w.lower() not in ["and", "of", "the", "pr", "dr", "republic", "islands"]
+    ]
     if len(words) >= 2:
         pattern = "%" + "%".join(words) + "%"
         res_fuzzy = supabase.table("nations").select("id").ilike("name", pattern).execute()
-        if res_fuzzy.data: return res_fuzzy.data[0]["id"]
+        if res_fuzzy.data:
+            return res_fuzzy.data[0]["id"]
 
-    # 5. DB에 기존 국가가 전혀 없을 때만 신규 생성 (300번 이상)
     try:
         max_res = supabase.table("nations").select("id").order("id", desc=True).limit(1).execute()
         next_id = (max_res.data[0]["id"] + 1) if max_res.data else 300
@@ -295,6 +565,7 @@ def get_or_create_nation(name):
         return next_id
     except Exception:
         return None
+
 
 def extract_player_urls_from_squad(squad_url):
     clean_url = squad_url.strip()
@@ -316,6 +587,7 @@ def extract_player_urls_from_squad(squad_url):
     print(f"✔ 총 {len(found_urls)}명의 프로모 선수 카드 링크 추출 완료")
     return found_urls
 
+
 def player_def_fields(text, card_api_id, player_id=None):
     candidates = []
     for match in re.finditer(r"\bplayerDef\s*:\s*(?:\$R\[\d+\]\s*=\s*)?\{", text):
@@ -325,21 +597,30 @@ def player_def_fields(text, card_api_id, player_id=None):
         for index in range(begin, len(text)):
             ch = text[index]
             if quote:
-                if escaped: escaped = False
-                elif ch == "\\": escaped = True
-                elif ch == quote: quote = None
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == quote:
+                    quote = None
                 continue
-            if ch in ('"', "'"): quote = ch
-            elif ch in "{[": depth += 1
-            elif ch in "}]": depth -= 1
+            if ch in ('"', "'"):
+                quote = ch
+            elif ch in "{[":
+                depth += 1
+            elif ch in "}]":
+                depth -= 1
             if (ch == "," and depth == 1) or depth == 0:
                 key, sep, value = text[begin:index].partition(":")
                 if sep:
                     value = re.sub(r"^\s*\$R\[\d+\]\s*=\s*", "", value)
-                    try: fields[key.strip().strip('"\'')] = json.loads(value)
-                    except ValueError: pass
+                    try:
+                        fields[key.strip().strip('"\'')] = json.loads(value)
+                    except ValueError:
+                        pass
                 begin = index + 1
-            if depth == 0: break
+            if depth == 0:
+                break
         candidates.append(fields)
         if (
             fields.get("eaId") == card_api_id
@@ -348,8 +629,10 @@ def player_def_fields(text, card_api_id, player_id=None):
             or (player_id and fields.get("eaId") == player_id)
         ):
             return fields
-    if candidates: return candidates[0]
+    if candidates:
+        return candidates[0]
     raise ValueError("playerDef 파싱 실패")
+
 
 def owned_ids(card, *keys):
     for key in keys:
@@ -357,14 +640,27 @@ def owned_ids(card, *keys):
             return [int(v) for v in card[key] if isinstance(v, (int, str)) and str(v).isdigit()]
     return []
 
-def detect_version_info(soup, card, override_version=None, override_bg=None, override_type=None):
+
+def detect_version_info(
+    soup,
+    card,
+    override_version=None,
+    override_bg=None,
+    override_type=None,
+    is_force_headshot=False,
+    acq_info=None,
+):
+    acq_info = acq_info or {}
+
     if override_version:
         version = override_version
     else:
         rarity_name = None
         candidate_texts = []
-        if soup.find("h1"): candidate_texts.append(soup.find("h1").get_text())
-        if soup.find("title"): candidate_texts.append(soup.find("title").get_text())
+        if soup.find("h1"):
+            candidate_texts.append(soup.find("h1").get_text())
+        if soup.find("title"):
+            candidate_texts.append(soup.find("title").get_text())
 
         for text in candidate_texts:
             m = re.search(r"[-–]\s*(.*?)\s*\d{2}\s*OVR", text, re.IGNORECASE)
@@ -376,34 +672,59 @@ def detect_version_info(soup, card, override_version=None, override_bg=None, ove
 
         if not rarity_name and isinstance(card.get("rarity"), dict) and card["rarity"].get("name"):
             r_name = card["rarity"]["name"].strip()
-            if r_name.lower() != "special": rarity_name = r_name
+            if r_name.lower() != "special":
+                rarity_name = r_name
 
-        if not rarity_name: rarity_name = "Special"
+        if not rarity_name:
+            rarity_name = "Special"
 
         slug = re.sub(r"[^a-zA-Z0-9]+", "_", rarity_name.strip()).lower().strip("_")
-        if slug in ["special", "special_special"]: version = "special"
+        if slug in ["special", "special_special"]:
+            version = "special"
         elif not slug.startswith("special_") and slug not in ["gold", "silver", "bronze", "icon", "hero"]:
             version = f"special_{slug}"
-        else: version = slug
+        else:
+            version = slug
 
     background_url = override_bg or f"{TEMPLATE_BASE_URL}/{version}_edited.png"
 
-    # ★ 핵심: 다이내믹 액션샷 여부 자동 감지 (hasDynamic: False -> SPECIAL_HEADSHOT)
     has_dynamic = card.get("hasDynamic")
+    v_low = version.lower()
+
     if override_type:
-        card_type = override_type
+        card_type = normalize_card_type(override_type)
+    elif is_force_headshot:
+        card_type = "SPECIAL_HEADSHOT"
+    elif acq_info.get("token_cost"):
+        card_type = "SPECIAL_TOKEN"
+    elif acq_info.get("is_sbc") or acq_info.get("sbc_price") or "sbc" in v_low:
+        card_type = "POTM" if "potm" in v_low else "SPECIAL_SBC"
+    elif acq_info.get("season_pass_level"):
+        card_type = "SPECIAL_SEASON"
+    elif acq_info.get("is_objective"):
+        card_type = "SPECIAL_OBJ"
+    elif has_dynamic is False:
+        card_type = "SPECIAL_HEADSHOT"
+    elif "potm" in v_low:
+        card_type = "POTM"
+    elif "totw" in v_low:
+        card_type = "TOTW"
     else:
-        v_low = version.lower()
-        if has_dynamic is False:
-            card_type = "SPECIAL_HEADSHOT"
-        elif "potm" in v_low: card_type = "POTM"
-        elif "totw" in v_low: card_type = "TOTW"
-        elif "sbc" in v_low: card_type = "SPECIAL_SBC"
-        else: card_type = "SPECIAL"
+        card_type = "SPECIAL"
 
     return version, background_url, card_type
 
-def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
+
+def parse_card_page(
+    url,
+    custom_version=None,
+    custom_bg=None,
+    custom_type=None,
+    force_headshot=False,
+    custom_token_cost=None,
+    custom_sbc_price=None,
+    custom_season_level=None,
+):
     clean_url = url.split("?")[0].rstrip("/") + "/"
     resp = requests.get(clean_url, headers=HEADERS, timeout=12)
     if resp.status_code != 200:
@@ -411,7 +732,8 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
         return None
 
     m_ids = re.search(r"/(\d+)-[^/]+/27-(\d+)/?", clean_url)
-    if not m_ids: return None
+    if not m_ids:
+        return None
     player_id = int(m_ids.group(1))
     card_api_id = int(m_ids.group(2))
 
@@ -419,6 +741,23 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
     soup = BeautifulSoup(html_text, "html.parser")
     card = player_def_fields(html_text, card_api_id, player_id)
     clean_full = soup.get_text(separator=" ", strip=True)
+
+    acq_info = extract_acquisition_info(
+        html_text,
+        clean_full,
+        card,
+        card_api_id=card_api_id,
+        override_type=custom_type,
+    )
+    if custom_token_cost is not None:
+        acq_info["token_cost"] = int(custom_token_cost)
+    if custom_sbc_price is not None:
+        parsed_sbc = parse_coin_amount(custom_sbc_price)
+        if parsed_sbc is not None:
+            acq_info["sbc_price"] = parsed_sbc
+            acq_info["is_sbc"] = True
+    if custom_season_level is not None:
+        acq_info["season_pass_level"] = int(custom_season_level)
 
     info_text = ""
     for el in soup.find_all(["div", "section"]):
@@ -435,11 +774,9 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
     league_name = card.get("league", {}).get("name") if isinstance(card.get("league"), dict) else get_info("League")
     club_name = card.get("club", {}).get("name") if isinstance(card.get("club"), dict) else get_info("Club")
 
-    # ★ 클럽 및 리그 이미지 URL HTML 직통 추출
     club_img_url = extract_asset_url_from_html(html_text, "club")
     league_img_url = extract_asset_url_from_html(html_text, "league")
 
-    # ★ 선수 페이스 컷아웃 사진 fc-assets/players/ 폴더 업로드
     raw_img_path = card.get("imagePath")
     player_img_url = f"https://game-assets.fut.gg/cdn-cgi/image/quality=85,format=auto,width=500/{raw_img_path}" if raw_img_path else None
     uploaded_player_img = None
@@ -448,8 +785,13 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
 
     body_type = get_info("Body Type") or "Average Medium"
     accele_type = "Controlled"
-    m_acc = re.search(r"AcceleRATE\s*[:\n\s]*(Mostly\s+Explosive|Controlled\s+Explosive|Explosive|Mostly\s+Lengthy|Controlled\s+Lengthy|Lengthy|Controlled)", clean_full, re.IGNORECASE)
-    if m_acc: accele_type = " ".join(w.capitalize() for w in m_acc.group(1).split())
+    m_acc = re.search(
+        r"AcceleRATE(?:\s*2\.0)?\s*[:\n\s\-]*(Mostly\s+Explosive|Controlled\s+Explosive|Explosive|Mostly\s+Lengthy|Controlled\s+Lengthy|Lengthy|Controlled)",
+        clean_full,
+        re.IGNORECASE,
+    )
+    if m_acc:
+        accele_type = " ".join(w.capitalize() for w in m_acc.group(1).split())
 
     height = int(card.get("height") or 180)
     weight = int(card.get("weight") or 75)
@@ -458,10 +800,22 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
     wf = int(card.get("weakFoot") or 3)
     overall = int(card.get("overall") or 80)
 
-    version, background_url, card_type = detect_version_info(soup, card, custom_version, custom_bg, custom_type)
+    version, background_url, card_type = detect_version_info(
+        soup,
+        card,
+        custom_version,
+        custom_bg,
+        custom_type,
+        is_force_headshot=force_headshot,
+        acq_info=acq_info,
+    )
 
     primary_pos_str, primary_pid = EA_POS_MAP.get(card.get("position"), ("ST", 1))
-    sec_pos_ids = [EA_POS_MAP[p][1] for p in owned_ids(card, "alternativePositionIds") if p in EA_POS_MAP and EA_POS_MAP[p][1] != primary_pid]
+    sec_pos_ids = [
+        EA_POS_MAP[p][1]
+        for p in owned_ids(card, "alternativePositionIds")
+        if p in EA_POS_MAP and EA_POS_MAP[p][1] != primary_pid
+    ]
 
     role_values = {}
     for field, level in (("rolesPlus", 1), ("rolesPlusPlus", 2)):
@@ -538,31 +892,43 @@ def parse_card_page(url, custom_version=None, custom_bg=None, custom_type=None):
         "accele_type": accele_type,
         "face_stats": face_stats,
         "detail_stats": detail_stats,
+        "token_cost": acq_info["token_cost"],
+        "sbc_price": acq_info["sbc_price"],
+        "season_pass_level": acq_info["season_pass_level"],
     }
 
+
 def save_to_supabase(data):
-    if not data: return
+    global _WARNED_MISSING_COLS
+    if not data:
+        return
 
     p_id = data["player_id"]
     card_api_id = data["api_id"]
     name = data["name"]
 
-    # 1. 리그 및 클럽 로고 자동 동기화
     league_id = get_or_create_league(data.get("league_name"), raw_img_url=data.get("league_raw_url"))
     club_id = get_or_create_club(data.get("club_name"), league_id=league_id, raw_logo_url=data.get("club_raw_url"))
     nation_id = get_or_create_nation(data.get("nation_name"))
 
     player_cols = get_table_columns("players")
     player_payload = {"id": p_id, "name": name}
-    if nation_id and "nation_id" in player_cols: player_payload["nation_id"] = nation_id
-    if club_id and "club_id" in player_cols: player_payload["club_id"] = club_id
-    if league_id and "league_id" in player_cols: player_payload["league_id"] = league_id
-    if "height" in player_cols and data.get("height"): player_payload["height"] = data["height"]
-    if "weight" in player_cols and data.get("weight"): player_payload["weight"] = data["weight"]
+    if nation_id and "nation_id" in player_cols:
+        player_payload["nation_id"] = nation_id
+    if club_id and "club_id" in player_cols:
+        player_payload["club_id"] = club_id
+    if league_id and "league_id" in player_cols:
+        player_payload["league_id"] = league_id
+    if "height" in player_cols and data.get("height"):
+        player_payload["height"] = data["height"]
+    if "weight" in player_cols and data.get("weight"):
+        player_payload["weight"] = data["weight"]
 
     p_exist = supabase.table("players").select("id").eq("id", p_id).execute()
-    if p_exist.data: supabase.table("players").update(player_payload).eq("id", p_id).execute()
-    else: supabase.table("players").insert(player_payload).execute()
+    if p_exist.data:
+        supabase.table("players").update(player_payload).eq("id", p_id).execute()
+    else:
+        supabase.table("players").insert(player_payload).execute()
 
     cv_cols = get_table_columns("card_versions")
     cv_payload = {
@@ -572,17 +938,38 @@ def save_to_supabase(data):
         "card_type": data["card_type"],
         "background_url": data["background_url"],
     }
-    if "api_id" in cv_cols: cv_payload["api_id"] = card_api_id
+    if "api_id" in cv_cols:
+        cv_payload["api_id"] = card_api_id
     if "image_url" in cv_cols and data.get("image_url"):
         cv_payload["image_url"] = data["image_url"]
-    if nation_id and "nation_id" in cv_cols: cv_payload["nation_id"] = nation_id
-    if club_id and "club_id" in cv_cols: cv_payload["club_id"] = club_id
-    if league_id and "league_id" in cv_cols: cv_payload["league_id"] = league_id
-    if "body_type" in cv_cols and data.get("body_type"): cv_payload["body_type"] = data["body_type"]
-    if "wf" in cv_cols: cv_payload["wf"] = data.get("weak_foot", 3)
-    if "sm" in cv_cols: cv_payload["sm"] = data.get("skill_moves", 3)
-    if "preferred_foot" in cv_cols: cv_payload["preferred_foot"] = data.get("preferred_foot", "Right")
-    if "accele_type" in cv_cols: cv_payload["accele_type"] = data.get("accele_type", "Controlled")
+    if nation_id and "nation_id" in cv_cols:
+        cv_payload["nation_id"] = nation_id
+    if club_id and "club_id" in cv_cols:
+        cv_payload["club_id"] = club_id
+    if league_id and "league_id" in cv_cols:
+        cv_payload["league_id"] = league_id
+    if "body_type" in cv_cols and data.get("body_type"):
+        cv_payload["body_type"] = data["body_type"]
+    if "wf" in cv_cols:
+        cv_payload["wf"] = data.get("weak_foot", 3)
+    if "sm" in cv_cols:
+        cv_payload["sm"] = data.get("skill_moves", 3)
+    if "preferred_foot" in cv_cols:
+        cv_payload["preferred_foot"] = data.get("preferred_foot", "Right")
+    if "accele_type" in cv_cols:
+        cv_payload["accele_type"] = data.get("accele_type", "Controlled")
+
+    missing_cols = []
+    for col_name in ("sbc_price", "token_cost", "season_pass_level"):
+        val = data.get(col_name)
+        if val is not None:
+            if col_name in cv_cols:
+                cv_payload[col_name] = val
+            else:
+                missing_cols.append(col_name)
+    if missing_cols and not _WARNED_MISSING_COLS:
+        print(f"  ⚠️ [안내] card_versions 테이블에 {', '.join(missing_cols)} 컬럼이 없어 해당 값은 저장되지 않습니다.")
+        _WARNED_MISSING_COLS = True
 
     exist_cv = supabase.table("card_versions").select("id").eq("api_id", card_api_id).execute()
     if not exist_cv.data:
@@ -597,7 +984,8 @@ def save_to_supabase(data):
         card_id = ins_cv.data[0]["id"] if ins_cv.data else None
         status_label = f"신규 카드(ID: {card_id}) 생성"
 
-    if not card_id: return
+    if not card_id:
+        return
 
     cp_cols = get_table_columns("card_positions")
     cp_fk = "card_id" if "card_id" in cp_cols else "card_version_id"
@@ -614,8 +1002,10 @@ def save_to_supabase(data):
         role_batch = []
         for r in data["roles"]:
             row = {cr_fk: card_id, "role_id": r["role_id"]}
-            if "role_level" in cr_cols: row["role_level"] = r["level"]
-            elif "level" in cr_cols: row["level"] = r["level"]
+            if "role_level" in cr_cols:
+                row["role_level"] = r["level"]
+            elif "level" in cr_cols:
+                row["level"] = r["level"]
             role_batch.append(row)
         supabase.table("card_roles").insert(role_batch).execute()
 
@@ -626,7 +1016,8 @@ def save_to_supabase(data):
         ps_batch = []
         for p in data["playstyles"]:
             row = {cpl_fk: card_id, "playstyle_id": p["playstyle_id"]}
-            if "is_plus" in cpl_cols: row["is_plus"] = p["is_plus"]
+            if "is_plus" in cpl_cols:
+                row["is_plus"] = p["is_plus"]
             ps_batch.append(row)
         supabase.table("card_playstyles").insert(ps_batch).execute()
 
@@ -635,20 +1026,45 @@ def save_to_supabase(data):
     ps_payload = {ps_fk: card_id}
     for k in ["pac", "sho", "pas", "dri", "def", "phy"]:
         val = data["face_stats"].get(k)
-        if k in ps_cols and val is not None: ps_payload[k] = val
+        if k in ps_cols and val is not None:
+            ps_payload[k] = val
     for k, v in data["detail_stats"].items():
-        if k in ps_cols and v is not None: ps_payload[k] = v
+        if k in ps_cols and v is not None:
+            ps_payload[k] = v
 
     exist_ps = supabase.table("player_stats").select("id").eq(ps_fk, card_id).limit(1).execute()
-    if exist_ps.data: supabase.table("player_stats").update(ps_payload).eq(ps_fk, card_id).execute()
-    else: supabase.table("player_stats").insert(ps_payload).execute()
+    if exist_ps.data:
+        supabase.table("player_stats").update(ps_payload).eq(ps_fk, card_id).execute()
+    else:
+        supabase.table("player_stats").insert(ps_payload).execute()
 
-    print(f"  ✔ [{data['overall']} {data['primary_position_str']}] {name} ({data['card_type']}) ➔ {status_label}")
+    extra_tags = []
+    if data.get("token_cost"):
+        extra_tags.append(f"토큰: {data['token_cost']:,}")
+    if data.get("sbc_price"):
+        extra_tags.append(f"SBC가: {data['sbc_price']:,} C")
+    if data.get("season_pass_level"):
+        extra_tags.append(f"시즌패스: Lv.{data['season_pass_level']}")
+    extra_str = f" | {' / '.join(extra_tags)}" if extra_tags else ""
 
-def run_promo_pipeline(target_url, override_version=None, override_bg=None):
+    print(f"  ✔ [{data['overall']} {data['primary_position_str']}] {name} ({data['card_type']}{extra_str}) ➔ {status_label}")
+
+
+def run_promo_pipeline(
+    target_url,
+    override_version=None,
+    override_bg=None,
+    override_type=None,
+    force_headshot=False,
+    custom_token_cost=None,
+    custom_sbc_price=None,
+    custom_season_level=None,
+):
     print("=" * 70)
-    print("🚀 FUT.GG 프로모 스쿼드 일괄 동기화 파이프라인 (에셋 + 헤드샷 판별 지원)")
+    print("🚀 FUT.GG 프로모 스쿼드 일괄 동기화 파이프라인 (토큰상점/SBC/시즌패스 자동 연동)")
     print(f"   • 대상 URL: {target_url}")
+    if override_type:
+        print(f"   • 강제 카드타입: {normalize_card_type(override_type)}")
     print("=" * 70)
 
     if re.search(r"/players/\d+-[^/]+/27-\d+/?", target_url):
@@ -664,7 +1080,16 @@ def run_promo_pipeline(target_url, override_version=None, override_bg=None):
     total = len(card_urls)
     for idx, card_url in enumerate(card_urls, 1):
         print(f"\n[{idx}/{total}] 수집 중: {card_url}")
-        parsed = parse_card_page(card_url, custom_version=override_version, custom_bg=override_bg)
+        parsed = parse_card_page(
+            card_url,
+            custom_version=override_version,
+            custom_bg=override_bg,
+            custom_type=override_type,
+            force_headshot=force_headshot,
+            custom_token_cost=custom_token_cost,
+            custom_sbc_price=custom_sbc_price,
+            custom_season_level=custom_season_level,
+        )
         if parsed:
             save_to_supabase(parsed)
             success += 1
@@ -678,6 +1103,7 @@ def run_promo_pipeline(target_url, override_version=None, override_bg=None):
     print(f"🎉 프로모 스쿼드 총 {success}/{total}명 무오류 일괄 적재 완료!")
     print("=" * 70)
 
+
 if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -686,8 +1112,25 @@ if __name__ == "__main__":
     parser.add_argument("url", nargs="?", help="FUT.GG 스쿼드 또는 프로모 페이지 URL")
     parser.add_argument("--version", help="카드 버전 명칭 수동 지정")
     parser.add_argument("--bg", help="배경 템플릿 이미지 URL 수동 지정")
+    parser.add_argument(
+        "--card-type",
+        help="카드 유형 수동 지정 (예: SPECIAL, SPECIAL_SBC, SPECIAL_TOKEN, SPECIAL_SEASON)",
+    )
+    parser.add_argument("--headshot", action="store_true", help="헤드샷 카드 강제 지정")
+    parser.add_argument("--token-cost", type=int, help="토큰 가격 수동 지정 (예: 300)")
+    parser.add_argument("--sbc-price", type=str, help="SBC 예상 코인 가격 수동 지정 (예: 335.4K 또는 80000)")
+    parser.add_argument("--season-level", type=int, help="시즌 패스 레벨 수동 지정 (예: 25)")
     args = parser.parse_args()
 
     input_url = args.url if args.url else input("FUT.GG 프로모 스쿼드 URL을 입력하세요: ").strip()
     if input_url:
-        run_promo_pipeline(input_url, override_version=args.version, override_bg=args.bg)
+        run_promo_pipeline(
+            input_url,
+            override_version=args.version,
+            override_bg=args.bg,
+            override_type=args.card_type,
+            force_headshot=args.headshot,
+            custom_token_cost=args.token_cost,
+            custom_sbc_price=args.sbc_price,
+            custom_season_level=args.season_level,
+        )

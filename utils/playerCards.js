@@ -1,3 +1,4 @@
+// The wildcard includes card_type, sbc_price, token_cost and season_pass_level.
 export const PLAYER_CARD_SELECT = `
   *, players!inner (*, nations (name, flag_url)), clubs (id, name, logo_url), leagues (id, name, logo_url),
   player_stats (*),

@@ -35,7 +35,7 @@ describe('explorer placement', () => {
   });
 });
 it('queries the newest 30 cards with live prices and tab filters', async () => {
-  const query = {}; for (const method of ['select', 'not', 'eq', 'order']) query[method] = vi.fn(() => query);
+  const query = {}; for (const method of ['select', 'not', 'or', 'order']) query[method] = vi.fn(() => query);
   query.limit = vi.fn(async () => ({ data: [{ id: 1, price: 68000 }] })); const db = { from: vi.fn(() => query) };
   expect(await fetchExploreCards(db, 'new')).toEqual([{ id: 1, price: 68000 }]);
   expect(query.select).toHaveBeenCalledWith(EXPLORE_CARD_SELECT);
@@ -44,7 +44,8 @@ it('queries the newest 30 cards with live prices and tab filters', async () => {
   expect(query.order).toHaveBeenNthCalledWith(1, 'released_at', { ascending: false, nullsFirst: false });
   expect(query.order).toHaveBeenNthCalledWith(2, 'id', { ascending: false });
   expect(query.order).toHaveBeenCalledWith('id', { ascending: false }); expect(query.limit).toHaveBeenCalledWith(30);
-  await fetchExploreCards(db, 'sbc'); expect(query.eq).toHaveBeenCalledWith('card_type', 'SPECIAL_SBC');
+  await fetchExploreCards(db, 'sbc');
+  expect(query.or).toHaveBeenCalledWith('card_type.ilike.*SBC*,card_type.ilike.*POTM*,card_type.ilike.*TOKEN*,card_type.ilike.*SEASON*,card_type.ilike.*OBJ*');
   expect(query.limit).toHaveBeenNthCalledWith(2, 30);
 });
 it('all three preset codes hydrate through the existing share decoder and card loader', async () => {

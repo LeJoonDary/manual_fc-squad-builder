@@ -1,4 +1,5 @@
 import { getCardFaceStats } from '../utils/cardFaceStats.js';
+import type { CardCostFields } from '../types/cardCost';
 import { pitchAffiliation } from '../utils/pitchCardLabels.js';
 import { normalizePlaystyles } from '../utils/normalizePlaystyles.js';
 import { createPlaystyleIcons } from './PlaystyleIcons.js';
@@ -47,7 +48,7 @@ class PlayerCardFrame extends HTMLElement {
 if (!customElements.get('player-card-frame')) customElements.define('player-card-frame', PlayerCardFrame);
 
 type PlayerCardProps = {
-  card: Record<string, any>;
+  card: CardCostFields & Record<string, any>;
   styles?: any[];
   catalog?: Record<string, any[]>;
   createReviewButton?: (card: any, options: { compact: boolean }) => HTMLButtonElement;
