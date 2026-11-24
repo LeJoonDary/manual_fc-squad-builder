@@ -7,6 +7,19 @@ export function CardCostBadge(card: CardCostFields & { raw?: CardCostFields }, {
   const badge = document.createElement('span');
   badge.className = `card-cost card-cost--${cost.kind}${compact ? ' card-cost--compact' : ''}`;
   if (cost.title) badge.title = cost.title;
+  if (cost.kind === 'sbc') {
+    const label = document.createElement('span');
+    label.className = 'card-cost-sbc-label';
+    label.textContent = 'SBC';
+    badge.append(label);
+    if (cost.text !== 'SBC') {
+      const amount = document.createElement('span');
+      amount.className = 'card-cost-sbc-amount';
+      amount.textContent = cost.text.slice(4);
+      badge.append(document.createTextNode(' '), amount);
+    }
+    return badge;
+  }
   if (cost.kind === 'token') badge.append(TokenIcon());
   else if (cost.kind === 'market' && coinIcon) {
     const icon = document.createElement('span');

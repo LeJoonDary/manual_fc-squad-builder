@@ -2407,7 +2407,10 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 /* Shared acquisition-cost display; market-price calculations stay independent. */
 .card-cost { display: inline-flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
 .card-cost--token { color: #5eead4; font-weight: 600; }
-.card-cost--sbc { color: #60a5fa; font-weight: 600; }
+.card-cost--sbc { flex-wrap: nowrap; }
+.card-cost.card-cost--sbc > .card-cost-sbc-label { display: inline-flex; align-items: center; flex-shrink: 0; border-radius: 4px; padding: 1px 4px; font-size: 10px; font-weight: 800; line-height: 1; letter-spacing: -.025em; background: #3b82f6; color: #fff; text-shadow: none; box-shadow: 0 1px 2px rgb(0 0 0 / .05); }
+.card-cost.card-cost--sbc.card-cost--compact > .card-cost-sbc-label { font-size: 9px; }
+.card-cost.card-cost--sbc > .card-cost-sbc-amount { flex-shrink: 0; font-size: inherit; font-weight: 700; color: #7dd3fc; text-shadow: 0 1px 3px rgba(0,0,0,.95); }
 .card-cost--season { color: #7dd3fc; font-weight: 600; }
 .card-cost--objective { color: #6ee7b7; font-weight: 600; }
 .token-icon { width: 14px; height: 14px; flex-shrink: 0; }
