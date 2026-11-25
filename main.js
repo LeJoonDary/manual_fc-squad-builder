@@ -1,4 +1,5 @@
 import { createSlotDetailedStats } from './components/SlotDetailedStats.js';
+import { createModalAffiliationFilter } from './components/ModalAffiliationFilter.js';
 import { createSlotPhysicalControls } from './components/SlotPhysicalControls.js';
 import { countPhysicalRequirements } from './utils/physicalFilters.js';
 import { createExplorePanel } from './components/ExplorePanel.js';
@@ -654,7 +655,7 @@ function playersResultKey(offset = 0) {
   return searchResultKey('players', { ...filters, name: filters.name.trim() }, offset);
 }
 function modalResultKey(offset = 0) {
-  return searchResultKey('modal', [normalizePosition(activeSlot?.dataset.position ?? ''), modalPositionMode, modalPlayerSearchInput.value.trim()], offset);
+  return searchResultKey('modal', [normalizePosition(activeSlot?.dataset.position ?? ''), modalPositionMode, modalPlayerSearchInput.value.trim(), modalAffiliation.getValue(), modalPriceCap()], offset);
 }
 function cacheSearchResult(key, result) {
   searchResultCache.delete(key);
@@ -1034,6 +1035,7 @@ function renderClubOptions() {
 async function loadAffiliationFilterOptions() {
   try {
     affiliationCatalog = await fetchAffiliations(supabase);
+    modalAffiliation.setCatalog(affiliationCatalog);
     renderAffiliationOptions();
   } catch (error) {
     console.error('Affiliation master lookup failed:', error);
@@ -1504,6 +1506,8 @@ let slotMaxPrice;
 let recommendationControls;
 let recommendationRows = new Map();
 const recommendationPanel = document.createElement('section');
+const modalAffiliation = createModalAffiliationFilter({ modal, onChange: () => { renderRecommendationControls(); updateModalPlayerSearch(); }, onRetry: loadAffiliationFilterOptions });
+modalAffiliation.setCatalog(affiliationCatalog);
 recommendationPanel.className = 'slot-recommendations';
 recommendationPanel.hidden = true;
 document.querySelector('.modal-player-search')?.after(recommendationPanel);
@@ -1515,10 +1519,16 @@ function recommendationEnabled() {
 }
 function recommendationOptions() {
   return { ...excludedCardVersionsStore.getState(), ...getRoleOptions(), currentSquad: squad,
+    affiliation: modalAffiliation.getValue(),
     formation: currentFormation, slotPosition: activeSlot.dataset.position,
     totalBudget: targetBudget, slotMaxPrice, sort: recommendationSort === 'chem_boost' ? 'instant_chem' : recommendationSort, excludeZeroPriceCards: true };
 }
+function modalPriceCap() {
+  return recommendationEnabled() ? getEmptySlotPriceCap(recommendationOptions()) : slotMaxPrice;
+}
 function renderRecommendationControls() {
+  modalAffiliation.close();
+  document.querySelector('.modal-player-search').append(modalAffiliation.element);
   recommendationPanel.hidden = !recommendationEnabled();
   recommendationPanel.replaceChildren();
   if (recommendationPanel.hidden) return;
@@ -1534,6 +1544,7 @@ function renderRecommendationControls() {
     onPrice: value => { slotMaxPrice = value; renderRecommendationControls(); updateModalPlayerSearch(); },
   });
   recommendationPanel.append(header, recommendationControls.element);
+
 }
 async function loadSlotRecommendations() {
   const requestId = modalRequest;
@@ -1559,6 +1570,7 @@ async function loadSlotRecommendations() {
   }
 }
 subscribeLanguage(() => {
+  modalAffiliation.refresh();
   if (tacticalRolesDialog) renderRoleFilterRows();
   if (!modal.hidden && recommendationEnabled()) { renderRecommendationControls(); updateModalPlayerSearch(); }
 });
@@ -1566,7 +1578,8 @@ subscribeLanguage(() => {
 async function openPlayerModal(slot) {
   if (isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot;
-  slotMaxPrice = undefined; recommendationSort = emptySlotTabs.active(lockedSquadCount());
+  modalAffiliation.reset();
+  slotMaxPrice = undefined; recommendationSort = emptySlotTabs.select('all_meta', lockedSquadCount());
   renderRecommendationControls();
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
@@ -1575,7 +1588,6 @@ async function openPlayerModal(slot) {
   const position = slot.dataset.position;
   resetMobileZoom();
   modal.hidden = false;
-  requestAnimationFrame(() => modalPlayerSearchInput.focus());
   modalTitle.textContent = `Select ${formatSlotPosition(position)}`;
   modalDescription.textContent = `Loading ${position} players…`;
   renderMessage('Loading players…');
@@ -1615,6 +1627,7 @@ async function loadModalPlayerPage() {
     const rows = cached ?? await fetchModalPlayerPage(supabase, {
       position: normalizePosition(position), keyword: modalPlayerSearchInput.value,
       positionMode: modalPositionMode,
+      affiliation: modalAffiliation.getValue(), maxPrice: modalPriceCap(),
       offset: ticket.offset, signal: modalAbort.signal,
     });
     cacheSearchResult(cacheKey, rows);
@@ -1911,6 +1924,7 @@ function renderMessage(message, isError = false) {
 }
 
 function closeModal() {
+  modalAffiliation.reset();
   recommendationControls?.dispose();
   clearTimeout(modalSearchTimer);
   modalAbort?.abort();

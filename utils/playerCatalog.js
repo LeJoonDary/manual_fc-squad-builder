@@ -1,4 +1,5 @@
 import { PLAYER_CARD_SELECT } from './playerCards.js';
+import { applyAffiliationQuery } from './affiliationFilters.js';
 import { PLAYER_PAGE_SIZE } from './playerPagination.js';
 import { playerNamePattern, createPlayerNameMatcher, preparePlayerSearch } from './playerSearch.js';
 
@@ -31,10 +32,10 @@ export async function cachedPlayerPage(db, key, load, signal) {
   return rows;
 }
 
-export function fetchPlayerListPage(db, { keyword = '', position = null, positionMode = 'all', offset = 0, limit = PLAYER_PAGE_SIZE, signal } = {}) {
+export function fetchPlayerListPage(db, { keyword = '', position = null, positionMode = 'all', offset = 0, limit = PLAYER_PAGE_SIZE, signal, affiliation = {}, maxPrice } = {}) {
   const pageSize = Math.min(50, Math.max(1, limit));
   const term = keyword.trim();
-  const key = JSON.stringify(['list', term, position, positionMode, offset, pageSize]);
+  const key = JSON.stringify(['list', term, position, positionMode, offset, pageSize, affiliation.leagueId, affiliation.clubId, affiliation.nationId, maxPrice]);
   return cachedPlayerPage(db, key, async () => {
     const matches = [];
     const matchName = createPlayerNameMatcher(term);
@@ -44,6 +45,8 @@ export function fetchPlayerListPage(db, { keyword = '', position = null, positio
       let query = db.from('card_versions').select(PLAYER_LIST_SELECT
         + (position ? ',slot_positions:card_positions!inner(is_primary,positions!inner(name))' : ''));
       query = playerIds ? query.in('player_id', playerIds) : applyPlayerNameQuery(query, term);
+      query = applyAffiliationQuery(query, affiliation);
+      if (maxPrice != null && Number.isFinite(maxPrice)) query = query.lte('price', maxPrice);
       if (position) {
         query.eq('slot_positions.positions.name', position);
         if (positionMode === 'primary' || positionMode === 'secondary') query.eq('slot_positions.is_primary', positionMode === 'primary');

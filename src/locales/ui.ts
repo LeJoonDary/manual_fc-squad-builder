@@ -1,5 +1,9 @@
 // UI copy only. Never add player data, position/stat codes, Playstyle or Role names.
 export const uiTranslations: Record<string, string> = {
+  'Affiliation': '소속', 'Reset Affiliation': '소속 초기화', 'Reload Affiliations': '소속 다시 불러오기',
+  'Select Club': '클럽 선택', 'Search clubs...': '클럽 검색...', 'Search leagues...': '리그 검색...', 'Search nations...': '국가 검색...',
+  'Search clubs': '클럽 검색', 'Search leagues': '리그 검색', 'Search nations': '국가 검색',
+  'Reset': '초기화', 'Apply': '적용',
   'Roles': '롤', 'Playstyles': '플레이스타일', '🎭 Roles': '🎭 롤', '⚡ Playstyles': '⚡ 플레이스타일',
   '📈 Detailed Stats': '📈 세부 스탯', 'Clear slot Detailed Stats': '이 슬롯 세부 스탯 해제',
   '⚙️ Physical & Body': '⚙️ 피지컬 & 체형',

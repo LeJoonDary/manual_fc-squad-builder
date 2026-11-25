@@ -1,11 +1,18 @@
-const pinnedLeagueIds = ['3', '2', '4', '12', '5', '6', '1', '8'];
+export const PINNED_LEAGUE_IDS = Object.freeze(['3', '2', '4', '12', '5', '6', '1', '8', '10', '9', '7', '14']);
+const womenLeagueIds = new Set(['1', '6', '8', '9', '10', '15', '16', '31', '38', '44', '49', '53', '2215', '2216', '2218', '2221', '2222']);
+export function isWomenLeague(id, name = '') {
+  return womenLeagueIds.has(String(id)) || /women|wsl|liga f|nwsl|gpfbl|arkema|femminile|vrouwen|feminino|žen|kvinner|damen|frauen/i.test(name);
+}
+export function clubDisplayInfo(club, leagues = []) {
+  const leagueName = leagues.find(league => String(league.id) === String(club.league_id))?.name ?? club.league_name ?? '';
+  return { leagueName, women: isWomenLeague(club.league_id, leagueName) };
+}
 const leagueRank = row => {
-  const index = pinnedLeagueIds.indexOf(String(row.id));
+  const index = PINNED_LEAGUE_IDS.indexOf(String(row.id));
   return index < 0 ? Infinity : index;
 };
 const priorities = {
   nations: ['France', 'England', 'Germany', 'Spain', 'Argentina', 'Brazil', 'Portugal', 'Netherlands', 'Italy'],
-  leagues: ['Premier League', 'La Liga', 'Bundesliga', 'Serie A', 'Ligue 1'],
 };
 const canonical = name => name.toLowerCase().replace(/\s/g, '').replace(/^laligaeasports$/, 'laliga');
 export function sortAffiliations(rows, table) {
@@ -33,12 +40,15 @@ export async function fetchAffiliations(db) {
       offset += data.length;
     }
   }));
-  return Object.fromEntries(entries);
+  const catalog = Object.fromEntries(entries);
+  // Display metadata only: preserve the raw club name used by chemistry.
+  catalog.clubs = catalog.clubs.map(club => ({ ...club, league_name: clubDisplayInfo(club, catalog.leagues).leagueName }));
+  return catalog;
 }
 
-export function renderSearchableSelect(select, rows) {
+export function renderSearchableSelect(select, rows, settings = {}) {
   const pickerId = select.id.replace('-filter', '') + '-picker';
-  const kind = select.id.replace('-filter', '').replace('manager-', '');
+  const kind = settings.kind ?? select.id.replace('-filter', '').replace('manager-', '');
   const label = { nation: 'Nation', league: 'League', club: 'Club' }[kind];
   let picker = document.getElementById(pickerId);
   if (!picker) {
@@ -69,6 +79,7 @@ export function renderSearchableSelect(select, rows) {
     });
   }
   const optionsData = [...select.options].map(option => ({
+    ...rows.find(row => String(row.id) === option.value),
     id: option.value, name: option.textContent,
     flag_url: kind === 'nation' ? rows.find(row => String(row.id) === option.value)?.flag_url : null,
   }));
@@ -79,7 +90,16 @@ export function renderSearchableSelect(select, rows) {
       image.addEventListener('error', () => image.remove());
       element.append(image);
     }
-    element.append(document.createTextNode(row?.name ?? 'All ' + label + 's'));
+    if (kind === 'club' && row?.id) {
+      const original = rows.find(item => String(item.id) === row.id);
+      const info = clubDisplayInfo(row, settings.leagues);
+      const text = document.createElement('span'); text.className = 'club-option-label'; text.dataset.i18nProtected = '';
+      const name = document.createElement('span'); name.textContent = original?.name ?? row.name;
+      const subtitle = document.createElement('small'); subtitle.className = 'club-option-league';
+      if (info.women) { const badge = document.createElement('span'); badge.className = 'women-league-badge'; badge.textContent = 'W'; badge.setAttribute('aria-label', "Women's league"); subtitle.append(badge); }
+      subtitle.append(document.createTextNode(info.leagueName || `League #${row.league_id ?? '—'}`));
+      text.append(name, subtitle); element.append(text);
+    } else element.append(document.createTextNode(row?.name ?? 'All ' + label + 's'));
   };
   const summary = document.createElement('summary');
   summary.setAttribute('aria-label', 'Select ' + label);
@@ -94,7 +114,7 @@ export function renderSearchableSelect(select, rows) {
   options.className = 'nation-options';
   const renderOptions = () => {
     const term = input.value.trim().toLowerCase();
-    const filtered = optionsData.filter(row => !row.id || row.name.toLowerCase().includes(term));
+    const filtered = optionsData.filter(row => !row.id || `${row.name} ${row.league_name ?? ''}`.toLowerCase().includes(term));
     if (kind === 'league') filtered.sort((a, b) => {
       if (!a.id || !b.id) return a.id ? 1 : b.id ? -1 : 0;
       return (!term && (leagueRank(a) - leagueRank(b))) || a.name.localeCompare(b.name, 'en');
@@ -113,13 +133,14 @@ export function renderSearchableSelect(select, rows) {
         }
       }
       const button = document.createElement('button'); button.type = 'button';
+      button.dataset.affiliationId = row.id;
       button.setAttribute('aria-pressed', String(select.value === row.id));
       content(button, row);
       button.addEventListener('click', () => {
         select.value = row.id;
         select.dispatchEvent(new Event('change', { bubbles: true }));
         picker.open = false;
-        renderSearchableSelect(select, rows);
+        renderSearchableSelect(select, rows, settings);
         picker.querySelector('summary').focus();
       });
       options.append(button);

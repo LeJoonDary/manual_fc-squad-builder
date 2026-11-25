@@ -2466,3 +2466,44 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 @media (min-width: 1280px) {
   #detailed-stats-form .stats-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* Club names stay raw; league metadata disambiguates the displayed options. */
+.club-option-label { display: flex; flex-direction: column; min-width: 0; text-align: left; gap: 2px; }
+.club-option-league { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; font-weight: 400; }
+.women-league-badge { display: inline-flex; flex: 0 0 auto; align-items: center; padding: 0 4px; border-radius: 4px; border: 1px solid #f472b64d; background: #ec489933; color: #f9a8d4; font-size: 10px; line-height: 1.4; }
+#player-modal .recommendation-tabs-row { display: flex; align-items: center; gap: 16px; }
+#player-modal .recommendation-tabs-row > .recommendation-tabs { flex: 1 1 auto; min-width: 0; }
+.modal-affiliation { display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex-shrink: 0; }
+.player-select-controls > .modal-affiliation { margin: 0 18px 10px; }
+.modal-affiliation-trigger, .modal-affiliation-clear { border: 1px solid #475569; border-radius: 8px; padding: 7px 10px; background: #182435; color: #e2e8f0; cursor: pointer; white-space: nowrap; font-size: 12px; }
+.modal-affiliation-clear { padding-inline: 7px; }
+.modal-affiliation-clear[hidden] { display: none; }
+.modal-affiliation-popover { position: fixed; inset: auto; margin: 0; z-index: 100; box-sizing: border-box; max-width: calc(100vw - 32px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid #475569; border-radius: 12px; padding: 12px; color: #e2e8f0; background: #101d35; box-shadow: 0 16px 45px #0009; }
+.modal-affiliation-popover[hidden] { display: none; }
+.modal-affiliation-popover > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.modal-affiliation-popover > header button { border: 0; background: transparent; color: #cbd5e1; font-size: 22px; cursor: pointer; }
+.modal-affiliation-groups { display: grid; gap: 10px; }
+.modal-affiliation-groups label { display: block; margin-bottom: 4px; font-size: 12px; color: #94a3b8; }
+.modal-affiliation-popover .nation-picker { width: 100%; min-width: 0; }
+.modal-affiliation-popover .nation-picker summary { width: 100%; }
+.modal-affiliation-popover .nation-options { max-height: 180px; overflow-y: auto; }
+.modal-affiliation-popover > footer { position: sticky; bottom: -12px; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; padding: 10px 0; background: #101d35; }
+.modal-affiliation-popover > footer button { padding: 7px 12px; border: 1px solid #475569; border-radius: 6px; background: #1e293b; color: #e2e8f0; cursor: pointer; }
+.modal-affiliation-popover > footer .modal-affiliation-apply { background: #5eead4; color: #042f2e; border-color: #5eead4; }
+@media (width < 768px) {
+  #player-modal .recommendation-tabs-row { flex-direction: column; align-items: stretch; gap: 0; }
+  #player-modal .recommendation-tabs-row > .recommendation-tabs { flex: none; width: 100%; }
+  #player-modal .modal-affiliation-trigger, #player-modal .modal-affiliation-clear { padding: 5px 8px; font-size: 11px; }
+}
+
+.modal-player-search { display: flex; align-items: stretch; gap: 8px; }
+.modal-player-search-field { position: relative; flex: 1; min-width: 0; }
+.modal-player-search-field input { min-width: 0; box-sizing: border-box; }
+#player-modal .modal-player-search .modal-affiliation { align-items: stretch; gap: 8px; }
+#player-modal .modal-player-search-field input,
+#player-modal .modal-player-search .modal-affiliation-trigger,
+#player-modal .modal-player-search .modal-affiliation-clear { height: 44px; box-sizing: border-box; border-radius: 11px; }
+#player-modal .modal-player-search .modal-affiliation-trigger,
+#player-modal .modal-player-search .modal-affiliation-clear { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0 12px; gap: 6px; white-space: nowrap; }
+#player-modal .modal-player-search .modal-affiliation-clear { width: 44px; padding: 0; }
+#player-modal .modal-player-search .modal-affiliation-clear[hidden] { display: none; }

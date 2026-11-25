@@ -1,4 +1,5 @@
 import { calculatePlaystyleAndSkillBonus } from './playstyleBonus';
+import { applyAffiliationQuery, matchesAffiliation } from './affiliationFilters.js';
 import { STAT_KEYS, activeStats, applyStatQuery, matchesDetailedStats } from './statFilters.js';
 import type { DetailedStatsRequirements } from '../types/playerStats';
 import { applyPhysicalRequirements, matchesPhysicalRequirements } from './physicalFilters.js';
@@ -2357,6 +2358,7 @@ export function upgradeSquadToTargetBudgetRatio(
 
 
 export interface EmptySlotRecommendationOptions extends AutoBuildOptions {
+  affiliation?: { leagueId?: string; clubId?: string; nationId?: string };
   formation: string;
   slotPosition: string;
   totalBudget: number;
@@ -2370,7 +2372,7 @@ export function getEmptySlotPriceCap(options: EmptySlotRecommendationOptions): n
     if (!Number.isFinite(options.slotMaxPrice) || options.slotMaxPrice < 0) throw new RangeError('Invalid slot price');
     return options.slotMaxPrice;
   }
-  if (!options.totalBudget) return null;
+  if (Object.values(options.affiliation ?? {}).some(Boolean) || options.slotMaxPrice === null || !options.totalBudget) return null;
   const layout = FORMATIONS.find(item => item.name === options.formation);
   const entries = options.mode === 'replace'
     ? getNormalizedSquadArray(options.currentSquad, layout?.slots.length ?? 11, layout?.slots ?? [])
@@ -2412,6 +2414,7 @@ export async function getRecommendedPlayersForSlot(
   });
   const current = replacing ? fullSquad.filter(player => player.slotPosition !== options.slotPosition) : fullSquad;
   const replacedId = replacing ? getCardVersionId(target!.card) : null;
+  const affiliationActive = Object.values(options.affiliation ?? {}).some(Boolean);
   const cap = getEmptySlotPriceCap(options);
   const range = validateSquadOvrRange(options.squadOvrRange);
   const minOvr = Math.max(80, range.min, cap !== null && cap < 5000000 ? 0 : (!options.totalBudget || options.totalBudget >= 5000000 ? 85 : 0));
@@ -2420,9 +2423,10 @@ export async function getRecommendedPlayersForSlot(
     const slotStats = slotRequirement(options.slotPosition, options)?.detailedStats;
     let query = supabase.from('card_versions')
       .select((activeStats(slotStats).length ? AUTO_BUILD_CANDIDATE_SELECT.replace('player_stats(', 'player_stats!inner(') : AUTO_BUILD_CANDIDATE_SELECT) + ', candidate_positions:card_positions!inner(positions!inner(name))')
-      .eq('candidate_positions.positions.name', normalizeChemistryPosition(options.slotPosition))
-      .gte('overall', minOvr).lte('overall', range.max).gt('price', 0);
+      .eq('candidate_positions.positions.name', normalizeChemistryPosition(options.slotPosition));
+    if (!affiliationActive) query = query.gte('overall', minOvr).lte('overall', range.max).gt('price', 0);
     if (cap !== null) query = query.lte('price', cap);
+    query = applyAffiliationQuery(query, options.affiliation);
     if (options.maxFemalePlayers === 'exclude') query = query.or('gender.is.null,and(gender.not.ilike.*women*,gender.not.ilike.*female*)', { referencedTable: 'players' });
     const stars = slotRequirement(options.slotPosition, options);
     query = applyPhysicalRequirements(query, stars?.physical);
@@ -2433,9 +2437,14 @@ export async function getRecommendedPlayersForSlot(
     if (usedIds.length) query = query.not('id', 'in', `(${usedIds.join(',')})`);
     if (excluded.size) query = query.not('id', 'in', `(${[...excluded].join(',')})`);
     if (signal) query = query.abortSignal(signal);
-    const { data, error } = await query.order('overall', { ascending: false }).order('id', { ascending: true }).limit(300);
-    if (error) throw error;
-    candidates = data ?? [];
+    query = query.order('overall', { ascending: false }).order('id', { ascending: true });
+    candidates = [];
+    for (let offset = 0; ; offset += 300) {
+      const { data, error } = await (affiliationActive ? query.range(offset, offset + 299) : query.limit(300));
+      if (error) throw error;
+      candidates.push(...(data ?? []));
+      if (!affiliationActive || !data || data.length < 300) break;
+    }
   }
   const counts = linkCounts(current);
   const leagues = counts.league;
@@ -2448,28 +2457,29 @@ export async function getRecommendedPlayersForSlot(
     const candidate = prepareCandidate(card, options.slotPosition, false);
     if (!candidate || !isPositionMatched(options.slotPosition, candidate)
       || candidate.id === replacedId
+      || !matchesAffiliation(card, options.affiliation)
       || current.some(p => p.id === candidate.id || p.playerKey === candidate.playerKey)
-      || excluded.has(getCardVersionId(card)) || !passesMarketPriceFilter(card, options)
-      || card.overall < minOvr || card.overall > range.max || (cap !== null && Number(card.price) > cap)
+      || excluded.has(getCardVersionId(card)) || (!affiliationActive && !passesMarketPriceFilter(card, options))
+      || (!affiliationActive && (card.overall < minOvr || card.overall > range.max)) || (cap !== null && Number(card.price) > cap)
       || !matchesSlotRequirements(card, slotRequirement(options.slotPosition, options), options.slotPosition)
-      || !passesNewCandidateFilter(card, options.slotPosition, cap !== null ? Math.max(1, cap) : options.totalBudget,
-        layout.slots.map(s => s.position), { maxPriceCap: cap ?? Infinity, skipFullbackPriceRatio: true })) continue;
+      || (!affiliationActive && !passesNewCandidateFilter(card, options.slotPosition, cap !== null ? Math.max(1, cap) : options.totalBudget,
+        layout.slots.map(s => s.position), { maxPriceCap: cap ?? Infinity, skipFullbackPriceRatio: true }))) continue;
     const trial = [...current, candidate];
     // Recommendation limits count everyone already on the pitch.
     const limitPlayers = trial.map(p => ({ ...p, isLocked: false }));
-    if (!withinFemaleLimit(limitPlayers, options) || !withinCardLimits(limitPlayers, options)
-      || trial.filter(isSpecialCard).length > specialLimit(options)) continue;
+    if (!withinFemaleLimit(limitPlayers, options) || (!affiliationActive && (!withinCardLimits(limitPlayers, options)
+      || trial.filter(isSpecialCard).length > specialLimit(options)))) continue;
     const keys = linkKeys(candidate);
     const shares = (kind: LinkKind) => keys[kind] !== null && counts[kind].has(keys[kind]!);
     const chemistry = calculateSquadChemistry(trial, considerManager, replacing);
     const allowed = isCardIcon(candidate) || shares('league') || shares('club')
       || (isCardHero(candidate) ? shares('nation')
         : shares('nation') && (leagues.size < dynamicMax || chemistry.playerChemMap[candidate.id] >= 2));
-    if (sort !== 'all_meta' && !allowed) continue;
+    if (!affiliationActive && sort !== 'all_meta' && !allowed) continue;
     const chemDelta = chemistry.totalChemistry - baseline;
     if (replacing && sort === 'maintain_chem' && chemDelta < 0) continue;
     const hitsDeficit = LINK_KINDS.some(kind => keys[kind] !== null && deficits[kind].has(keys[kind]!));
-    if (sort === 'instant_chem' && chemDelta <= 0 && !hitsDeficit) continue;
+    if (!affiliationActive && sort === 'instant_chem' && chemDelta <= 0 && !hitsDeficit) continue;
     const calculatedMeta = pureMetaScore(candidate, options.slotPosition);
     const meta = Number.isFinite(calculatedMeta) ? calculatedMeta : 0;
     const link = LINK_KINDS.find(shares);
@@ -2488,5 +2498,5 @@ export async function getRecommendedPlayersForSlot(
     : sort === 'maintain_chem' && replacing ? b.meta - a.meta || b.chemDelta - a.chemDelta
     : sort === 'instant_chem'
     ? b.chemDelta - a.chemDelta || Number(b.hitsDeficit) - Number(a.hitsDeficit) || b.meta - a.meta
-    : b.score - a.score) || Number(a.card.price) - Number(b.card.price) || String(a.card.id).localeCompare(String(b.card.id))) .slice(0, 40);
+    : b.score - a.score) || (affiliationActive ? Number(b.card.overall) - Number(a.card.overall) : 0) || Number(a.card.price) - Number(b.card.price) || String(a.card.id).localeCompare(String(b.card.id))).slice(0, affiliationActive ? undefined : 40);
 }

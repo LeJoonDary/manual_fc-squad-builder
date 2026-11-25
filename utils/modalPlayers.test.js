@@ -2,6 +2,43 @@ import { expect, test } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { fetchModalPlayerPage } from './modalPlayers.js';
 import { PLAYER_LIST_SELECT } from './playerCatalog.js';
+import { getRecommendedPlayersForEmptySlot } from './autoBuildUtils';
+import { matchesAffiliation } from './affiliationFilters.js';
+
+test('affiliation IDs and max price combine with names, positions, pagination and cache isolation', async () => {
+  const requests = [];
+  const db = createClient('https://example.supabase.co', 'test', { auth: { persistSession: false }, global: { fetch: async url => {
+    const parsed = new URL(url); requests.push(parsed);
+    return new Response(JSON.stringify(parsed.pathname.endsWith('/players') ? [{ id: 10, name: 'Player' }] : [{ id: 1, players: { name: 'Player' } }]));
+  } } });
+  const options = { position: 'ST', keyword: 'Player', maxPrice: 30000, affiliation: { leagueId: '2', clubId: '100', nationId: '5' } };
+  await fetchModalPlayerPage(db, options);
+  const query = requests.at(-1).searchParams;
+  expect(query.get('league_id')).toBe('eq.2'); expect(query.get('club_id')).toBe('eq.100');
+  expect(query.get('players.nation_id')).toBe('eq.5'); expect(query.get('price')).toBe('lte.30000');
+  expect(query.get('player_id')).toBe('in.(10)'); expect(query.get('slot_positions.positions.name')).toBe('eq.ST');
+  await fetchModalPlayerPage(db, { ...options, affiliation: { ...options.affiliation, clubId: '200' } });
+  expect(requests.at(-1).searchParams.get('club_id')).toBe('eq.200');
+  await fetchModalPlayerPage(db, { ...options, maxPrice: 10000 });
+  expect(requests.at(-1).searchParams.get('price')).toBe('lte.10000');
+  expect(requests).toHaveLength(4);
+});
+
+test.each(['all_meta', 'meta_synergy', 'instant_chem'])('%s applies affiliation before recommendation LIMIT', async sort => {
+  const requests = [];
+  const db = createClient('https://example.supabase.co', 'test', { auth: { persistSession: false }, global: { fetch: async url => {
+    requests.push(new URL(url)); return new Response('[]');
+  } } });
+  await getRecommendedPlayersForEmptySlot(db, { formation: '4-3-3', slotPosition: 'ST', totalBudget: 0, slotMaxPrice: 30000,
+    sort, currentSquad: sort === 'all_meta' ? {} : { LW: { card: { id: 900, position: 'LW', overall: 90, price: 1000 }, isLocked: true } }, affiliation: { leagueId: '2', clubId: '100', nationId: '5' } });
+  const query = requests[0].searchParams;
+  expect(query.get('league_id')).toBe('eq.2'); expect(query.get('club_id')).toBe('eq.100');
+  expect(query.get('players.nation_id')).toBe('eq.5'); expect(query.getAll('price')).toContain('lte.30000');
+  expect(query.get('limit')).toBe('300');
+  expect(query.has('overall')).toBe(false);
+  expect(query.getAll('price')).not.toContain('gt.0');
+  expect(matchesAffiliation({ club_id: 200, league_id: 2, players: { nation_id: 5 } }, { clubId: '100' })).toBe(false);
+});
 
 test('ST default page fetches only 15 detailed cards and more uses the next offset', async () => {
   const requests = [];

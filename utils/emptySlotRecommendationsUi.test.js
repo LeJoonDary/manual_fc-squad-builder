@@ -116,7 +116,7 @@ test('replacement shares controls, passes mode and locks the selected upgrade', 
   expect(selected.isLocked).toBe(true); expect(selected.isOwned).toBe(false);
 });
 
-test('empty slot remembers tabs, resets when all locks are removed, and fetches once per opening', async () => {
+test('empty slot opens on All Meta without search focus and fetches once per opening', async () => {
   setLanguage('en',false);
   mocks.recommend.mockResolvedValue([]);
   const openSlot = document.querySelector('.slot:not(.occupied)');
@@ -131,11 +131,12 @@ test('empty slot remembers tabs, resets when all locks are removed, and fetches 
   close(); mocks.recommend.mockClear();
   document.querySelectorAll('.slot:not(.occupied)')[1].click();
   expect(mocks.recommend).toHaveBeenCalledTimes(1);
-  expect(tabs()[1].getAttribute('aria-pressed')).toBe('true');
+  expect(tabs()[0].getAttribute('aria-pressed')).toBe('true');
+  expect(document.activeElement).not.toBe(document.querySelector('#modal-player-search-input'));
   tabs()[2].click(); expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('instant_chem');
   close(); mocks.recommend.mockClear(); openSlot.click();
   expect(mocks.recommend).toHaveBeenCalledTimes(1);
-  expect(tabs()[2].getAttribute('aria-pressed')).toBe('true');
+  expect(tabs()[0].getAttribute('aria-pressed')).toBe('true');
   close();
   document.querySelectorAll('.slot.is-locked .lock-player').forEach(button=>button.click());
   document.querySelector('.slot.occupied .lock-player').click();
