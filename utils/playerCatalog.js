@@ -4,7 +4,7 @@ import { playerNamePattern, createPlayerNameMatcher, preparePlayerSearch } from 
 
 // Related data is fetched only for a bounded visible page, never all cards.
 export const PLAYER_LIST_SELECT = `
-  id,player_id,overall,price,sbc_price,token_cost,season_pass_level,image_url,background_url,version,card_type,club_id,league_id,sm,wf,preferred_foot,
+  id,player_id,overall,price,sbc_price,token_cost,season_pass_level,image_url,background_url,version,card_type,club_id,league_id,sm,wf,preferred_foot,body_type,body_type_group,
   players!inner(id,name,long_name,nation_id,nations(name,flag_url)),
   clubs(id,name,logo_url),leagues(id,name,logo_url),card_positions(is_primary,positions(name)),
   player_stats(gk_diving,gk_handling,gk_kicking,gk_reflexes,gk_positioning,sprint_speed,pac,sho,pas,dri,def,phy),

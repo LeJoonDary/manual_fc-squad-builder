@@ -1,5 +1,17 @@
 import { expect, test } from 'vitest';
 import { applyPhysicalQuery, matchesPhysicalTypes } from './physicalFilters.js';
+
+test('Unique includes named body types by group and combines with standard groups', () => {
+  const cards = ['Kylian Mbappé', 'Erling Haaland', 'Cristiano Ronaldo', 'Unique']
+    .map(body_type => ({ body_type, body_type_group: 'Unique' }));
+  const stocky = { body_type: 'Stocky Short', body_type_group: 'Stocky Short' };
+  const missing = [null, '—', undefined].map(value => ({ body_type: value, body_type_group: value }));
+  const rows = [...cards, stocky, ...missing];
+  const filter = types => rows.filter(card => matchesPhysicalTypes(card, new Set(), new Set(types)));
+  expect(filter(['Unique'])).toEqual(cards);
+  expect(filter(['Stocky Short', 'Unique'])).toEqual([...cards, stocky]);
+  expect(matchesPhysicalTypes({ body_type: 'Unique', body_type_group: null }, new Set(), new Set(['Unique']))).toBe(false);
+});
 test('Controlled excludes mixed types while keyword selections include them', () => {
   const match = (value, types) => matchesPhysicalTypes({ accele_type: value }, new Set(types), new Set());
   expect(match('Controlled', ['Controlled'])).toBe(true);
@@ -12,10 +24,10 @@ test('Controlled excludes mixed types while keyword selections include them', ()
 test('body options match UI labels exactly without legacy conversion', () => {
   for (const value of ['Lean Short', 'Lean Medium', 'Lean Tall', 'Average Short',
     'Average Medium', 'Average Tall', 'Stocky Short', 'Stocky Medium', 'Stocky Tall', 'Unique']) {
-    expect(matchesPhysicalTypes({ body_type: value }, new Set(), new Set([value]))).toBe(true);
+    expect(matchesPhysicalTypes({ body_type_group: value }, new Set(), new Set([value]))).toBe(true);
   }
   for (const value of ['Lean', 'Lean (170-185)', 'lean medium', 'Lean Medium ']) {
-    expect(matchesPhysicalTypes({ body_type: value }, new Set(), new Set(['Lean Medium']))).toBe(false);
+    expect(matchesPhysicalTypes({ body_type_group: value }, new Set(), new Set(['Lean Medium']))).toBe(false);
   }
 });
 
@@ -25,12 +37,12 @@ test('query uses exact, partial, and OR conditions with unchanged body values', 
   applyPhysicalQuery(query, new Set(['Controlled']), new Set(['Lean Medium']));
   applyPhysicalQuery(query, new Set(['Explosive']), new Set());
   applyPhysicalQuery(query, new Set(['Controlled', 'Lengthy']), new Set());
-  expect(calls).toEqual([['eq', 'accele_type', 'Controlled'], ['eq', 'body_type', 'Lean Medium'], ['ilike', 'accele_type', '%Explosive%'], ['or', 'accele_type.eq.Controlled,accele_type.ilike.%Lengthy%']]);
+  expect(calls).toEqual([['eq', 'accele_type', 'Controlled'], ['eq', 'body_type_group', 'Lean Medium'], ['ilike', 'accele_type', '%Explosive%'], ['or', 'accele_type.eq.Controlled,accele_type.ilike.%Lengthy%']]);
 });
 
 test('multiple body types use exact IN matches without conversion', () => {
   const calls = [];
   const query = { in: (...args) => { calls.push(args); return query; } };
   applyPhysicalQuery(query, new Set(), new Set(['Average Short', 'Stocky Medium']));
-  expect(calls).toEqual([['body_type', ['Average Short', 'Stocky Medium']]]);
+  expect(calls).toEqual([['body_type_group', ['Average Short', 'Stocky Medium']]]);
 });

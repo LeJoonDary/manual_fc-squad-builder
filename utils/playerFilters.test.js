@@ -22,6 +22,15 @@ test('base query orders overall descending without imposing a global result cap'
   expect(requests[0].url.searchParams.get('limit')).toBeNull();
 });
 
+test('body type selection filters groups with union semantics without filtering raw names', async () => {
+  const { db, requests } = database();
+  await buildPlayerQuery(db, { ...createDefaultFilters(), bodyTypes: new Set(['Unique']) });
+  await buildPlayerQuery(db, { ...createDefaultFilters(), bodyTypes: new Set(['Stocky Short', 'Unique']) });
+  expect(requests[0].url.searchParams.get('body_type_group')).toBe('eq.Unique');
+  expect(requests[1].url.searchParams.get('body_type_group')).toBe('in.(Stocky Short,Unique)');
+  for (const request of requests) expect(request.url.searchParams.has('body_type')).toBe(false);
+});
+
 test('combines all relationship predicates and scalar ranges in the same DB query', async () => {
   const filters = createDefaultFilters();
   Object.assign(filters, {
@@ -55,7 +64,7 @@ test('combines all relationship predicates and scalar ranges in the same DB quer
   expect(url.searchParams.get('players.nation_id')).toBe('eq.1');
   expect(url.searchParams.get('club_id')).toBe('eq.3');
   expect(url.searchParams.getAll('player_stats.pac')).toEqual(['gte.85', 'lte.99']);
-  expect(url.searchParams.get('body_type')).toBe('eq.Lean Medium');
+  expect(url.searchParams.get('body_type_group')).toBe('eq.Lean Medium');
   expect(url.searchParams.get('select')).toContain('player_stats!inner');
 });
 

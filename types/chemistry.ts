@@ -12,6 +12,8 @@ export interface PlayerCard extends CardCostFields {
   isHero?: boolean;
   isHallOfFut?: boolean;
   version?: string;
+  body_type?: string | null;
+  body_type_group?: string | null;
 }
 
 export interface SquadSlot {

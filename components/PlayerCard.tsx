@@ -48,7 +48,7 @@ class PlayerCardFrame extends HTMLElement {
 if (!customElements.get('player-card-frame')) customElements.define('player-card-frame', PlayerCardFrame);
 
 type PlayerCardProps = {
-  card: CardCostFields & Record<string, any>;
+  card: CardCostFields & { body_type?: string | null; body_type_group?: string | null } & Record<string, any>;
   styles?: any[];
   catalog?: Record<string, any[]>;
   createReviewButton?: (card: any, options: { compact: boolean }) => HTMLButtonElement;

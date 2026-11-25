@@ -6,12 +6,12 @@ export function applyPhysicalQuery(query, acceleTypes, bodyTypes) {
   } else if (types.length) {
     query = query.or(types.map(type => type === 'Controlled' ? 'accele_type.eq.Controlled' : `accele_type.ilike.%${type}%`).join(','));
   }
-  if (bodyTypes.size === 1) query = query.eq('body_type', [...bodyTypes][0]);
-  else if (bodyTypes.size > 1) query = query.in('body_type', [...bodyTypes]);
+  if (bodyTypes.size === 1) query = query.eq('body_type_group', [...bodyTypes][0]);
+  else if (bodyTypes.size > 1) query = query.in('body_type_group', [...bodyTypes]);
   return query;
 }
 export function matchesPhysicalTypes(card, acceleTypes, bodyTypes) {
   const accelerationMatches = !acceleTypes.size || [...acceleTypes].some(type => type === 'Controlled'
     ? card.accele_type === 'Controlled' : String(card.accele_type ?? '').toLowerCase().includes(type.toLowerCase()));
-  return accelerationMatches && (!bodyTypes.size || bodyTypes.has(card.body_type));
+  return accelerationMatches && (!bodyTypes.size || bodyTypes.has(card.body_type_group));
 }

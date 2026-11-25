@@ -1623,6 +1623,7 @@ function normalizePlayerCard(row) {
     preferred_foot: cardVersion.preferred_foot,
     accele_type: cardVersion.accele_type,
     body_type: cardVersion.body_type,
+    body_type_group: cardVersion.body_type_group,
     position: position.name,
     is_primary: row.is_primary,
     pac: stats.pac,

@@ -5,6 +5,13 @@ import { createPlayerDetailModal } from './PlayerDetailModal.js';
 import { excludedCardVersionsStore, EXCLUDED_CARD_VERSIONS_STORAGE_KEY } from '../utils/excludedCardVersions.js';
 
 let panels = [];
+test('body specs keep the original player-specific name instead of the filter group', async () => {
+  const detail = setup();
+  await detail.open({ id: 999, name: 'Kylian Mbappé', body_type: 'Kylian Mbappé', body_type_group: 'Unique' });
+  const bio = document.querySelector('#player-detail-bio');
+  expect(bio.textContent).toContain('Kylian Mbappé');
+  expect(bio.textContent).not.toContain('Unique');
+});
 test('SBC detail artwork corrects the legacy URL and clears when switching cards', async () => {
   const detail = setup();
   await detail.open({ id: 20051, name: 'A. Bouaddi', version: 'special_SBC',
