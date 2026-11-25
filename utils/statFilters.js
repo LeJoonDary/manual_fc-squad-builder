@@ -2,7 +2,7 @@ export const STAT_GROUPS = {
   PACE: ['pac', 'acceleration', 'sprint_speed'],
   SHOOTING: ['sho', 'positioning', 'finishing', 'shot_power', 'long_shots', 'volleys', 'penalties'],
   PASSING: ['pas', 'vision', 'crossing', 'fk_accuracy', 'short_passing', 'long_passing', 'curve'],
-  DRIBBLING: ['dri', 'agility', 'balance', 'reactions', 'ball_control', 'dribbling_sub', 'composure'],
+  DRIBBLING: ['dri', 'agility', 'balance', 'reactions', 'ball_control', 'dribbling', 'composure'],
   DEFENDING: ['def', 'interceptions', 'heading_accuracy', 'def_awareness', 'standing_tackle', 'sliding_tackle'],
   PHYSICAL: ['phy', 'jumping', 'stamina', 'strength', 'aggression'],
   GOALKEEPING: ['gk_diving', 'gk_handling', 'gk_kicking', 'gk_positioning', 'gk_reflexes'],
@@ -10,7 +10,19 @@ export const STAT_GROUPS = {
 export const STAT_KEYS = Object.values(STAT_GROUPS).flat();
 export const defaultStats = () => Object.fromEntries(STAT_KEYS.map(key => [key, { min: '', max: '' }]));
 const hasValue = value => value !== '' && value != null;
-export const activeStats = stats => STAT_KEYS.filter(key => hasValue(stats[key].min) || hasValue(stats[key].max));
+export const activeStats = (stats = {}) => STAT_KEYS.filter(key => hasValue(stats[key]?.min) || hasValue(stats[key]?.max));
+export function matchesDetailedStats(card, stats = {}) {
+  const source = card?.card ?? card ?? {};
+  const raw = source.raw ?? {};
+  const joined = source.player_stats ?? raw.player_stats ?? source.stats ?? raw.stats ?? {};
+  const values = (Array.isArray(joined) ? joined[0] : joined) ?? {};
+  return activeStats(stats).every(key => {
+    const value = values[key] ?? source[key] ?? raw[key];
+    const { min, max } = stats[key];
+    if (!hasValue(value) || !Number.isFinite(Number(value))) return false;
+    return (!hasValue(min) || Number(value) >= Number(min)) && (!hasValue(max) || Number(value) <= Number(max));
+  });
+}
 export function applyStatQuery(query, stats) {
   for (const key of activeStats(stats)) {
     if (hasValue(stats[key].min)) query = query.gte(`player_stats.${key}`, stats[key].min);
@@ -20,11 +32,6 @@ export function applyStatQuery(query, stats) {
 }
 export function renderStatInputs(mount) {
   mount.replaceChildren();
-  const columns = Array.from({ length: 3 }, () => {
-    const column = document.createElement('div'); column.className = 'detailed-stat-column';
-    mount.append(column); return column;
-  });
-  let groupIndex = 0;
   for (const [group, keys] of Object.entries(STAT_GROUPS)) {
     const section = document.createElement('section'); section.className = 'detailed-stat-group';
     const heading = document.createElement('h3'); heading.textContent = group;
@@ -43,6 +50,6 @@ export function renderStatInputs(mount) {
       }
       section.append(row);
     }
-    columns[groupIndex++ % columns.length].append(section);
+    mount.append(section);
   }
 }

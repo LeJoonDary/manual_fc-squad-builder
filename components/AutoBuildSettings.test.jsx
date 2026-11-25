@@ -223,6 +223,12 @@ it('refreshes the role badge when slot settings change', async () => {
   state.slotRequirements = { LCM: { role: { name: 'Holding', minLevel: 1 } }, RCM: { playstyle: { idOrName: 'Technical', isPlus: true } } };
   await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
   expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Advanced Settings (2)');
+  state.slotRequirements.LCM.physical = { bodyTypes: ['Unique'], acceleTypes: ['Explosive'], minHeight: 180 };
+  await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Advanced Settings (5)');
+  state.slotRequirements.LCM.detailedStats = { finishing: { min: 88, max: 99 }, composure: { min: 85 } };
+  await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
+  expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Advanced Settings (7)');
   state.slotRequirements = {};
   await act(async () => window.dispatchEvent(new Event('auto-build-context-change')));
   expect(container.querySelector('.tactical-roles-trigger').textContent).toContain('Advanced Settings (0)');

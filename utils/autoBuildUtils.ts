@@ -1,4 +1,8 @@
 import { calculatePlaystyleAndSkillBonus } from './playstyleBonus';
+import { STAT_KEYS, activeStats, applyStatQuery, matchesDetailedStats } from './statFilters.js';
+import type { DetailedStatsRequirements } from '../types/playerStats';
+import { applyPhysicalRequirements, matchesPhysicalRequirements } from './physicalFilters.js';
+import type { PhysicalRequirements } from '../types/physical';
 export { getPlaystyleTier, getPsScore, calculatePlaystyleAndSkillBonus } from './playstyleBonus';
 import { priorityGroup } from './priorityGroups.js';
 import { isCardIcon, isCardHero } from './specialCardIdentity.js';
@@ -18,6 +22,8 @@ import { getCardVersionId, normalizeExcludedCardVersionIds, validateSpecialCardL
 export interface PlaystyleReqItem { id: number; name: string; isPlus: boolean; }
 export interface RoleReqItem { name: string; minLevel: 1 | 2; }
 export interface SlotRequirement {
+  detailedStats?: DetailedStatsRequirements;
+  physical?: PhysicalRequirements;
   minSm?: number;
   minWf?: number;
   minSkillMoves?: number;
@@ -145,12 +151,11 @@ export const MAX_BACKTRACK_ITERATIONS = 50000;
 // Explicit solver and pitch display fields; omit full card-detail joins.
 export const AUTO_BUILD_CANDIDATE_SELECT = `
   id,player_id,overall,price,sbc_price,token_cost,season_pass_level,version,card_type,club_id,league_id,image_url,background_url,sm,wf,preferred_foot,body_type,body_type_group,accele_type,
-  players!inner(id,name,long_name,nation_id,gender,height,nations(name,flag_url)),
+  players!inner(id,name,long_name,nation_id,gender,height,weight,nations(name,flag_url)),
   clubs(id,name,logo_url),leagues(id,name,logo_url),card_positions(is_primary,meta_score,positions(name)),
   card_roles(role_level,roles(position,role_name)),
   card_playstyles(playstyle_id,is_plus,playstyles(id,name,image_url,image_url_plus)),
-  player_stats(gk_diving,gk_handling,gk_kicking,gk_reflexes,gk_positioning,sprint_speed,pac,sho,pas,dri,def,phy,acceleration,agility,balance,
-    finishing,composure,def_awareness,standing_tackle,strength,stamina,vision,short_passing,jumping)
+  player_stats(${STAT_KEYS.join(',')})
 `;
 
 export function getPositionBudgetGroup(position: string, isThreeBack: boolean): BudgetGroup {
@@ -242,7 +247,8 @@ export async function fetchCandidatePlayers(
     if (!item.positions.length) return { group: item.group, rows: [] };
     const queryRows = async (cap: number | null, limit: number, cheapest = false, positions = item.positions, roleSlot = positions[0], req?: { roleName: string; minLevel: 1 | 2 }) => {
       const styles = requiredPlaystyles(options.slotRequirements?.[roleSlot]);
-      const projection = select + (req ? ', required_roles:card_roles!inner(role_level,roles!inner(position,role_name))' : '')
+      const slotStats = slotRequirement(roleSlot, options)?.detailedStats;
+      const projection = (activeStats(slotStats).length ? select.replace('player_stats(', 'player_stats!inner(') : select) + (req ? ', required_roles:card_roles!inner(role_level,roles!inner(position,role_name))' : '')
         + styles.map((_, index) => ', ' + styleAlias(index) + ':card_playstyles!inner(is_plus,playstyles!inner(id,name))').join('');
       let query = supabase.from('card_versions').select(projection)
         .in('candidate_positions.positions.name', positions)
@@ -250,6 +256,8 @@ export async function fetchCandidatePlayers(
       // Filter the joined player before LIMIT so the other gender cannot crowd out candidates.
       if (options.maxFemalePlayers === 'exclude') query = query.or('gender.is.null,and(gender.not.ilike.*women*,gender.not.ilike.*female*)', { referencedTable: 'players' });
       const stars = slotRequirement(roleSlot, options);
+      query = applyPhysicalRequirements(query, stars?.physical);
+      query = applyStatQuery(query, slotStats);
       if (stars?.minSm ?? stars?.minSkillMoves) query = query.gte('sm', (stars.minSm ?? stars.minSkillMoves)!);
       if (stars?.minWf ?? stars?.minWeakFoot) query = query.gte('wf', (stars.minWf ?? stars.minWeakFoot)!);
       if (req) query = query.eq('required_roles.roles.position', positions[0])
@@ -460,6 +468,8 @@ function hasPlaystyle(card: any, target: string | number, goldOnly = false): boo
 }
 export function matchesSlotRequirements(card: any, req?: SlotRequirement, slotPos = ''): boolean {
   if (!req) return true;
+  if (!matchesDetailedStats(card, req.detailedStats)) return false;
+  if (!matchesPhysicalRequirements(card, req.physical)) return false;
   const source = card?.card ?? card?.raw ?? card;
   const minSm = req.minSm ?? req.minSkillMoves;
   const minWf = req.minWf ?? req.minWeakFoot;
@@ -2407,13 +2417,16 @@ export async function getRecommendedPlayersForSlot(
   const minOvr = Math.max(80, range.min, cap !== null && cap < 5000000 ? 0 : (!options.totalBudget || options.totalBudget >= 5000000 ? 85 : 0));
   const excluded = new Set(normalizeExcludedCardVersionIds(options.excludedCardVersionIds));
   if (!candidates) {
+    const slotStats = slotRequirement(options.slotPosition, options)?.detailedStats;
     let query = supabase.from('card_versions')
-      .select(AUTO_BUILD_CANDIDATE_SELECT + ', candidate_positions:card_positions!inner(positions!inner(name))')
+      .select((activeStats(slotStats).length ? AUTO_BUILD_CANDIDATE_SELECT.replace('player_stats(', 'player_stats!inner(') : AUTO_BUILD_CANDIDATE_SELECT) + ', candidate_positions:card_positions!inner(positions!inner(name))')
       .eq('candidate_positions.positions.name', normalizeChemistryPosition(options.slotPosition))
       .gte('overall', minOvr).lte('overall', range.max).gt('price', 0);
     if (cap !== null) query = query.lte('price', cap);
     if (options.maxFemalePlayers === 'exclude') query = query.or('gender.is.null,and(gender.not.ilike.*women*,gender.not.ilike.*female*)', { referencedTable: 'players' });
     const stars = slotRequirement(options.slotPosition, options);
+    query = applyPhysicalRequirements(query, stars?.physical);
+    query = applyStatQuery(query, slotStats);
     if (stars?.minSm ?? stars?.minSkillMoves) query = query.gte('sm', (stars.minSm ?? stars.minSkillMoves)!);
     if (stars?.minWf ?? stars?.minWeakFoot) query = query.gte('wf', (stars.minWf ?? stars.minWeakFoot)!);
     const usedIds = [...current.map(player => getCardVersionId(player.card)), replacedId].filter(Boolean);

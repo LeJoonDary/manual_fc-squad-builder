@@ -111,7 +111,7 @@ else:
   card_id = cv_res.data[0]["id"]
   print(f"  [2/5] card_versions 신규 등록 (Card ID: {card_id})")
 
-# 4. player_stats 적재 (6대 스탯 'dri' + 세부 스탯 'dribbling_sub')
+# 4. player_stats 적재 (6대 스탯 'dri' + 세부 스탯 'dribbling')
 sample_ps = supabase.table("player_stats").select("*").limit(1).execute().data
 ps_cols = set(sample_ps[0].keys()) if sample_ps else set()
 
@@ -144,7 +144,7 @@ stats_payload = {
     "reactions": 75,
     "ball_control": 80,
     # 세부 드리블링 컬럼 매핑
-    "dribbling_sub": 84,
+    "dribbling": 84,
     "dribbling": 84,
     "composure": 75,
     "interceptions": 61,
@@ -178,7 +178,7 @@ else:
   supabase.table("player_stats").insert(valid_ps).execute()
 
 dribble_detail = (
-    valid_ps.get("dribbling_sub")
+    valid_ps.get("dribbling")
     or valid_ps.get("dribbling")
     or valid_ps.get("dri")
 )

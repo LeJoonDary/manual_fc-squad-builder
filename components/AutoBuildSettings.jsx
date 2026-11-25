@@ -1,3 +1,5 @@
+import { activeStats } from '../utils/statFilters.js';
+import { countPhysicalRequirements } from '../utils/physicalFilters.js';
 import { LanguageProvider, useTranslation } from '../src/contexts/LanguageContext';
 import { ui, formatMessage } from '../src/i18n/languageStore';
 import { safeBudgetNumber, formatBudgetNumber } from '../utils/budget.ts';
@@ -39,7 +41,7 @@ function AutoBuildSettingsContent({ formation, getTargetBudget, budgetSection, s
   const requirements = Object.values(getRoleOptions().slotRequirements ?? {});
   const activeRolesCount = requirements.reduce((count, req) => count + (req?.roles?.length ?? (req?.role ? 1 : 0)), 0);
   const activePlaystylesCount = requirements.reduce((count, req) => count + (req?.playstyles?.length ?? (req?.playstyle ? 1 : 0)), 0);
-  const totalActivePreferences = activeRolesCount + activePlaystylesCount + requirements.reduce((count, req) => count + Number(Boolean(req?.minSm)) + Number(Boolean(req?.minWf)), 0);
+  const totalActivePreferences = activeRolesCount + activePlaystylesCount + requirements.reduce((count, req) => count + Number(Boolean(req?.minSm)) + Number(Boolean(req?.minWf)) + countPhysicalRequirements(req?.physical) + activeStats(req?.detailedStats).length, 0);
   const isThreeBack = formation.startsWith('3');
 
   async function handleAutoBuild() {

@@ -61,13 +61,9 @@ sample_stats = supabase.table("player_stats").select("*").limit(1).execute()
 stats_cols = set(sample_stats.data[0].keys()) if sample_stats.data else set()
 
 stats_update_payload = {}
-# dribbling 또는 dribbling_sub 중 존재하는 컬럼에 78 주입
+# 실제 player_stats.dribbling 컬럼에 78 주입
 if "dribbling" in stats_cols:
     stats_update_payload["dribbling"] = 78
-if "dribbling_sub" in stats_cols:
-    stats_update_payload["dribbling_sub"] = 78
-if "dribble" in stats_cols:
-    stats_update_payload["dribble"] = 78
 
 if stats_update_payload:
     print(f"▶ [2/2] player_stats 드리블 세부 스탯 컬럼 감지: {list(stats_update_payload.keys())}")

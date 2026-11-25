@@ -217,7 +217,7 @@ def main():
       "balance": "attributeBalance",
       "reactions": "attributeReactions",
       "ball_control": "attributeBallControl",
-      "dribbling_sub": "attributeDribbling",
+      "dribbling": "attributeDribbling",
       "composure": "attributeComposure",
       "interceptions": "attributeInterceptions",
       "heading_accuracy": "attributeHeadingAccuracy",

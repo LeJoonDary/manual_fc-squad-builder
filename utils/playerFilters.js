@@ -1,5 +1,5 @@
 import { defaultStats, activeStats, applyStatQuery } from './statFilters.js';
-import { applyPhysicalQuery } from './physicalFilters.js';
+import { applyPhysicalRequirements } from './physicalFilters.js';
 import { PLAYER_LIST_SELECT, cachedPlayerPage, fetchPlayerListByIds, applyPlayerNameQuery, findPlayerNameIds } from './playerCatalog.js';
 import { PLAYER_PAGE_SIZE } from './playerPagination.js';
 import { matchesPlayerName } from './playerSearch.js';
@@ -32,8 +32,6 @@ export function buildPlayerQuery(db, filters) {
   const hasValue = value => value !== '' && value != null;
   for (const [column, minimum, maximum] of [
     ['overall', filters.minOvr, filters.maxOvr], ['price', filters.minPrice, filters.maxPrice],
-    ['players.height', filters.minHeight, filters.maxHeight],
-    ['players.weight', filters.minWeight, filters.maxWeight],
     ['players.age', filters.minAge, filters.maxAge],
   ]) {
     if (hasValue(minimum)) query = query.gte(column, Number(minimum));
@@ -43,10 +41,9 @@ export function buildPlayerQuery(db, filters) {
   if (hasValue(filters.minWf)) query = query.gte('wf', filters.minWf);
   for (const [column, value] of [
     ['players.nation_id', filters.nation], ['league_id', filters.league], ['club_id', filters.club],
-    ['players.gender', filters.gender], ['preferred_foot', filters.preferredFoot],
   ]) if (hasValue(value)) query = query.eq(column, value);
   query = applyStatQuery(query, filters.stats);
-  query = applyPhysicalQuery(query, filters.acceleTypes, filters.bodyTypes);
+  query = applyPhysicalRequirements(query, filters);
   // The actual schema calls overall_rating "overall".
   return query.order('overall', { ascending: false, nullsFirst: false }).order('id');
 }

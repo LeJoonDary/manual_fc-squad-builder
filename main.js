@@ -1,3 +1,6 @@
+import { createSlotDetailedStats } from './components/SlotDetailedStats.js';
+import { createSlotPhysicalControls } from './components/SlotPhysicalControls.js';
+import { countPhysicalRequirements } from './utils/physicalFilters.js';
 import { createExplorePanel } from './components/ExplorePanel.js';
 import { CardCostBadge } from './components/CardCostBadge';
 import { getCardCost } from './utils/cardCost';
@@ -8,7 +11,7 @@ import { loadSharedSquadCards } from './utils/squadShareHydration.js';
 import { createSquadShareModal } from './components/SquadShareModal.js';
 import { createRecommendationControls, replacementChemBadge, emptySlotRecommendationBadge } from './components/RecommendationControls.js';
 import { getRecommendedPlayersForEmptySlot, getRecommendedPlayersForSlot, getEmptySlotPriceCap } from './utils/autoBuildUtils';
-import { getLanguage, subscribeLanguage } from './src/i18n/languageStore';
+import { getLanguage, subscribeLanguage, ui } from './src/i18n/languageStore';
 import { mountLanguageToggle } from './src/components/LanguageToggle.tsx';
 import { setCardAction } from './src/i18n/cardActions';
 import { createPlayerDbFilterLabel } from './src/i18n/playerDb';
@@ -295,6 +298,8 @@ let selectedSlotPos = 'ST';
 const tacticalSlotRoles = {};
 const tacticalSlotPlaystyles = {};
 const tacticalSlotStars = {};
+const tacticalSlotPhysical = {};
+const tacticalSlotStats = {};
 let tacticalPlaystylesList = [];
 let tacticalPlaystylesStatus = 'loading';
 let tacticalTab = 'roles';
@@ -836,6 +841,7 @@ function setupFilterCommandBar() {
   });
 
   filtersContent.setAttribute('aria-label', 'Player filter bar');
+  new ResizeObserver(fitOpenFilterPopovers).observe(filtersContent.closest('.players-filters'));
   updateCommandSummaries();
 }
 
@@ -845,7 +851,16 @@ function toggleCommandPopover(section) {
   closeCommandPopovers();
   accordion.classList.toggle('is-command-open', shouldOpen);
   accordion.querySelector('[data-filter-accordion]').setAttribute('aria-expanded', String(shouldOpen));
+  if (shouldOpen) { fitOpenFilterPopovers(); requestAnimationFrame(fitOpenFilterPopovers); }
 }
+
+function fitOpenFilterPopovers() {
+  document.querySelectorAll('.command-filter.is-command-open > .filter-accordion-content').forEach(content => {
+    const top = content.getBoundingClientRect().top;
+    content.style.maxHeight = `${Math.max(0, Math.min(window.innerHeight * .75, window.innerHeight - top - 12))}px`;
+  });
+}
+window.addEventListener('resize', fitOpenFilterPopovers);
 
 function closeCommandPopovers() {
   document.querySelectorAll('.command-filter.is-command-open').forEach((panel) => {
@@ -1046,6 +1061,8 @@ function clearRolesAndPlaystyles() {
   for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
   for (const key of Object.keys(tacticalSlotPlaystyles)) delete tacticalSlotPlaystyles[key];
   for (const key of Object.keys(tacticalSlotStars)) delete tacticalSlotStars[key];
+  for (const key of Object.keys(tacticalSlotPhysical)) delete tacticalSlotPhysical[key];
+  for (const key of Object.keys(tacticalSlotStats)) delete tacticalSlotStats[key];
   renderRoleFilterRows();
   window.dispatchEvent(new Event('auto-build-context-change'));
 }
@@ -1058,8 +1075,12 @@ function getRoleOptions() {
         .map(role => ({ name: role.name, minLevel: role.level }));
     const playstyles = tacticalSlotPlaystyles[slot.position];
     const stars = tacticalSlotStars[slot.position] ?? {};
-    if (roles.length || playstyles?.length || stars.minSm || stars.minWf) slotRequirements[slot.position] = {
+    const physical = tacticalSlotPhysical[slot.position];
+    const detailedStats = tacticalSlotStats[slot.position];
+    if (roles.length || playstyles?.length || stars.minSm || stars.minWf || countPhysicalRequirements(physical) || activeStats(detailedStats).length) slotRequirements[slot.position] = {
       ...stars,
+      ...(activeStats(detailedStats).length ? { detailedStats: structuredClone(detailedStats) } : {}),
+      ...(countPhysicalRequirements(physical) ? { physical: structuredClone(physical) } : {}),
       ...(roles.length ? { roles } : {}),
       ...(playstyles?.length ? { playstyles } : {}),
     };
@@ -1083,7 +1104,7 @@ function renderTacticalPitch() {
     node.style.left = slot.x + '%'; node.style.top = slot.y + '%';
     node.textContent = slot.position;
     node.setAttribute('aria-pressed', String(selectedSlotPos === slot.position));
-    node.setAttribute('aria-label', slot.position + (requirements[slot.position] ? ' role configured' : ' select role'));
+    node.setAttribute('aria-label', slot.position + (requirements[slot.position] ? ' advanced settings configured' : ' select advanced settings'));
     if (requirements[slot.position]) { const dot = document.createElement('span'); dot.className = 'tactical-role-dot'; node.append(dot); }
     node.addEventListener('click', () => { selectedSlotPos = slot.position; renderRoleFilterRows(); });
     pitch.append(node);
@@ -1102,14 +1123,14 @@ function openTacticalRoles() {
   dialog.innerHTML = '<header><h2 id="tactical-roles-title" data-i18n="modals.advancedTitle">Advanced Builder Settings</h2><button type="button" aria-label="Close Advanced Settings">×</button></header>';
   const description = document.createElement('p');
   description.dataset.i18n = 'modals.advancedDesc';
-  description.textContent = 'Configure specific slot requirements such as Playstyles or Roles.';
+  description.textContent = 'Configure Roles, Playstyles, Detailed Stats, and Physical & Body requirements for each slot.';
   dialog.append(description);
   const map = document.createElement('div');
   map.innerHTML = '<p class="tactical-formation-name"></p><div class="tactical-mini-pitch" aria-label="Formation slots"></div>';
   const tabs = document.createElement('div');
   tabs.className = 'tactical-tabs';
-  for (const [tab, label] of [['roles', '🎭 Roles'], ['playstyles', '⚡ Playstyles']]) {
-    const button = document.createElement('button'); button.type = 'button'; button.dataset.tab = tab; button.textContent = label;
+  for (const [tab, label] of [['roles', '🎭 Roles'], ['playstyles', '⚡ Playstyles'], ['stats', '📈 Detailed Stats'], ['physical', '⚙️ Physical & Body']]) {
+    const button = document.createElement('button'); button.type = 'button'; button.dataset.tab = tab; button.textContent = ui(label);
     button.addEventListener('click', () => { tacticalTab = tab; renderRoleFilterRows(); });
     tabs.append(button);
   }
@@ -1119,6 +1140,8 @@ function openTacticalRoles() {
     for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
     for (const key of Object.keys(tacticalSlotPlaystyles)) delete tacticalSlotPlaystyles[key];
     for (const key of Object.keys(tacticalSlotStars)) delete tacticalSlotStars[key];
+    for (const key of Object.keys(tacticalSlotPhysical)) delete tacticalSlotPhysical[key];
+    for (const key of Object.keys(tacticalSlotStats)) delete tacticalSlotStats[key];
     renderRoleFilterRows();
   });
   tacticalTab = 'roles';
@@ -1136,9 +1159,27 @@ function openTacticalRoles() {
   renderRoleFilterRows();
   dialog.showModal();
 }
+function renderTacticalTabs() {
+  if (!tacticalRolesDialog) return;
+  const req = getRoleOptions().slotRequirements[selectedSlotPos] ?? {};
+  const stars = Number(Boolean(req.minSm)) + Number(Boolean(req.minWf));
+  const counts = { roles: (req.roles?.length ?? 0) + stars, playstyles: (req.playstyles?.length ?? 0) + stars,
+    stats: activeStats(req.detailedStats).length, physical: countPhysicalRequirements(req.physical) };
+  const labels = { roles: '🎭 Roles', playstyles: '⚡ Playstyles', stats: '📈 Detailed Stats', physical: '⚙️ Physical & Body' };
+  tacticalRolesDialog.querySelectorAll('[data-tab]').forEach(button => {
+    const tab = button.dataset.tab;
+    button.setAttribute('aria-pressed', String(tab === tacticalTab));
+    button.replaceChildren(document.createTextNode(ui(labels[tab])));
+    if (counts[tab]) {
+      const badge = document.createElement('span'); badge.className = 'tactical-count'; badge.textContent = String(counts[tab]); button.append(badge);
+    }
+  });
+  const heading = tacticalRolesDialog.querySelector('.position-role-heading strong');
+  if (heading) heading.textContent = ui({ roles: 'Roles', playstyles: 'Playstyles', stats: 'Detailed Stats', physical: 'Physical & Body' }[tacticalTab]);
+}
 function renderRoleFilterRows() {
   roleFilterList.replaceChildren();
-  if (tacticalRolesDialog) {
+  if (tacticalRolesDialog && ['roles', 'playstyles'].includes(tacticalTab)) {
     for (const [key, label] of [['minSm', 'Skill Moves'], ['minWf', 'Weak Foot']]) {
       const group = document.createElement('fieldset'); group.className = 'tactical-star-filter';
       const legend = document.createElement('legend'); legend.textContent = label; group.append(legend);
@@ -1157,36 +1198,73 @@ function renderRoleFilterRows() {
       roleFilterList.append(group);
     }
   }
-  if (tacticalRolesDialog) {
-    tacticalRolesDialog.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tab === tacticalTab)));
-  }
+  renderTacticalTabs();
   renderTacticalPitch();
   window.dispatchEvent(new Event('auto-build-context-change'));
   const selectedPositions = tacticalRolesDialog ? [normalizeChemistryPosition(selectedSlotPos)] : [...filters.positions];
   const subfilter = roleFilterList.closest('.position-role-subfilter');
   if (subfilter) subfilter.hidden = selectedPositions.length === 0;
+  if (!tacticalRolesDialog && subfilter) subfilter.querySelector('.position-role-heading strong').textContent = ui('Roles');
 
   const allChip = document.createElement('button');
   allChip.type = 'button';
   allChip.className = 'role-all-chip';
   allChip.classList.toggle('is-selected', filters.selectedRoles.length === 0);
   allChip.setAttribute('aria-pressed', String(filters.selectedRoles.length === 0));
-  allChip.textContent = tacticalRolesDialog ? 'Clear slot role' : 'All / Any';
+  allChip.textContent = tacticalRolesDialog ? ui('Clear slot role') : 'All / Any';
   allChip.addEventListener('click', () => {
     if (tacticalRolesDialog) {
-      if (tacticalTab === 'playstyles') delete tacticalSlotPlaystyles[selectedSlotPos];
+      if (tacticalTab === 'stats') delete tacticalSlotStats[selectedSlotPos];
+      else if (tacticalTab === 'physical') delete tacticalSlotPhysical[selectedSlotPos];
+      else if (tacticalTab === 'playstyles') delete tacticalSlotPlaystyles[selectedSlotPos];
       else tacticalSlotRoles[selectedSlotPos] = null;
     } else {
       filters.selectedRoles = [];
       for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
     }
     renderRoleFilterRows();
-    searchPlayers();
+    if (!tacticalRolesDialog) searchPlayers();
   });
   roleFilterList.append(allChip);
 
+  if (tacticalRolesDialog && tacticalTab === 'stats') {
+    allChip.textContent = ui('Clear slot Detailed Stats');
+    const updateClear = () => {
+      const empty = !activeStats(tacticalSlotStats[selectedSlotPos]).length;
+      allChip.classList.toggle('is-selected', empty); allChip.setAttribute('aria-pressed', String(empty));
+    };
+    updateClear();
+    roleFilterList.append(createSlotDetailedStats({
+      value: tacticalSlotStats[selectedSlotPos], position: normalizeChemistryPosition(selectedSlotPos),
+      onChange: value => {
+        if (activeStats(value).length) tacticalSlotStats[selectedSlotPos] = value;
+        else delete tacticalSlotStats[selectedSlotPos];
+        updateClear(); renderTacticalPitch(); renderTacticalTabs();
+        window.dispatchEvent(new Event('auto-build-context-change'));
+      },
+    }));
+    return;
+  }
+  if (tacticalRolesDialog && tacticalTab === 'physical') {
+    allChip.textContent = ui('Clear slot Physical & Body');
+    allChip.classList.toggle('is-selected', !countPhysicalRequirements(tacticalSlotPhysical[selectedSlotPos]));
+    allChip.setAttribute('aria-pressed', String(!countPhysicalRequirements(tacticalSlotPhysical[selectedSlotPos])));
+    roleFilterList.append(createSlotPhysicalControls({
+      value: tacticalSlotPhysical[selectedSlotPos],
+      onChange: value => {
+        if (countPhysicalRequirements(value)) tacticalSlotPhysical[selectedSlotPos] = value;
+        else delete tacticalSlotPhysical[selectedSlotPos];
+        allChip.classList.toggle('is-selected', !countPhysicalRequirements(value));
+        allChip.setAttribute('aria-pressed', String(!countPhysicalRequirements(value)));
+        renderTacticalPitch();
+        renderTacticalTabs();
+        window.dispatchEvent(new Event('auto-build-context-change'));
+      },
+    }));
+    return;
+  }
   if (tacticalRolesDialog && tacticalTab === 'playstyles') {
-    allChip.textContent = 'Clear slot Playstyle';
+    allChip.textContent = ui('Clear slot Playstyle');
     if (tacticalPlaystylesStatus !== 'ready') {
       const status = document.createElement('p');
       status.textContent = tacticalPlaystylesStatus === 'loading' ? 'Loading Playstyles…' : 'Unable to load PlayStyles.';
@@ -1283,6 +1361,8 @@ function clearAllFilters() {
   for (const key of Object.keys(tacticalSlotRoles)) delete tacticalSlotRoles[key];
   for (const key of Object.keys(tacticalSlotPlaystyles)) delete tacticalSlotPlaystyles[key];
   for (const key of Object.keys(tacticalSlotStars)) delete tacticalSlotStars[key];
+  for (const key of Object.keys(tacticalSlotPhysical)) delete tacticalSlotPhysical[key];
+  for (const key of Object.keys(tacticalSlotStats)) delete tacticalSlotStats[key];
   resetStatInputs();
 
   playerNameSearch.value = '';
@@ -1479,6 +1559,7 @@ async function loadSlotRecommendations() {
   }
 }
 subscribeLanguage(() => {
+  if (tacticalRolesDialog) renderRoleFilterRows();
   if (!modal.hidden && recommendationEnabled()) { renderRecommendationControls(); updateModalPlayerSearch(); }
 });
 

@@ -40,7 +40,7 @@ export const translations = {
     modals: {
       excludedTitle: 'Excluded Cards Settings', excludedDesc: 'Choose card types or specific cards to exclude from Auto Build.',
       excludeIcons: 'Exclude Icons', excludeHeroes: 'Exclude Heroes', advancedTitle: 'Advanced Builder Settings',
-      advancedDesc: 'Configure specific slot requirements such as Playstyles or Roles.',
+      advancedDesc: 'Configure Roles, Playstyles, Detailed Stats, and Physical & Body requirements for each slot.',
       save: 'Save Changes', apply: 'Apply', cancel: 'Cancel', close: 'Close', reset: 'Reset', searchPlaceholder: 'Search player name...',
     },
     common: { coins: 'C', confirm: 'Confirm' },
@@ -85,7 +85,7 @@ export const translations = {
     modals: {
       excludedTitle: '제외 카드 설정', excludedDesc: '자동 완성 시 제외할 특수 카드나 특정 선수를 설정합니다.',
       excludeIcons: '아이콘(Icon) 제외', excludeHeroes: '히어로(Hero) 제외', advancedTitle: '고급 조건 설정',
-      advancedDesc: '각 포지션별 필수 Playstyle 또는 Role 조건을 지정합니다.',
+      advancedDesc: '각 포지션 슬롯의 롤, 플레이스타일, 세부 스탯, 피지컬 및 체형 조건을 지정합니다.',
       save: '변경사항 저장', apply: '적용', cancel: '취소', close: '닫기', reset: '초기화', searchPlaceholder: '선수 이름 검색...',
     },
     common: { coins: 'C', confirm: '확인' },

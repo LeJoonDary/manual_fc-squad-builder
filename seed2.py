@@ -37,7 +37,7 @@ STAT_MAP = {
     'long_passing': 'skill_long_passing', 'curve': 'skill_curve',
     'agility': 'movement_agility', 'balance': 'movement_balance',
     'reactions': 'movement_reactions', 'ball_control': 'skill_ball_control',
-    'dribbling_sub': 'skill_dribbling', 'composure': 'mentality_composure',
+    'dribbling': 'skill_dribbling', 'composure': 'mentality_composure',
     'interceptions': 'mentality_interceptions', 'heading_accuracy': 'attacking_heading_accuracy',
     'def_awareness': 'defending_awareness', 'standing_tackle': 'defending_standing_tackle',
     'sliding_tackle': 'defending_sliding_tackle', 'jumping': 'power_jumping',

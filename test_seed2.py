@@ -21,7 +21,7 @@ class Seed2Tests(unittest.TestCase):
                  for i, version in enumerate(['Bronze', 'Silver', 'Silver', 'Gold'], 1)]
         tables, styles, counts = seed2.prepare(rows, cards, POSITIONS, [])
         self.assertEqual([r['card_id'] for r in tables['player_stats']], [901, 902, 903, 904])
-        self.assertEqual(tables['player_stats'][0]['dribbling_sub'], 60)
+        self.assertEqual(tables['player_stats'][0]['dribbling'], 60)
         self.assertEqual(counts, {'Bronze': 1, 'Silver': 2, 'Gold': 1})
         self.assertEqual(tables['card_positions'][:3], [
             {'card_id': 901, 'position_id': 1, 'is_primary': True},
