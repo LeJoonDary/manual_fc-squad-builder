@@ -4,6 +4,7 @@ import re
 import json
 import time
 import argparse
+import unicodedata
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
@@ -393,39 +394,184 @@ DETAIL_KEYS = {
     "gk_reflexes": "attributeGkReflexes", "gk_positioning": "attributeGkPositioning",
 }
 
+def normalize_league_key(name):
+    """리그명 정규화: 특수 아포스트로피(’/‘), 악센트(é/ü/ó/č/ž 등), 하이픈/공백 통일"""
+    if not name:
+        return ""
+    s = str(name).strip()
+    s = s.replace("\u2019", "'").replace("\u2018", "'").replace("`", "'").replace("\u00b4", "'")
+    s = s.replace("ß", "ss").replace("ẞ", "ss").replace("ø", "o").replace("Ø", "o").replace("ł", "l").replace("Ł", "l")
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = re.sub(r"[-_/]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip().lower()
+    return s
+
+
 LEAGUE_ALIAS_MAP = {
-    "major league soccer": 7, "mls": 7, "premier league": 3,
-    "laliga ea sports": 2, "laliga": 2, "la liga": 2, "bundesliga": 4,
-    "ligue 1 mcdonald's": 5, "ligue 1": 5, "serie a enilive": 12, "serie a": 12,
-    "liga portugal": 13, "eredivisie": 21, "bundesliga 2": 22,
-    "liga bbva mx": 23, "liga mx": 23, "roshn saudi league": 14,
-    "scottish premiership": 27, "trendyol süper lig": 11,
-    "efl championship": 19, "k league 1": 48, "csl": 47, "chinese super league": 47,
-    "österreichische fußball-bundesliga": 40, "ö. bundesliga": 40, "austrian bundesliga": 40,
-    "pko bank polski ekstraklasa": 46, "ekstraklasa": 46,
-    "lpf": 20, "liga profesional de fútbol": 20, "liga profesional de futbol": 20,
-    "liga-profesional-de-futbol": 20, "liga-profesional-de-fútbol": 20, "liga profesional": 20,
-    "barclays wsl": 1, "wsl": 1, "barclays womens super league": 1,
-    "women's super league": 1, "womens super league": 1, "liga f moeve": 6,
-    "liga-f-moeve": 6, "liga f": 6, "liga-f": 6, "arkema pl": 10,
-    "national women's soccer league": 8, "nwsl": 8, "google pixel frauen-bundesliga": 9,
-    "gpfbl": 9, "calcio a femminile": 15,
+    # 1~15: 주요 5대 리그, 여자 주요 리그, 주요 글로벌 리그
+    "barclays wsl": 1, "wsl": 1, "barclays women's super league": 1,
+    "barclays womens super league": 1, "women's super league": 1, "womens super league": 1,
+    "laliga ea sports": 2, "laliga": 2, "la liga": 2,
+    "premier league": 3,
+    "bundesliga": 4,
+    "ligue 1 mcdonald's": 5, "ligue 1 mcdonalds": 5, "ligue 1": 5,
+    "liga f moeve": 6, "liga f": 6,
+    "mls": 7, "major league soccer": 7,
+    "nwsl": 8, "national women's soccer league": 8, "national womens soccer league": 8,
+    "gpfbl": 9, "google pixel frauen bundesliga": 9, "frauen bundesliga": 9,
+    "arkema pl": 10, "arkema premiere ligue": 10,
+    "trendyol super lig": 11, "super lig": 11, "tsl": 11,
+    "serie a enilive": 12, "serie a": 12,
+    "liga portugal": 13, "liga portugal betclic": 13,
+    "roshn saudi league": 14, "saudi pro league": 14,
+    "calcio a femminile": 15, "serie a femminile": 15,
+    # 16~40
+    "nederland vrouwen liga": 16, "vrouwen eredivisie": 16, "azerion vrouwen eredivisie": 16,
+    "1a pro league": 17, "jupiler pro league": 17,
+    "hellas liga": 18, "super league greece": 18,
+    "efl championship": 19,
+    "lpf": 20, "liga profesional de futbol": 20, "liga profesional": 20,
+    "eredivisie": 21,
+    "bundesliga 2": 22, "2. bundesliga": 22,
+    "liga bbva mx": 23, "liga mx": 23,
+    "united emirates league": 24, "uae pro league": 24,
+    "eliteserien": 25,
+    "metropolitan division": 26, "3f superliga": 26, "danish superliga": 26,
+    "scottish premiership": 27,
+    "sverige liga": 28, "obos damallsvenskan": 28, "damallsvenskan": 28,
+    "ceska liga": 29, "chance liga": 29, "fortuna liga": 29,
+    "laliga hypermotion": 30,
+    "liga portugal feminino": 31, "liga bpi": 31,
+    "conmebol libertadores": 32, "libertadores": 32,
+    "ukrayina liha": 33,
+    "liga hrvatska": 34,
+    "conmebol sudamericana": 35, "sudamericana": 35,
+    "liga do brasil": 36,
+    "magyar liga": 37,
+    "ceska liga zen": 38,
+    "brack super league": 39, "credit suisse super league": 39, "swiss super league": 39, "cssl": 39,
+    "o. bundesliga": 40, "osterreichische fussball bundesliga": 40, "austrian bundesliga": 40, "admiral bundesliga": 40,
+    # 41~63 + 특수 리그
+    "liga colombia": 41,
+    "serie bkt": 42, "serie b": 42,
+    "ligue 2 bkt": 43, "ligue 2": 43,
+    "norge kvinner liga": 44, "toppserien": 44,
+    "liga cyprus": 45,
+    "ekstraklasa": 46, "pko bank polski ekstraklasa": 46, "pko bp ekstraklasa": 46,
+    "csl": 47, "chinese super league": 47,
+    "k league 1": 48,
+    "scottish women's league": 49, "scottish womens league": 49, "swpl": 49,
+    "liga bulgaria": 50,
+    "liga azerbaijan": 51,
+    "efl league one": 52,
+    "schweizer damen liga": 53, "axa women's super league": 53, "axa womens super league": 53,
+    "allsvenskan": 54,
+    "superliga": 55, "superliga romania": 55,
+    "thailand league": 56,
+    "isuzu ute a league": 57, "a league": 57, "a league men": 57,
+    "isl": 58, "indian super league": 58,
+    "iceland league": 59,
+    "sse airtricity men's premier division": 60, "sse airtricity mens premier division": 60,
+    "3. liga": 61,
+    "finnliiga": 62, "veikkausliiga": 62,
+    "efl league two": 63,
+    "icons": 2118, "icon": 2118, "fut icons": 2118,
+    "partners league": 2265,
+}
+
+def normalize_text_key(name):
+    """이름 정규화: 특수 아포스트로피(’/‘), 대시, 악센트(é/ü/ó/ñ 등), 하이픈/공백 통일"""
+    if not name:
+        return ""
+    s = str(name).strip()
+    s = s.replace("\u2019", "'").replace("\u2018", "'").replace("`", "'").replace("\u00b4", "'")
+    s = s.replace("ß", "ss").replace("ẞ", "ss").replace("ø", "o").replace("Ø", "o").replace("ł", "l").replace("Ł", "l")
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    s = re.sub(r"[-_/]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip().lower()
+    return s
+
+
+INVALID_ENTITY_NAMES = {"", "-", "\u2013", "\u2014", "unknown", "none", "null", "n/a", "n a"}
+
+SPECIAL_CLUB_ID_MAP = {
+    "icon": 112658,
+    "icons": 112658,
+    "fut icons": 112658,
+    "club 113307": 113307,
+    "partnerships": 113307,
+    "partners league": 113307,
+    "hall of fut": 132794,
 }
 
 CLUB_ALIAS_MAP = {
-    "man utd": "Manchester Utd", "manchester united": "Manchester Utd",
-    "ol": "OL Lyonnes", "ol lyonnes": "OL Lyonnes", "olympique lyonnais": "OL Lyonnes",
-    "juventus fc": "Juventus", "juventus": "Juventus", "psg": "Paris SG", "paris saint-germain": "Paris SG",
-    "ss lazio": "Latium", "lazio": "Latium", "inter": "Lombardia FC", "inter milan": "Lombardia FC",
-    "ac milan": "Milano FC", "milan": "Milano FC", "atalanta": "Bergamo Calcio", "as roma": "Roma",
-    "bayern munich": "FC Bayern München", "bayern münchen": "FC Bayern München",
+    "man utd": "Manchester Utd",
+    "manchester united": "Manchester Utd",
+    "ol": "OL Lyonnes",
+    "ol lyonnes": "OL Lyonnes",
+    "olympique lyonnais": "OL Lyonnes",
+    "juventus fc": "Juventus",
+    "juventus": "Juventus",
+    "psg": "Paris SG",
+    "paris saint germain": "Paris SG",
+    "ss lazio": "Latium",
+    "lazio": "Latium",
+    "inter": "Lombardia FC",
+    "inter milan": "Lombardia FC",
+    "internazionale": "Lombardia FC",
+    "ac milan": "Milano FC",
+    "milan": "Milano FC",
+    "atalanta": "Bergamo Calcio",
+    "atalanta bc": "Bergamo Calcio",
+    "as roma": "Roma",
+    "bayern munich": "FC Bayern München",
+    "bayern munchen": "FC Bayern München",
+    "fc bayern munchen": "FC Bayern München",
+    # DB 정제 시 확인된 중복 클럽 별칭
+    "london city lionesses": "London City",
+    "amed": "Amed Sportif Faaliyetler",
+    "boston legacy": "Boston Legacy FC",
+    "losc": "LOSC Lille",
+    "diriyah": "Al Diriyah",
+    "como 1907": "Como",
+    "denver summit": "Denver Summit FC",
+    "bologna fc": "Bologna",
+    "venezia fc": "Venezia",
+    "abha": "Abha Club",
+    "academico": "Académico de Viseu FC",
+    "academico de viseu": "Académico de Viseu FC",
+    "logrono united": "DUX Logroño",
+    "cagliari calcio": "Cagliari",
+    "frosinone calcio": "Frosinone",
+    "acf fiorentina": "Fiorentina",
+    "us saint malo": "US Saint-Malo",
+    "club 113307": "Partnerships",
+}
+
+NATION_ID_MAP = {
+    "netherlands": 16,
+    "holland": 16,
+    "australia": 36,
+    "korea republic": 49,
+    "south korea": 49,
+    "korea": 49,
+    "kosovo": 51,
+    "congo dr": 61,
+    "dr congo": 61,
+    "democratic republic of the congo": 61,
+    "saudi arabia": 63,
+    "bosnia and herzegovina": 65,
+    "bosnia herzegovina": 65,
+    "bosnia": 65,
+    "dominican republic": 77,
 }
 
 NATION_ALIAS_MAP = {
     "netherlands": "Netherlands",
     "holland": "Netherlands",
     "bosnia herzegovina": "Bosnia and Herzegovina",
-    "bosnia-herzegovina": "Bosnia and Herzegovina",
     "bosnia and herzegovina": "Bosnia and Herzegovina",
     "bosnia": "Bosnia and Herzegovina",
     "czechia": "Czech Republic",
@@ -435,17 +581,18 @@ NATION_ALIAS_MAP = {
     "korea": "Korea Republic",
     "usa": "United States",
     "united states": "United States",
-    "türkiye": "Turkey",
+    "turkiye": "Turkey",
     "turkey": "Turkey",
     "ivory coast": "Côte d'Ivoire",
     "cote d'ivoire": "Côte d'Ivoire",
+    "cote d ivoire": "Côte d'Ivoire",
     "dr congo": "Congo DR",
+    "congo dr": "Congo DR",
     "democratic republic of the congo": "Congo DR",
     "cape verde": "Cape Verde Islands",
     "cape verde islands": "Cape Verde Islands",
     "netherlands antilles": "Curaçao",
     "curacao": "Curaçao",
-    "curaçao": "Curaçao",
     "car": "Central African Republic",
     "central african republic": "Central African Republic",
     "ireland": "Republic of Ireland",
@@ -467,7 +614,13 @@ def get_or_create_league(name, raw_img_url=None):
     if not name:
         return None
     clean = name.strip()
-    alias_id = LEAGUE_ALIAS_MAP.get(clean.lower()) or LEAGUE_ALIAS_MAP.get(clean.replace("-", " ").lower())
+    norm = normalize_league_key(clean)
+    if clean.lower() in INVALID_ENTITY_NAMES or norm in INVALID_ENTITY_NAMES:
+        return None
+
+    alias_id = LEAGUE_ALIAS_MAP.get(norm)
+    if alias_id is None:
+        alias_id = LEAGUE_ALIAS_MAP.get(norm.replace("'", ""))
 
     league_id = alias_id
     existing_logo = None
@@ -476,7 +629,7 @@ def get_or_create_league(name, raw_img_url=None):
         if res.data:
             existing_logo = res.data[0].get("logo_url")
     else:
-        res = supabase.table("leagues").select("id, logo_url").ilike("name", clean).execute()
+        res = supabase.table("leagues").select("id, logo_url").ilike("name", clean).order("id").execute()
         if res.data:
             league_id = res.data[0]["id"]
             existing_logo = res.data[0].get("logo_url")
@@ -493,29 +646,91 @@ def get_or_create_league(name, raw_img_url=None):
     return league_id
 
 
+
 def get_or_create_club(name, league_id=None, raw_logo_url=None):
     if not name:
         return None
-    clean = name.strip()
-    if clean.lower() in CLUB_ALIAS_MAP:
-        clean = CLUB_ALIAS_MAP[clean.lower()]
-    else:
-        unslug = re.sub(r"^\d+-", "", clean).replace("-", " ")
-        clean = CLUB_ALIAS_MAP.get(unslug.lower(), unslug.title())
+    raw_clean = str(name).strip()
+    norm_raw = normalize_text_key(raw_clean)
+    if raw_clean.lower() in INVALID_ENTITY_NAMES or norm_raw in INVALID_ENTITY_NAMES:
+        return None
 
+    # 슬러그 접두 숫자 제거 후 정규화 키 생성
+    unslug = re.sub(r"^\d+-", "", raw_clean).strip()
+    norm_key = normalize_text_key(unslug)
+    if norm_key in INVALID_ENTITY_NAMES:
+        return None
+
+    # 0) 특수 클럽(ICON, Partnerships/Club 113307, HALL OF FUT) 고정 ID 매핑
+    #    - HALL OF FUT(132794): 단일 리그에 귀속되지 않으므로 기존 clubs.league_id(NULL) 유지
+    #    - Partnerships(113307): DB 명칭이 Club 113307이든 Partnerships든 중복 생성 없이 113307 고정
+    special_club_id = SPECIAL_CLUB_ID_MAP.get(norm_key)
+    if special_club_id:
+        res_sp = supabase.table("clubs").select("id, logo_url").eq("id", special_club_id).execute()
+        if res_sp.data:
+            existing_logo = res_sp.data[0].get("logo_url")
+            if (not existing_logo or "fc-assets" not in str(existing_logo)) and raw_logo_url:
+                uploaded_url = upload_to_supabase_storage(raw_logo_url, f"clubs/{special_club_id}.png", "image/png")
+                if uploaded_url:
+                    supabase.table("clubs").update({"logo_url": uploaded_url}).eq("id", special_club_id).execute()
+            return special_club_id
+
+    # NWSL(리그 8) 소속 선수가 Portland Timbers로 잡힐 경우 여자 팀(Portland Thorns)으로 보정
+    if league_id == 8 and norm_key == "portland timbers":
+        clean = "Portland Thorns"
+    elif norm_key in CLUB_ALIAS_MAP:
+        clean = CLUB_ALIAS_MAP[norm_key]
+    elif "-" in unslug and " " not in unslug:
+        clean = unslug.replace("-", " ").title()
+    else:
+        clean = unslug
+
+    target_norm = normalize_text_key(clean)
     club_id = None
     existing_logo = None
+
+    # 1) 같은 리그 내 정확 일치 (최소 정식 ID 우선)
     if league_id:
-        res = supabase.table("clubs").select("id, logo_url").ilike("name", clean).eq("league_id", league_id).execute()
+        res = (
+            supabase.table("clubs")
+            .select("id, name, logo_url")
+            .eq("league_id", league_id)
+            .ilike("name", clean)
+            .order("id")
+            .execute()
+        )
         if res.data:
             club_id = res.data[0]["id"]
             existing_logo = res.data[0].get("logo_url")
+        else:
+            # 같은 리그 내 악센트/하이픈/대소문자 차이 보정 매칭
+            league_clubs = (
+                supabase.table("clubs")
+                .select("id, name, logo_url")
+                .eq("league_id", league_id)
+                .order("id")
+                .execute()
+            )
+            for row in (league_clubs.data or []):
+                if normalize_text_key(row.get("name")) == target_norm:
+                    club_id = row["id"]
+                    existing_logo = row.get("logo_url")
+                    break
+
+    # 2) 리그 미지정 또는 해당 리그에서 못 찾은 경우 전체 클럽에서 최소 정식 ID 우선 조회
     if not club_id:
-        res = supabase.table("clubs").select("id, logo_url").ilike("name", clean).execute()
+        res = (
+            supabase.table("clubs")
+            .select("id, logo_url")
+            .ilike("name", clean)
+            .order("id")
+            .execute()
+        )
         if res.data:
             club_id = res.data[0]["id"]
             existing_logo = res.data[0].get("logo_url")
 
+    # 3) 신규 클럽 생성
     if not club_id:
         max_res = supabase.table("clubs").select("id").order("id", desc=True).limit(1).execute()
         club_id = (max_res.data[0]["id"] + 1) if max_res.data else 1000
@@ -535,36 +750,41 @@ def get_or_create_club(name, league_id=None, raw_logo_url=None):
 def get_or_create_nation(name):
     if not name:
         return None
-    clean = name.strip()
-    canonical_name = NATION_ALIAS_MAP.get(clean.lower(), clean)
+    raw_clean = str(name).strip()
+    norm = normalize_text_key(raw_clean)
+    if raw_clean.lower() in INVALID_ENTITY_NAMES or norm in INVALID_ENTITY_NAMES:
+        return None
 
-    if canonical_name in ["Netherlands", "Holland"]:
-        res16 = supabase.table("nations").select("id").eq("id", 16).execute()
-        if res16.data:
-            return 16
-        res = supabase.table("nations").select("id").or_("name.ilike.Netherlands,name.ilike.Holland").execute()
-        if res.data:
-            return res.data[0]["id"]
+    # 1) 중복이 자주 발생한 국가 ID 고정 매핑 최우선 적용
+    fixed_id = NATION_ID_MAP.get(norm) or NATION_ID_MAP.get(norm.replace("'", ""))
+    if fixed_id:
+        res_fixed = supabase.table("nations").select("id").eq("id", fixed_id).execute()
+        if res_fixed.data:
+            return fixed_id
 
-    if "bosnia" in canonical_name.lower():
-        res65 = supabase.table("nations").select("id").eq("id", 65).execute()
-        if res65.data:
-            return 65
+    canonical_name = (
+        NATION_ALIAS_MAP.get(norm)
+        or NATION_ALIAS_MAP.get(norm.replace("'", ""))
+        or raw_clean
+    )
 
-    res = supabase.table("nations").select("id").ilike("name", canonical_name).execute()
+    # 2) 정규화 명칭 1차 조회 (최소 정식 ID 우선)
+    res = supabase.table("nations").select("id").ilike("name", canonical_name).order("id").execute()
     if res.data:
         return res.data[0]["id"]
 
+    # 3) 공백, 'and', 하이픈 누락 대비 퍼지 검색 (2단어 이상)
     words = [
         w for w in re.split(r"[\s\-_]+", canonical_name)
         if w.lower() not in ["and", "of", "the", "pr", "dr", "republic", "islands"]
     ]
     if len(words) >= 2:
         pattern = "%" + "%".join(words) + "%"
-        res_fuzzy = supabase.table("nations").select("id").ilike("name", pattern).execute()
+        res_fuzzy = supabase.table("nations").select("id").ilike("name", pattern).order("id").execute()
         if res_fuzzy.data:
             return res_fuzzy.data[0]["id"]
 
+    # 4) DB에 기존 국가가 전혀 없을 때만 신규 생성
     try:
         max_res = supabase.table("nations").select("id").order("id", desc=True).limit(1).execute()
         next_id = (max_res.data[0]["id"] + 1) if max_res.data else 300
@@ -572,6 +792,7 @@ def get_or_create_nation(name):
         return next_id
     except Exception:
         return None
+
 
 
 def player_def_fields(text, card_api_id, player_id=None):
@@ -762,9 +983,9 @@ def parse_card_page(
         return m.group(1).strip() if m else None
 
     name = card.get("commonName") or card.get("lastName") or get_info("Name") or "Unknown"
-    nation_name = (card.get("nation", {}).get("name") if isinstance(card.get("nation"), dict) else None) or get_info("Nation") or "Germany"
-    club_name = (card.get("club", {}).get("name") if isinstance(card.get("club"), dict) else None) or get_info("Club") or "Juventus"
-    league_name = (card.get("league", {}).get("name") if isinstance(card.get("league"), dict) else None) or get_info("League") or "Serie A Enilive"
+    nation_name = (card.get("nation", {}).get("name") if isinstance(card.get("nation"), dict) else None) or get_info("Nation")
+    club_name = (card.get("club", {}).get("name") if isinstance(card.get("club"), dict) else None) or get_info("Club")
+    league_name = (card.get("league", {}).get("name") if isinstance(card.get("league"), dict) else None) or get_info("League")
 
     club_img_url = extract_asset_url_from_html(html_text, "club")
     league_img_url = extract_asset_url_from_html(html_text, "league")
@@ -828,17 +1049,26 @@ def parse_card_page(
         if pdef_k in card and card[pdef_k] is not None:
             detail_stats[db_k] = int(card[pdef_k])
 
+    is_partners_card = (
+        normalize_league_key(league_name) == "partners league"
+        or normalize_text_key(club_name) in ("club 113307", "partnerships", "partners league")
+    )
     version, background_url, card_type = detect_version_info(
         soup,
         card,
         custom_version,
         custom_bg,
         custom_type,
-        is_force_headshot=force_headshot,
+        is_force_headshot=(force_headshot or is_partners_card),
         acq_info=acq_info,
     )
 
-    body_type = get_info("Body Type") or "Average Medium"
+    raw_body_type = get_info("Body Type")
+    body_type = (
+        None
+        if (not raw_body_type or raw_body_type.strip().lower() in INVALID_ENTITY_NAMES)
+        else raw_body_type.strip()
+    )
     m_acc = re.search(
         r"AcceleRATE(?:\s*2\.0)?\s*[:\n\s\-]*(Mostly\s+Explosive|Controlled\s+Explosive|Explosive|Mostly\s+Lengthy|Controlled\s+Lengthy|Lengthy|Controlled)",
         clean_full,
