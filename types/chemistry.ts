@@ -8,6 +8,7 @@ export interface PlayerCard extends CardCostFields {
   nationId: number | string;
   leagueId: number | string;
   clubId: number | string;
+  forceFullChem?: boolean;
   isIcon?: boolean;
   isHero?: boolean;
   isHallOfFut?: boolean;

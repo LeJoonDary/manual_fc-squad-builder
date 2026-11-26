@@ -1,3 +1,7 @@
+import { downloadSquadPng } from './utils/squadImage.js';
+import { applySlotCustom, hasCustom, sanitizeCustom, canMovePitchEntry } from './utils/slotCustom.js';
+import { readSquadState, writeSquadState, SQUAD_STORAGE_KEY } from './utils/squadPersistence.js';
+import { createSlotCustomPanel } from './components/SlotCustomPanel.js';
 import { createSlotDetailedStats } from './components/SlotDetailedStats.js';
 import { createModalAffiliationFilter } from './components/ModalAffiliationFilter.js';
 import { createSlotPhysicalControls } from './components/SlotPhysicalControls.js';
@@ -49,7 +53,7 @@ import { createDefaultFilters, fetchPlayersPage } from './utils/playerFilters.js
 import { getValueScoreGrade } from './utils/playerSearch.js';
 import { createClient } from '@supabase/supabase-js';
 import { adaptChemistryPlayerCard, calculateChemistry, isPositionMatched, normalizeChemistryPosition } from './utils/chemistry.ts';
-import { clearUnlockedSquadEntries, createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
+import { createSquadEntry, isSquadSlotLocked, toggleSquadSlotLock } from './utils/squadLock.ts';
 import { FORMATIONS, reassignFormation } from './utils/formations.js';
 import { fitPitchViewport, fitSquadWorkspace } from './utils/pitchViewport.js';
 import { calculateSquadTotalCost, getCardCoinPrice } from './utils/squadCost.ts';
@@ -173,6 +177,11 @@ let playerSearchTimer;
 let pendingPanelScrollPositions = null;
 let activeSlot = null;
 let managerState = null;
+let squadHydrated = false;
+function persistCurrentSquad() {
+  if (!squadHydrated) return;
+  try { writeSquadState(localStorage, { formation: currentFormation, players: squad, manager: managerState, budget: targetBudget }); } catch {}
+}
 let targetBudget = 0;
 let modalPlayerCards = [];
 let dragOriginPosition = null;
@@ -201,7 +210,7 @@ const alternativeModal = createAlternativePlayerModal({
   },
   async select(position, card, signal, bestManager, controls) {
     const original = squad[position];
-    if (replacementSnapshot !== getSquadSnapshot() || isSquadSlotLocked(original)) throw new Error(recommendationText('스쿼드가 변경되었습니다. 다시 열어주세요.', 'Squad changed. Reopen recommendations.'));
+    if (replacementSnapshot !== getSquadSnapshot()) throw new Error(recommendationText('스쿼드가 변경되었습니다. 다시 열어주세요.', 'Squad changed. Reopen recommendations.'));
     const detail = normalizeBrowserPlayerCard(await loadPlayerDetail(supabase, card.id));
     signal.throwIfAborted();
     if (!detail || replacementSnapshot !== getSquadSnapshot()) throw new Error('The squad slot has changed');
@@ -221,7 +230,7 @@ const alternativeModal = createAlternativePlayerModal({
   },
 });
 function openSwapModal(position, currentCard) {
-  if (!currentCard || isSquadSlotLocked(squad[position])) return;
+  if (!currentCard) return;
   alternativeModal.open(position, currentCard);
 }
 let affiliationCatalog = { nations: [], leagues: [], clubs: [] };
@@ -237,7 +246,7 @@ function bindSquadSlot(slot) {
   slot.addEventListener('click', event => {
     const entry = squad[slot.dataset.position];
     handlePitchSlotClick(event, {
-      entry, suppressed: suppressSlotClick, locked: isSquadSlotLocked(entry), open: openPlayerModal,
+      entry, suppressed: suppressSlotClick, locked: isSquadSlotLocked(entry), open: openPlayerModal, details: openPitchDetail,
     });
   });
   slot.addEventListener('dragstart', handleSlotDragStart);
@@ -339,7 +348,7 @@ function applyAutoBuildResult(result, request) {
     if (!slot || !card || (!previous?.isLocked && !isCardInSlotPosition(card, player.slotPosition))) {
       throw new Error('Player position details are unavailable. Please try again.');
     }
-    return { slot, card, isOwned: player.isOwned === true, isLocked: previous?.isLocked === true };
+    return { slot, card, state: retained ?? {}, isOwned: player.isOwned === true, isLocked: previous?.isLocked === true };
   });
   const nextManager = autoBuildManagerState(result.manager, affiliationCatalog, placements.map(item => item.card));
   preloadImages(placements);
@@ -348,8 +357,8 @@ function applyAutoBuildResult(result, request) {
   dragOriginPosition = null;
   clearSlotDragFeedback();
   Object.keys(squad).forEach(key => delete squad[key]);
-  placements.forEach(({ slot, card, isOwned, isLocked }) => {
-    placeCard(slot, card, false, { isOwned });
+  placements.forEach(({ slot, card, state, isOwned, isLocked }) => {
+    placeCard(slot, card, false, { ...state, isOwned });
     squad[slot.dataset.position].isLocked = isLocked;
     updateSlotLockUI(slot);
   });
@@ -380,7 +389,7 @@ function applyFormation(formation, savedPlayers = null) {
     const entry = nextSquad[position];
     if (entry) {
       placeCard(slot, entry.card, false, entry);
-      squad[position].isLocked = entry.isLocked;
+      squad[position].isLocked = entry.isLocked === true;
       updateSlotLockUI(slot);
     } else resetSlot(slot, false);
   });
@@ -417,7 +426,16 @@ document.addEventListener('pointerdown', event => {
   if (!formationPicker.contains(event.target)) formationPicker.open = false;
 });
 
-clearSquadButton.addEventListener('click', clearUnlockedPlayers);
+clearSquadButton.addEventListener('click', clearAllPlayers);
+const savePngButton = document.createElement('button'); savePngButton.type = 'button'; savePngButton.className = 'clear-squad'; savePngButton.id = 'save-squad-png';
+const labelSavePng = () => { savePngButton.textContent = getLanguage() === 'ko' ? 'PNG 저장' : 'Save PNG'; };
+labelSavePng(); subscribeLanguage(labelSavePng); clearSquadButton.after(savePngButton);
+savePngButton.onclick = async () => {
+  savePngButton.disabled = true;
+  try { await downloadSquadPng(document.querySelector('.pitch'), currentFormation); }
+  catch { status.textContent = getLanguage() === 'ko' ? '이미지를 저장하지 못했습니다. 다시 시도해 주세요.' : 'Unable to save image. Please try again.'; }
+  finally { savePngButton.disabled = false; }
+};
 managerSlot.addEventListener('click', openManagerModal);
 document.querySelectorAll('[data-close-manager-modal]').forEach((button) => button.addEventListener('click', closeManagerModal));
 managerForm.addEventListener('submit', saveManager);
@@ -1575,8 +1593,8 @@ subscribeLanguage(() => {
   if (!modal.hidden && recommendationEnabled()) { renderRecommendationControls(); updateModalPlayerSearch(); }
 });
 
-async function openPlayerModal(slot) {
-  if (isSquadSlotLocked(squad[slot.dataset.position])) return;
+async function openPlayerModal(slot, allowReplace = false) {
+  if (!allowReplace && isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot;
   modalAffiliation.reset();
   slotMaxPrice = undefined; recommendationSort = emptySlotTabs.select('all_meta', lockedSquadCount());
@@ -1946,7 +1964,7 @@ function closeModal() {
 
 function handleRemovePlayer(event, slotKey) {
   event.stopPropagation();
-  if (isSquadSlotLocked(squad[slotKey])) return;
+
   const slot = document.querySelector(`.slot[data-position="${slotKey}"]`);
   if (!slot) return;
 
@@ -1972,13 +1990,33 @@ function resetSlot(slot, shouldUpdate = true) {
   if (shouldUpdate) updateSquadChemistry();
 }
 
+function openPitchDetail(slot) {
+  const position = slot.dataset.position;
+  const entry = squad[position]; if (!entry?.card) return;
+  playerDetail.open(entry.card, { getPitchCard: () => squad[position]?.card, customPanel: createSlotCustomPanel({
+    db: supabase, getEntry: () => squad[position],
+    change: custom => {
+      const previous = squad[position]; if (!previous) return;
+      const customOverrides = sanitizeCustom(custom);
+      const isLocked = !hasCustom(previous.customOverrides) && hasCustom(customOverrides) ? true : previous.isLocked;
+      placeCard(slot, previous.originalCard ?? previous.card, false, { ...previous, isLocked, customOverrides });
+      updateSquadChemistry(); playerDetail.refresh(squad[position].card);
+    },
+    replace: () => { playerDetail.close(); openPlayerModal(slot, true); },
+    remove: () => { playerDetail.close(); resetSlot(slot); },
+  }) });
+}
 function placeCard(slot, card, shouldUpdate = true, state = {}) {
+  const originalCard = state.originalCard ?? card;
+  const customOverrides = sanitizeCustom(state.customOverrides);
+  card = applySlotCustom(originalCard, customOverrides);
   preloadImages([{ card }]);
   const name = getCardName(card);
   const chemistryCard = toChemistryPlayerCard(card);
   slot.dataset.card = name;
   slot.dataset.cardId = chemistryCard.id;
   squad[slot.dataset.position] = createSquadEntry(chemistryCard.id, card, chemistryCard);
+  Object.assign(squad[slot.dataset.position], { originalCard, customOverrides, isLocked: state.isLocked === true });
   squad[slot.dataset.position].isOwned = state.isOwned === true;
   slot.draggable = true;
   slot.classList.add('occupied');
@@ -2004,12 +2042,6 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   ownedButton.type = 'button';
   ownedButton.addEventListener('click', (event) => handleTogglePlayerOwned(event, slot));
 
-  const removeButton = document.createElement('button');
-  removeButton.className = 'remove-player';
-  removeButton.type = 'button';
-  setCardAction(removeButton, 'remove');
-  removeButton.textContent = '×';
-  removeButton.addEventListener('click', (event) => handleRemovePlayer(event, slot.dataset.position));
   const detailButton = document.createElement('button');
   detailButton.className = 'detail-player';
   detailButton.type = 'button';
@@ -2018,7 +2050,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   detailButton.addEventListener('click', (event) => {
     event.stopPropagation();
     const selectedCard = squad[slot.dataset.position]?.card;
-    if (selectedCard) playerDetail.open(selectedCard);
+    if (selectedCard) openPitchDetail(slot);
   });
   const alternativeButton = document.createElement('button');
   alternativeButton.type = 'button';
@@ -2029,13 +2061,19 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
     event.stopPropagation();
     openSwapModal(slot.dataset.position, squad[slot.dataset.position]?.card);
   });
-  cardActions.append(lockButton, ownedButton, createPitchExcludeButton(card), detailButton, alternativeButton, removeButton);
+  cardActions.append(lockButton, ownedButton, createPitchExcludeButton(card), detailButton, alternativeButton);
+  cardActions.querySelectorAll('button').forEach(button => {
+    button.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); });
+    button.addEventListener('pointerdown', event => { event.stopPropagation(); });
+    button.addEventListener('dragstart', event => { event.preventDefault(); event.stopPropagation(); });
+  });
   top.append(cardActions);
   syncPitchExclusions();
   updateSlotLockUI(slot);
   updateSlotOwnedUI(slot);
 
   body.append(createPitchMiniCard(card, getPlayStyles(card), affiliationCatalog, { createReviewButton }));
+  if (hasCustom(customOverrides)) { const badge = document.createElement('span'); badge.className = 'pitch-custom-badge'; badge.textContent = customOverrides.forceFullChem ? '3✦' : 'EVO'; body.append(badge); }
   const priceBadge = document.createElement('div');
   priceBadge.className = 'card-price-badge';
   slot.append(priceBadge);
@@ -2049,6 +2087,7 @@ function handleTogglePlayerLock(event, slot) {
   if (!entry?.card) return;
 
   const isLocked = toggleSquadSlotLock(entry);
+  persistCurrentSquad();
   window.dispatchEvent(new Event('auto-build-context-change'));
   updateSlotLockUI(slot);
   status.textContent = `${getCardName(entry.card)} ${isLocked ? 'locked.' : 'unlocked.'}`;
@@ -2058,18 +2097,29 @@ function updateSlotLockUI(slot) {
   const entry = squad[slot.dataset.position];
   const isLocked = isSquadSlotLocked(entry);
   const lockButton = slot.querySelector('.lock-player');
-  const removeButton = slot.querySelector('.remove-player');
 
   slot.classList.toggle('is-locked', isLocked);
   slot.draggable = Boolean(entry?.card) && !isLocked;
+  const removeButton = slot.querySelector('.remove-player');
+  if (isLocked || !entry?.card) removeButton?.remove();
+  else if (!removeButton) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'remove-player'; button.textContent = '×';
+    setCardAction(button, 'remove');
+    button.addEventListener('click', event => {
+      event.preventDefault(); event.stopPropagation();
+      if (!isSquadSlotLocked(squad[slot.dataset.position])) handleRemovePlayer(event, slot.dataset.position);
+    });
+    button.addEventListener('dragstart', event => { event.preventDefault(); event.stopPropagation(); });
+    slot.querySelector('.slot-card-actions')?.append(button);
+  }
   if (lockButton) {
     lockButton.textContent = isLocked ? '🔒' : '🔓';
     setCardAction(lockButton, isLocked ? 'unlock' : 'lock');
     lockButton.setAttribute('aria-pressed', String(isLocked));
   }
-  if (removeButton) removeButton.hidden = isLocked;
   const alternativeButton = slot.querySelector('.alternative-player');
-  if (alternativeButton) alternativeButton.disabled = isLocked;
+  if (alternativeButton) alternativeButton.disabled = false;
 }
 
 function handleTogglePlayerOwned(event, slot) {
@@ -2107,9 +2157,10 @@ function updateSlotOwnedUI(slot) {
   }
 }
 
-function clearUnlockedPlayers() {
+function clearAllPlayers() {
   const hadManager = Boolean(managerState);
-  const clearedSlots = clearUnlockedSquadEntries(squad);
+  const clearedSlots = Object.keys(squad).filter(key => squad[key]);
+  playerDetail.close();
   clearedSlots.forEach((slotKey) => {
     const slot = document.querySelector(`.slot[data-position="${slotKey}"]`);
     if (slot) resetSlot(slot, false);
@@ -2117,9 +2168,10 @@ function clearUnlockedPlayers() {
   managerState = null;
   renderManagerSlot();
   status.textContent = clearedSlots.length || hadManager
-    ? `Cleared ${clearedSlots.length} unlocked players and manager settings.`
-    : 'No unlocked players to clear.';
+    ? `Cleared ${clearedSlots.length} players and manager settings.`
+    : 'No players to clear.';
   updateSquadChemistry();
+  try { localStorage.removeItem(SQUAD_STORAGE_KEY); } catch {}
 }
 
 function openManagerModal() {
@@ -2206,14 +2258,13 @@ function renderManagerSlot() {
 
 function clearSlotDragFeedback() {
   document.querySelectorAll('.slot').forEach((slot) => {
-    slot.classList.remove('is-dragging', 'is-drop-target');
+    slot.classList.remove('is-dragging', 'is-drop-target', 'pitch-compatible');
   });
 }
 
 function handleSlotDragStart(event) {
   const slot = event.currentTarget;
-  if (!slot.classList.contains('occupied') || !squad[slot.dataset.position]?.card
-    || isSquadSlotLocked(squad[slot.dataset.position])) {
+  if (isSquadSlotLocked(squad[slot.dataset.position]) || event.target.closest?.('.slot-card-actions') || !slot.classList.contains('occupied') || !squad[slot.dataset.position]?.card) {
     event.preventDefault();
     return;
   }
@@ -2221,22 +2272,23 @@ function handleSlotDragStart(event) {
   dragOriginPosition = slot.dataset.position;
   suppressSlotClick = true;
   slot.classList.add('is-dragging');
+  document.querySelectorAll('.pitch .slot').forEach(target => target.classList.toggle('pitch-compatible', canMovePitchEntry(squad, dragOriginPosition, target.dataset.position)));
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', dragOriginPosition);
 }
 
 function handleSlotDragOver(event) {
+  if (isSquadSlotLocked(squad[event.currentTarget.dataset.position])) { event.dataTransfer.dropEffect = 'none'; return; }
   if (exploreDragCard && event.dataTransfer.types.includes(EXPLORE_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; return; }
   const slot = event.currentTarget;
-  if (!dragOriginPosition || isSquadSlotLocked(squad[slot.dataset.position])) return;
+  if (!canMovePitchEntry(squad, dragOriginPosition, slot.dataset.position)) { event.dataTransfer.dropEffect = 'none'; return; }
   event.preventDefault();
   event.dataTransfer.dropEffect = 'move';
 }
 
 function handleSlotDragEnter(event) {
   const slot = event.currentTarget;
-  if (dragOriginPosition && slot.dataset.position !== dragOriginPosition
-    && !isSquadSlotLocked(squad[slot.dataset.position])) {
+  if (canMovePitchEntry(squad, dragOriginPosition, slot.dataset.position)) {
     event.preventDefault();
     slot.classList.add('is-drop-target');
   }
@@ -2248,6 +2300,7 @@ function handleSlotDragLeave(event) {
 }
 
 function handleSlotDrop(event) {
+  if (isSquadSlotLocked(squad[event.currentTarget.dataset.position])) { event.preventDefault(); event.stopPropagation(); clearSlotDragFeedback(); return; }
   if (event.dataTransfer.types.includes(EXPLORE_DRAG_TYPE)) {
     event.preventDefault(); event.stopPropagation();
     if (exploreDragCard) applyExploreCard(exploreDragCard, event.currentTarget.dataset.position);
@@ -2259,19 +2312,18 @@ function handleSlotDrop(event) {
   const targetPosition = targetSlot.dataset.position;
   const originSlot = document.querySelector(`.slot[data-position="${originPosition}"]`);
   const originCard = squad[originPosition]?.card;
-  const originOwned = squad[originPosition]?.isOwned === true;
+  const originState = squad[originPosition];
 
-  if (!originSlot || !originCard || originPosition === targetPosition
-    || isSquadSlotLocked(squad[originPosition]) || isSquadSlotLocked(squad[targetPosition])) {
+  if (!originSlot || !originCard || !canMovePitchEntry(squad, originPosition, targetPosition)) {
     clearSlotDragFeedback();
     return;
   }
 
   const targetCard = squad[targetPosition]?.card ?? null;
-  const targetOwned = squad[targetPosition]?.isOwned === true;
-  placeCard(targetSlot, originCard, false, { isOwned: originOwned });
+  const targetState = squad[targetPosition];
+  placeCard(targetSlot, originCard, false, originState);
   if (targetCard) {
-    placeCard(originSlot, targetCard, false, { isOwned: targetOwned });
+    placeCard(originSlot, targetCard, false, targetState);
     status.textContent = `Swapped players at ${originPosition} and ${targetPosition}.`;
   } else {
     resetSlot(originSlot, false);
@@ -2308,6 +2360,7 @@ function isCardInSlotPosition(card, slotPosition) {
 }
 
 function updateSquadChemistry() {
+  persistCurrentSquad();
   const chemistrySquad = getChemistrySquad();
   const result = calculateChemistry(chemistrySquad, getManagerChemistryBonus());
   totalChemistryOutput.value = String(result.totalChemistry);
@@ -2842,4 +2895,12 @@ createExplorePanel({
   endDrag: endExploreDrag,
 });
 setSquadPanel(activeSquadPanel === 'explore' ? 'explore' : 'build'); syncExploreLabels();
+// DOM-based application: restore only after all client UI and stores are mounted.
+try {
+  const saved = readSquadState(localStorage, FORMATIONS);
+  if (saved) { managerState = saved.manager; targetBudget = saved.budget; targetBudgetInput.value = targetBudget ? formatBudgetNumber(targetBudget) : ''; applyFormation(saved.formation, saved.players); renderManagerSlot(); }
+} catch { /* Storage can be unavailable in private mode. */ }
+squadHydrated = true;
+window.addEventListener('pagehide', persistCurrentSquad);
+window.addEventListener('auto-build-context-change', persistCurrentSquad);
 void hydrateSquadShare();

@@ -18,6 +18,9 @@ export function createPlayerDetailModal({
   const playerDetailRoles = document.querySelector('#player-detail-roles');
   const playerDetailPlaystyles = document.querySelector('#player-detail-playstyles');
   let selectedPlayer = null;
+  let pitchCard = null;
+  const customMount = document.createElement('div'); customMount.className = 'player-detail-custom';
+  playerDetailModal.querySelector('.player-detail-header').after(customMount);
   let addToPitch = null;
   const addButton = document.createElement('button'); addButton.type = 'button'; addButton.className = 'player-detail-add'; addButton.hidden = true;
   const labelAdd = () => { addButton.textContent = getLanguage() === 'ko' ? '피치에 추가' : 'Add to Pitch'; };
@@ -72,7 +75,8 @@ export function createPlayerDetailModal({
       if (button) button.hidden = false;
     } catch { /* Reviews are optional; player details remain usable. */ }
   }
-  async function openPlayerDetailModal(card, { onAddToPitch = null } = {}) {
+  async function openPlayerDetailModal(card, { onAddToPitch = null, customPanel = null, getPitchCard = null } = {}) {
+    pitchCard = getPitchCard; customMount.replaceChildren(...(customPanel ? [customPanel] : []));
     addToPitch = onAddToPitch; addButton.hidden = !addToPitch; addButton.disabled = false;
     closeReview();
     review = null;
@@ -103,15 +107,15 @@ export function createPlayerDetailModal({
     if (!detailedCard) return;
     // Nested Join 결과를 그대로 보존해 Roles 렌더러가 card_roles 배열을 항상 참조하도록 합니다.
     detailedCard.card_roles = asArray(cardDetail.card_roles);
-    selectedPlayer = detailedCard;
-    renderPlayerDetail(detailedCard);
+    selectedPlayer = pitchCard?.() ?? detailedCard;
+    renderPlayerDetail(selectedPlayer);
   }
 
   function closePlayerDetailModal() {
     closeReview();
     review = null;
     playerDetailModal.hidden = true;
-    selectedPlayer = null;
+    selectedPlayer = null; pitchCard = null; customMount.replaceChildren();
     addToPitch = null; addButton.hidden = true;
     playerDetailRequest += 1;
     if (returnFocus?.isConnected) returnFocus.focus();
@@ -256,6 +260,7 @@ export function createPlayerDetailModal({
     button.addEventListener('click', closePlayerDetailModal);
   });
   return {
+    refresh(card) { if (!playerDetailModal.hidden && card) { selectedPlayer = card; renderPlayerDetail(card); } },
     openReview,
     open: openPlayerDetailModal,
     close: closePlayerDetailModal,

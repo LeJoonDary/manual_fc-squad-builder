@@ -67,7 +67,7 @@ export function prepareChemistryDelta(slots: SquadSlot[], manager: ChemistryMana
       const newLeagueIcons = kind === 'league' && !icon && key && !represented.has(key) ? icons : 0;
       own += score(kind, count(kind, key) + (key ? added : 0) + Number(!!managerKey && managerKey === key) + newLeagueIcons);
     }
-    const playerChemistry = icon || hero || isCardHallOfFut(player) ? 3 : Math.min(3, own);
+    const playerChemistry = player.forceFullChem || icon || hero || isCardHallOfFut(player) ? 3 : Math.min(3, own);
     return { totalChemistry: Math.min(33, base.totalChemistry + playerChemistry
       + popcount(one & room[0]) + popcount(two & room[1]) + popcount(three & room[2])), playerChemistry };
   };
@@ -171,6 +171,7 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
     nationId: canonicalAffiliationKey(rawCard, 'nation', ['nation', 'nationName', 'nation_name', 'nationality'], ['nationId', 'nation_id']),
     leagueId: canonicalAffiliationKey(rawCard, 'league', ['league', 'leagueName', 'league_name'], ['leagueId', 'league_id']),
     clubId: sharedClubKey(rawCard) || canonicalAffiliationKey(rawCard, 'club', ['club', 'clubName', 'club_name', 'team'], ['clubId', 'club_id']),
+    forceFullChem: rawCard.forceFullChem === true,
     isIcon: isCardIcon(rawCard),
     isHero: isCardHero(rawCard),
     isHallOfFut: isCardHallOfFut(rawCard),
@@ -225,7 +226,7 @@ export function calculateChemistry(squad: SquadSlot[], manager: ChemistryManager
   if (manager?.nationId !== undefined && manager.nationId !== '') addCount(nationCounts, manager.nationId, 1);
 
   validSlots.forEach(({ player }) => {
-    if (player.isIcon || player.isHero || isCardHallOfFut(player)) {
+    if (player.forceFullChem || player.isIcon || player.isHero || isCardHallOfFut(player)) {
       playerChemMap[player.id] = 3;
       return;
     }

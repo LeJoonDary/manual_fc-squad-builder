@@ -1,7 +1,10 @@
+import type { SlotCustomOverrides } from '../types/slotCustom';
 export type LockableSquadEntry<TCard = unknown, TChemistryCard = unknown> = {
   card_id: string | number;
   card: TCard;
   chemistryCard: TChemistryCard;
+  customOverrides?: SlotCustomOverrides;
+  originalCard?: TCard;
   isLocked: boolean;
   isOwned: boolean;
 };

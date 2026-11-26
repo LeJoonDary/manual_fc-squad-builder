@@ -2,7 +2,7 @@
 import { expect, test, vi } from 'vitest';
 import { handlePitchSlotClick } from './pitchSlotInteraction.js';
 
-test('occupied card clicks are inert; toolbar clicks remain independent; empty slots open selection', () => {
+test('occupied cards open details; toolbar clicks remain independent; empty slots open selection', () => {
   const slot = document.createElement('button');
   const body = document.createElement('span');
   const search = document.createElement('button');
@@ -11,14 +11,15 @@ test('occupied card clicks are inert; toolbar clicks remain independent; empty s
   let entry = { card: { id: 1 } };
   slot.append(body, search);
   slot.addEventListener('click', event => handlePitchSlotClick(event, {
-    entry, suppressed: false, locked: false, open,
+    entry, suppressed: false, locked: false, open, details,
   }));
   search.addEventListener('click', event => { event.stopPropagation(); details(); });
   body.click();
   slot.click();
   expect(open).not.toHaveBeenCalled();
+  expect(details).toHaveBeenCalledTimes(2);
   search.click();
-  expect(details).toHaveBeenCalledOnce();
+  expect(details).toHaveBeenCalledTimes(3);
   expect(open).not.toHaveBeenCalled();
   entry = null;
   slot.click();

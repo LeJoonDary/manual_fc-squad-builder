@@ -204,3 +204,45 @@ test.each([
   expect(slot.querySelector('.card-price-badge').textContent).toBe(expected);
   if (costs.token_cost) expect(slot.querySelector('.card-price-badge svg')).not.toBeNull();
 });
+
+
+test('pitch detail custom edits update pitch and storage; reset, replace and remove clear overrides', async () => {
+  const slot = document.querySelector('.slot.occupied');
+  slot.click();
+  const modal = document.querySelector('#player-detail-modal');
+  expect(modal.hidden).toBe(false);
+  expect(document.querySelector('#player-modal').hidden).toBe(true);
+  const panel = () => modal.querySelector('.slot-custom-panel');
+  expect(panel().querySelectorAll('details')[1].open).toBe(false);
+  panel().querySelector('[role="switch"]').click();
+  expect(slot.classList.contains('is-locked')).toBe(true);
+  expect(slot.querySelector('.pitch-custom-badge').textContent).toBe('3✦');
+  slot.querySelector('.lock-player').click();
+  expect(slot.classList.contains('is-locked')).toBe(false);
+  const ovr = panel().querySelector('input[aria-label="OVR"]'); ovr.value = '97'; ovr.dispatchEvent(new Event('change'));
+  expect(slot.querySelector('.ea-card-rating').textContent).toBe('97');
+  const saved = JSON.parse(localStorage.getItem('metaxi_squad_state_v1'));
+  expect(saved.players[slot.dataset.position].customOverrides.overall).toBe(97);
+  expect(saved.players[slot.dataset.position].isLocked).toBe(false);
+  expect(slot.classList.contains('is-locked')).toBe(false);
+  expect(saved.players[slot.dataset.position].card.overall).not.toBe(97);
+  panel().querySelector('.slot-custom-actions').children[2].click();
+  expect(slot.querySelector('.pitch-custom-badge')).toBeNull();
+  expect(slot.querySelector('.ea-card-rating').textContent).not.toBe('97');
+  panel().querySelector('[role="switch"]').click();
+  panel().querySelector('.slot-custom-actions').children[0].click();
+  expect(modal.hidden).toBe(true); expect(document.querySelector('#player-modal').hidden).toBe(false);
+  const replacement = raw(999, slot.dataset.position);
+  mocks.search.mockResolvedValue([replacement]); mocks.detail.mockResolvedValue(replacement);
+  type('replacement');
+  await vi.waitFor(() => expect(document.querySelector('#player-list .browser-player-card')).not.toBeNull());
+  document.querySelector('#player-list .browser-player-card').click();
+  await vi.waitFor(() => expect(slot.dataset.cardId).toBe('999'));
+  expect(slot.querySelector('.pitch-custom-badge')).toBeNull();
+  slot.click(); panel().querySelector('.slot-custom-actions').children[1].click();
+  expect(slot.classList.contains('occupied')).toBe(false);
+  expect(JSON.parse(localStorage.getItem('metaxi_squad_state_v1')).players[slot.dataset.position]).toBeNull();
+  document.querySelector('#clear-squad').click();
+  expect(document.querySelectorAll('.slot.occupied')).toHaveLength(0);
+  expect(localStorage.getItem('metaxi_squad_state_v1')).toBeNull();
+});

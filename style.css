@@ -2499,6 +2499,26 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .modal-player-search { display: flex; align-items: stretch; gap: 8px; }
 .modal-player-search-field { position: relative; flex: 1; min-width: 0; }
 .modal-player-search-field input { min-width: 0; box-sizing: border-box; }
+.slot-custom-panel { margin: 12px; padding: 12px; border: 1px solid #334155; border-radius: 12px; background: #101d35; color: #e2e8f0; }
+.slot-custom-panel h3 { margin: 12px 0 8px; font-size: 14px; }
+.slot-custom-panel button { min-height: 36px; border: 1px solid #475569; border-radius: 7px; padding: 5px 8px; color: inherit; background: #1e293b; cursor: pointer; }
+.slot-custom-panel button:disabled { opacity: .45; cursor: default; }
+.slot-custom-panel button[aria-pressed="true"] { background: #115e59; border-color: #5eead4; }
+.slot-custom-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
+.slot-custom-actions button { font-size: 12px; min-height: 44px; }
+.slot-custom-panel summary { padding: 10px 0; cursor: pointer; font-size: 13px; }
+.slot-custom-positions { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 4px; }
+.slot-custom-panel input[type="search"], .slot-custom-stats input { width: 100%; min-width: 0; box-sizing: border-box; background: #0b172c; color: #fff; border: 1px solid #475569; border-radius: 6px; padding: 8px; }
+.slot-custom-skins { display: grid; grid-template-columns: repeat(9,minmax(0,1fr)); grid-auto-rows: 80px; gap: 5px; height: 224px; max-height: 224px; overflow-y: auto; margin: 8px 0; overscroll-behavior: contain; }
+.slot-custom-skins button { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; min-width: 0; padding: 1px; overflow: hidden; }
+.slot-custom-skins img { width: 45px; max-width: 100%; height: 60px; flex: 0 0 auto; object-fit: cover; }
+.slot-custom-skins span { display: block; width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 9px; line-height: 1.2; }
+.slot-custom-stats { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 6px; }
+.slot-custom-stats input { padding: 5px 3px; }
+.slot-custom-stats.slot-custom-skills { grid-template-columns: repeat(2,minmax(0,1fr)); max-width: 180px; margin-top: 6px; }
+.slot-custom-stats label { font-size: 11px; }
+.pitch-custom-badge { position: absolute; left: -6px; transform: translateX(-100%); bottom: calc(100% * 48 / 361.2 + 46px); z-index: 3; padding: 2px 4px; border-radius: 4px; background: #115e59; color: #99f6e4; font-size: 9px; pointer-events: none; }
+@media (width < 768px) { .slot-custom-skins { grid-template-columns: repeat(5,minmax(0,1fr)); } .slot-custom-stats { grid-template-columns: repeat(4,minmax(0,1fr)); } }
 #player-modal .modal-player-search .modal-affiliation { align-items: stretch; gap: 8px; }
 #player-modal .modal-player-search-field input,
 #player-modal .modal-player-search .modal-affiliation-trigger,
@@ -2507,3 +2527,12 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 #player-modal .modal-player-search .modal-affiliation-clear { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 0 12px; gap: 6px; white-space: nowrap; }
 #player-modal .modal-player-search .modal-affiliation-clear { width: 44px; padding: 0; }
 #player-modal .modal-player-search .modal-affiliation-clear[hidden] { display: none; }
+
+.slot-custom-panel .slot-chem-switch { display: inline-flex; align-items: center; gap: 9px; background: transparent; border: 0; padding: 4px 0; }
+.slot-chem-switch-track { display: inline-block; position: relative; width: 38px; height: 22px; border-radius: 999px; background: #334155; transition: background .18s ease; }
+.slot-chem-switch-track::after { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; border-radius: 50%; background: #cbd5e1; transition: transform .18s ease, background .18s ease; }
+.slot-chem-switch[aria-checked="true"] .slot-chem-switch-track { background: #10b981; }
+.slot-chem-switch[aria-checked="true"] .slot-chem-switch-track::after { transform: translateX(16px); background: #ecfdf5; }
+.slot-chem-switch:focus-visible { outline: 2px solid #5eead4; outline-offset: 3px; }
+.pitch .slot.pitch-compatible { outline: 3px dashed #4ade80; outline-offset: 5px; }
+@media (prefers-reduced-motion: reduce) { .slot-chem-switch-track, .slot-chem-switch-track::after { transition: none; } }

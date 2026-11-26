@@ -1,3 +1,4 @@
+import { applySlotCustom } from '../utils/slotCustom.js';
 // @vitest-environment jsdom
 import { expect, test, vi } from 'vitest';
 import { createPitchMiniCard } from './PitchMiniCard.tsx';
@@ -7,7 +8,7 @@ import { createSquadEntry } from '../utils/squadLock';
 
 test.each([
   ['special_base_icon', true], ['special_base_hero', true], ['special_base_hall_of_fut', true],
-  ['special_hall_of_fut', true], ['special_base_hall_of_fut_promo', true],
+  ['special_hall_of_fut', false], ['special_base_hall_of_fut_promo', true],
   ['gold', true], ['silver', true], ['bronze', true], ['  GOLD  ', true],
   ['special_future_icon', false], ['special_future_hero', false],
   ['special_base_icon_promo', true], ['special_base_hero_promo', true],
@@ -72,4 +73,13 @@ test('a failed portrait is removed without affecting the card content', () => {
   node.querySelector('.ea-card-portrait')!.dispatchEvent(new Event('error'));
   expect(node.querySelector('.ea-card-portrait')).toBeNull();
   expect(node.querySelector('.ea-card-name')?.textContent).toBe('Player');
+});
+
+test.each(['GOLD','GOLD_RARE','GOLD_COMMON','SILVER','SILVER_RARE','SILVER_COMMON','BRONZE','BRONZE_RARE','BRONZE_COMMON','SPECIAL_HEADSHOT'])('keeps original %s headshot framing with a special skin', card_type => {
+  const card = applySlotCustom({card_type, image_url:'/portrait.png'}, {backgroundUrl:'https://example.com/special.png',versionLabel:'special_world_tour'});
+  expect(PlayerCard({card}).querySelector('.ea-card-portrait--headshot')).not.toBeNull();
+});
+test('a dynamic portrait stays dynamic even when the custom skin is Gold', () => {
+  const card = applySlotCustom({version:'special_world_tour', image_url:'/dynamic.png'}, {backgroundUrl:'https://example.com/gold.png',versionLabel:'gold'});
+  expect(PlayerCard({card}).querySelector('.ea-card-portrait--headshot')).toBeNull();
 });
