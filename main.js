@@ -243,6 +243,7 @@ const modalLoadMore = document.querySelector('#modal-load-more');
 modalLoadMore.addEventListener('click', () => loadModalPlayerPage());
 
 function bindSquadSlot(slot) {
+  slot.dataset.pitchSlot = 'true';
   slot.addEventListener('click', event => {
     const entry = squad[slot.dataset.position];
     handlePitchSlotClick(event, {
@@ -2823,9 +2824,13 @@ exploreMount.addEventListener('keydown', event => {
   }
 });
 pitchFrame.addEventListener('click', event => {
-  if (window.innerWidth >= 768 && !suppressSlotClick && !exploreDragCard && event.target.closest('.slot')
+  if (window.innerWidth >= 768
     && (activeSquadPanel === 'explore' || squadWorkspace.classList.contains('explore-drawer-open'))) {
-    event.preventDefault(); event.stopPropagation(); closeExploreDrawer(); setSquadPanel('build'); return;
+    if (!suppressSlotClick && !exploreDragCard && event.target.closest('[data-pitch-slot="true"]')) {
+      closeExploreDrawer(); setSquadPanel('build');
+    }
+    // Leave the original click intact; desktop background/formation/manager clicks keep Presets open.
+    return;
   }
   if (squadWorkspace.getAttribute('aria-busy') === 'true' || (!hasDesktopPointer() && squadWorkspace.classList.contains('explore-drawer-open'))) {
     event.preventDefault(); event.stopPropagation(); return;
