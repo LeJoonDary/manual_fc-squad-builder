@@ -18,7 +18,7 @@ vi.mock('../components/AutoBuildSettings.jsx',()=>({mountAutoBuildSettings:(_el,
 vi.mock('../components/Analytics.jsx',()=>({mountAnalytics:()=>{}}));
 test('URL hydration applies formation, flags, manager and budget without overwriting saved slots',async()=>{
   vi.stubGlobal('ResizeObserver',class{observe(){}disconnect(){}});
-  vi.stubGlobal('matchMedia',()=>({matches:false,addEventListener(){},removeEventListener(){}}));
+  vi.stubGlobal('matchMedia',query=>({matches:query === '(hover: hover) and (pointer: fine)',addEventListener(){},removeEventListener(){}}));
   vi.stubEnv('VITE_SUPABASE_URL','');vi.stubEnv('VITE_SUPABASE_ANON_KEY','');
   HTMLDialogElement.prototype.showModal=function(){this.open=true;};
   HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new Event('close'));};
@@ -30,7 +30,8 @@ test('URL hydration applies formation, flags, manager and budget without overwri
   document.documentElement.innerHTML=readFileSync('index.html','utf8');
   await import('../main.js');
   expect(document.querySelector('.squad-share-loading')).not.toBeNull();
-  expect(document.querySelector('.squad-workspace').inert).toBe(true);
+  expect(document.querySelector('.squad-workspace').getAttribute('aria-busy')).toBe('true');
+  expect(document.querySelector('.squad-workspace').dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))).toBe(false);
   mocks.finish();
   await vi.waitFor(()=>expect(document.querySelector('.squad-share-loading')).toBeNull());
   expect(document.querySelector('#formation-current').textContent).toBe('4-3-3');
@@ -55,11 +56,12 @@ test('URL hydration applies formation, flags, manager and budget without overwri
   const badDrop = new Event('drop'); badDrop.dataTransfer = transfer;
   document.querySelector('.slot[data-position="GK"]').dispatchEvent(badDrop);
   expect(document.querySelector('.slot[data-position="GK"]').classList.contains('occupied')).toBe(false);
+  slot.querySelector('.lock-player').click();
   tile.dispatchEvent(start);
   const drop = new Event('drop'); drop.dataTransfer = transfer; slot.dispatchEvent(drop);
   expect(workspace.dataset.panel).toBe('explore');
   expect(slot.classList.contains('is-locked')).toBe(true);
-  expect(slot.dataset.card).toBe('Explorer Player');
+  await vi.waitFor(() => expect(slot.dataset.card).toBe('Explorer Player'));
   await new Promise(resolve => setTimeout(resolve, 1));
   document.querySelector('.pitch').click(); expect(workspace.dataset.panel).toBe('explore');
   slot.querySelector('.slot-card-body').click(); expect(workspace.dataset.panel).toBe('explore');
@@ -77,7 +79,7 @@ test('URL hydration applies formation, flags, manager and budget without overwri
   expect(workspace.dataset.panel).toBe('explore');
   expect(mocks.services.getSquadSnapshot()).toBe(beforeDetail);
   expect(document.querySelector('#player-detail-modal').hidden).toBe(false);
-  expect(slot.dataset.card).toBe('Explorer Player');
+  await vi.waitFor(() => expect(slot.dataset.card).toBe('Explorer Player'));
   document.querySelector('#player-detail-close').click();
   expect(workspace.classList.contains('explore-drawer-open')).toBe(true);
   expect(mocks.services.getSquadSnapshot()).toBe(beforeDetail);

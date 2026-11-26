@@ -22,7 +22,8 @@ export function createSlotCustomPanel({ db, getEntry, change, replace, remove })
     });
     toggle.className = 'slot-chem-switch'; toggle.setAttribute('role', 'switch'); toggle.setAttribute('aria-checked', String(custom.forceFullChem === true));
     const track = document.createElement('span'); track.className = 'slot-chem-switch-track'; track.setAttribute('aria-hidden','true'); toggle.prepend(track); root.append(toggle);
-    const positions = document.createElement('details'); const summary = document.createElement('summary'); summary.textContent = text('보조 포지션 추가', '+ Alt Positions'); positions.append(summary);
+    const positions = document.createElement('details'); const summary = document.createElement('summary'); summary.textContent = text('보조 포지션 추가', '+ Alt Positions'); summary.className = 'slot-custom-accordion-heading';
+    const positionArrow = document.createElement('span'); positionArrow.textContent = '⌄'; positionArrow.setAttribute('aria-hidden','true'); summary.append(positionArrow); positions.append(summary);
     const chips = document.createElement('div'); chips.className = 'slot-custom-positions';
     const existing = new Set([original.primary_position, original.position, ...(original.secondary_positions ?? []), ...(original.altPositions ?? []), ...(original.card_positions ?? []).map(p => p.positions?.name)]);
     for (const position of CUSTOM_POSITIONS) {
@@ -30,7 +31,11 @@ export function createSlotCustomPanel({ db, getEntry, change, replace, remove })
       b.disabled = existing.has(position); b.setAttribute('aria-pressed', String(existing.has(position) || custom.addedPositions?.includes(position) || false)); chips.append(b);
     }
     positions.append(chips); root.append(positions);
-    const appearance = document.createElement('details'); const heading = document.createElement('summary'); heading.textContent = text('카드 배경 · 스탯 커스텀','Appearance & Stats'); appearance.append(heading); root.append(appearance);
+    const heading = button(text('카드 배경 · 스탯 커스텀','Appearance & Stats'), () => setExpanded(appearance.hidden));
+    heading.className = 'slot-custom-appearance-toggle slot-custom-accordion-heading'; heading.setAttribute('aria-expanded','false');
+    const arrow = document.createElement('span'); arrow.textContent = '⌄'; arrow.setAttribute('aria-hidden','true'); heading.append(arrow);
+    const appearance = document.createElement('div'); appearance.className = 'slot-custom-appearance'; appearance.id = 'slot-custom-appearance'; appearance.hidden = true;
+    heading.setAttribute('aria-controls', appearance.id); root.append(heading, appearance);
     const skinHeading = document.createElement('h3'); skinHeading.textContent = text('카드 배경', 'Card Background'); appearance.append(skinHeading);
     const search = document.createElement('input'); search.type = 'search'; search.placeholder = text('배경 검색...','Search skin...'); search.setAttribute('aria-label', search.placeholder); appearance.append(search);
     const skins = document.createElement('div'); skins.className = 'slot-custom-skins'; appearance.append(skins);
@@ -46,17 +51,18 @@ export function createSlotCustomPanel({ db, getEntry, change, replace, remove })
     };
     search.oninput = renderSkins; renderSkins();
     let loaded = false;
-    appearance.addEventListener('toggle', async () => {
-      if (!appearance.open || loaded) return; loaded = true;
+    async function setExpanded(expanded) {
+      appearance.hidden = !expanded; heading.setAttribute('aria-expanded', String(expanded));
+      if (!expanded || loaded) return; loaded = true;
       try { options = await loadCardSkins(db); if (appearance.isConnected) renderSkins(); }
-      catch { loaded = false; skins.append(button(text('다시 불러오기','Retry skins'), () => { appearance.open = false; })); }
-    });
+      catch { loaded = false; skins.append(button(text('다시 불러오기','Retry skins'), () => setExpanded(true))); }
+    }
     const stats = document.createElement('div'); stats.className = 'slot-custom-stats'; appearance.append(stats);
     const skills = document.createElement('div'); skills.className = 'slot-custom-stats slot-custom-skills'; appearance.append(skills);
     const face = getCardFaceStats(entry.card);
     for (const [key, caption, value, max] of [['overall','OVR',entry.card.overall,99], ...FACE_KEYS.map((key,i) => [key,face[i][0],face[i][1],99]), ['sm','SM',entry.card.sm,5], ['wf','WF',entry.card.wf,5]]) {
       const label = document.createElement('label'); label.textContent = caption;
-      const input = document.createElement('input'); input.type = 'number'; input.min = '1'; input.max = String(max); input.step = '1'; input.value = value ?? ''; input.setAttribute('aria-label',caption);
+      const input = document.createElement('input'); input.type = 'number'; input.inputMode = 'numeric'; input.min = '1'; input.max = String(max); input.step = '1'; input.value = value ?? ''; input.setAttribute('aria-label',caption);
       input.onchange = () => {
         const value = input.value === '' ? undefined : Math.max(1, Math.min(max, Math.round(Number(input.value))));
         if (value !== undefined && !Number.isFinite(value)) return;

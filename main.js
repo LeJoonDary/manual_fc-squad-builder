@@ -1,4 +1,4 @@
-import { downloadSquadPng } from './utils/squadImage.js';
+import { hasDesktopPointer, DESKTOP_POINTER_QUERY } from './utils/desktopPointer.js';
 import { applySlotCustom, hasCustom, sanitizeCustom, canMovePitchEntry } from './utils/slotCustom.js';
 import { readSquadState, writeSquadState, SQUAD_STORAGE_KEY } from './utils/squadPersistence.js';
 import { createSlotCustomPanel } from './components/SlotCustomPanel.js';
@@ -273,6 +273,9 @@ initialFormation.slots.forEach(({ position, x, y }) => {
 });
 const pitchFrame = document.querySelector('.pitch-scroll');
 const squadWorkspace = document.querySelector('.squad-workspace');
+squadWorkspace.addEventListener('click', event => {
+  if (squadWorkspace.getAttribute('aria-busy') === 'true') { event.preventDefault(); event.stopPropagation(); }
+}, true);
 const squadPage = document.querySelector('#squad-builder-page');
 function updatePitchViewport() {
   if (window.matchMedia('(min-width: 768px)').matches && squadWorkspace.clientHeight) {
@@ -287,6 +290,8 @@ function updatePitchViewport() {
   const pitch = pitchFrame.querySelector('.pitch');
   const height = Number.parseFloat(pitch.style.getPropertyValue('--formation-height'));
   const availableWidth = pitchFrame.clientWidth;
+  if (window.innerWidth < 1024 && availableWidth) pitchFrame.style.height = `${height * availableWidth / 900}px`;
+  else pitchFrame.style.removeProperty('height');
   if (!availableWidth || !pitchFrame.clientHeight) return;
   const fit = fitPitchViewport(availableWidth, pitchFrame.clientHeight, height);
   pitch.style.setProperty('--pitch-width', `${fit.scale > 0 ? availableWidth / fit.scale : fit.width}px`);
@@ -427,15 +432,6 @@ document.addEventListener('pointerdown', event => {
 });
 
 clearSquadButton.addEventListener('click', clearAllPlayers);
-const savePngButton = document.createElement('button'); savePngButton.type = 'button'; savePngButton.className = 'clear-squad'; savePngButton.id = 'save-squad-png';
-const labelSavePng = () => { savePngButton.textContent = getLanguage() === 'ko' ? 'PNG 저장' : 'Save PNG'; };
-labelSavePng(); subscribeLanguage(labelSavePng); clearSquadButton.after(savePngButton);
-savePngButton.onclick = async () => {
-  savePngButton.disabled = true;
-  try { await downloadSquadPng(document.querySelector('.pitch'), currentFormation); }
-  catch { status.textContent = getLanguage() === 'ko' ? '이미지를 저장하지 못했습니다. 다시 시도해 주세요.' : 'Unable to save image. Please try again.'; }
-  finally { savePngButton.disabled = false; }
-};
 managerSlot.addEventListener('click', openManagerModal);
 document.querySelectorAll('[data-close-manager-modal]').forEach((button) => button.addEventListener('click', closeManagerModal));
 managerForm.addEventListener('submit', saveManager);
@@ -2018,7 +2014,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   squad[slot.dataset.position] = createSquadEntry(chemistryCard.id, card, chemistryCard);
   Object.assign(squad[slot.dataset.position], { originalCard, customOverrides, isLocked: state.isLocked === true });
   squad[slot.dataset.position].isOwned = state.isOwned === true;
-  slot.draggable = true;
+  slot.draggable = hasDesktopPointer();
   slot.classList.add('occupied');
   slot.style.removeProperty('background-image');
   slot.classList.remove('is-locked');
@@ -2099,7 +2095,7 @@ function updateSlotLockUI(slot) {
   const lockButton = slot.querySelector('.lock-player');
 
   slot.classList.toggle('is-locked', isLocked);
-  slot.draggable = Boolean(entry?.card) && !isLocked;
+  slot.draggable = hasDesktopPointer() && Boolean(entry?.card) && !isLocked;
   const removeButton = slot.querySelector('.remove-player');
   if (isLocked || !entry?.card) removeButton?.remove();
   else if (!removeButton) {
@@ -2264,7 +2260,7 @@ function clearSlotDragFeedback() {
 
 function handleSlotDragStart(event) {
   const slot = event.currentTarget;
-  if (isSquadSlotLocked(squad[slot.dataset.position]) || event.target.closest?.('.slot-card-actions') || !slot.classList.contains('occupied') || !squad[slot.dataset.position]?.card) {
+  if (!hasDesktopPointer() || isSquadSlotLocked(squad[slot.dataset.position]) || event.target.closest?.('.slot-card-actions') || !slot.classList.contains('occupied') || !squad[slot.dataset.position]?.card) {
     event.preventDefault();
     return;
   }
@@ -2278,6 +2274,7 @@ function handleSlotDragStart(event) {
 }
 
 function handleSlotDragOver(event) {
+  if (!hasDesktopPointer()) return;
   if (isSquadSlotLocked(squad[event.currentTarget.dataset.position])) { event.dataTransfer.dropEffect = 'none'; return; }
   if (exploreDragCard && event.dataTransfer.types.includes(EXPLORE_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; return; }
   const slot = event.currentTarget;
@@ -2287,6 +2284,7 @@ function handleSlotDragOver(event) {
 }
 
 function handleSlotDragEnter(event) {
+  if (!hasDesktopPointer()) return;
   const slot = event.currentTarget;
   if (canMovePitchEntry(squad, dragOriginPosition, slot.dataset.position)) {
     event.preventDefault();
@@ -2300,6 +2298,7 @@ function handleSlotDragLeave(event) {
 }
 
 function handleSlotDrop(event) {
+  if (!hasDesktopPointer()) return;
   if (isSquadSlotLocked(squad[event.currentTarget.dataset.position])) { event.preventDefault(); event.stopPropagation(); clearSlotDragFeedback(); return; }
   if (event.dataTransfer.types.includes(EXPLORE_DRAG_TYPE)) {
     event.preventDefault(); event.stopPropagation();
@@ -2761,7 +2760,7 @@ async function hydrateSquadShare(shareCode = null) {
   const spinner = document.createElement('span'); spinner.className = 'alternative-spinner';
   loading.append(spinner, document.createTextNode(recommendationText('공유 스쿼드를 불러오는 중…', 'Loading shared squad…')));
   pitchFrame.append(loading);
-  const wasInert = workspace.inert; workspace.inert = true; workspace.setAttribute('aria-busy', 'true');
+  workspace.setAttribute('aria-busy', 'true');
   try {
     const [players] = await Promise.all([loadSharedSquadCards(supabase, payload, normalizeBrowserPlayerCard), shareAffiliationsReady]);
     const cards = Object.values(players).map(entry => entry?.card).filter(Boolean);
@@ -2777,7 +2776,7 @@ async function hydrateSquadShare(shareCode = null) {
     }
     renderManagerSlot(); showSquadShareToast(false);
   } finally {
-    loading.remove(); workspace.inert = wasInert; workspace.removeAttribute('aria-busy'); shareModal.sync();
+    loading.remove(); workspace.removeAttribute('aria-busy'); shareModal.sync();
   }
 }
 let exploreDragCard = null;
@@ -2824,6 +2823,13 @@ exploreMount.addEventListener('keydown', event => {
   }
 });
 pitchFrame.addEventListener('click', event => {
+  if (window.innerWidth >= 768 && !suppressSlotClick && !exploreDragCard && event.target.closest('.slot')
+    && (activeSquadPanel === 'explore' || squadWorkspace.classList.contains('explore-drawer-open'))) {
+    event.preventDefault(); event.stopPropagation(); closeExploreDrawer(); setSquadPanel('build'); return;
+  }
+  if (squadWorkspace.getAttribute('aria-busy') === 'true' || (!hasDesktopPointer() && squadWorkspace.classList.contains('explore-drawer-open'))) {
+    event.preventDefault(); event.stopPropagation(); return;
+  }
   const action = pitchPanelAction(event.target);
   if (action && !suppressSlotClick && !exploreDragCard) setSquadPanel(action);
 }, true);
@@ -2904,3 +2910,8 @@ squadHydrated = true;
 window.addEventListener('pagehide', persistCurrentSquad);
 window.addEventListener('auto-build-context-change', persistCurrentSquad);
 void hydrateSquadShare();
+
+window.matchMedia(DESKTOP_POINTER_QUERY).addEventListener('change', () => {
+  clearSlotDragFeedback(); dragOriginPosition = null; suppressSlotClick = false;
+  document.querySelectorAll('.pitch .slot').forEach(updateSlotLockUI);
+});

@@ -2536,3 +2536,41 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .slot-chem-switch:focus-visible { outline: 2px solid #5eead4; outline-offset: 3px; }
 .pitch .slot.pitch-compatible { outline: 3px dashed #4ade80; outline-offset: 5px; }
 @media (prefers-reduced-motion: reduce) { .slot-chem-switch-track, .slot-chem-switch-track::after { transition: none; } }
+
+/* Touch gestures belong to the browser, including when the preset drawer is open. */
+@media (hover: none), (pointer: coarse) {
+  html { touch-action: auto; }
+  body.is-squad-active { height: auto; min-height: 100dvh; overflow: auto; touch-action: auto; overscroll-behavior: auto; }
+  .app-shell.is-squad-active { height: auto; min-height: 0; overflow: visible; }
+  .app-shell.is-squad-active .squad-content,
+  .app-shell.is-squad-active .squad-workspace { height: auto; min-height: 0; overflow: visible; }
+  .app-shell.is-squad-active .pitch-scroll { height: min(800px, 80svh); min-height: 280px; flex: none; }
+  .squad-workspace, .pitch-scroll, .pitch, .pitch .slot, .pitch .slot *, .explore-panel, .explore-tile { touch-action: auto; overscroll-behavior: auto; }
+  .explore-drawer-open .explore-backdrop, .squad-share-loading { pointer-events: none; }
+  .explore-list { overscroll-behavior: auto; }
+}
+/* Only real dialogs lock background scrolling, never the preset drawer. */
+body:has(.modal:not([hidden])), body:has(dialog:modal) { overflow: hidden; }
+
+.slot-custom-panel .slot-custom-appearance-toggle { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; text-align: left; }
+.slot-custom-appearance-toggle[aria-expanded="true"] > span { transform: rotate(180deg); }
+.slot-custom-appearance { min-width: 0; overflow: visible; max-height: none; }
+.slot-custom-appearance[hidden] { display: none; }
+.player-detail-custom { flex-shrink: 0; min-width: 0; overflow: visible; }
+@media (width < 768px) {
+  .player-detail-modal { padding: 10px; }
+  .player-detail-panel { max-height: calc(100dvh - 20px); overflow-y: auto; }
+  .slot-custom-stats { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; }
+  .slot-custom-stats.slot-custom-skills { grid-template-columns: repeat(2,minmax(0,1fr)); max-width: none; gap: 8px; }
+  .slot-custom-stats input { font-size: 16px; min-height: 40px; }
+}
+@media (max-width: 1023px) {
+  .app-shell.is-squad-active .pitch-scroll { min-height: 0; }
+  .app-shell.is-squad-active .squad-workspace { gap: 14px; }
+  .app-shell.is-squad-active .pitch-column { margin: 0; padding-bottom: 0; }
+}
+
+.slot-custom-panel .slot-custom-accordion-heading { box-sizing: border-box; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin-top: 8px; padding: 10px 14px; border: 1px solid #475569; border-radius: 8px; background: #1e293b; color: inherit; font-size: 13px; font-weight: 500; line-height: 20px; text-align: left; cursor: pointer; list-style: none; }
+.slot-custom-accordion-heading::-webkit-details-marker { display: none; }
+.slot-custom-accordion-heading::marker { content: ''; }
+.slot-custom-panel details[open] > .slot-custom-accordion-heading > span { transform: rotate(180deg); }

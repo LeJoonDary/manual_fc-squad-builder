@@ -16,15 +16,15 @@ function setup(width) {
   return document.querySelector('meta');
 }
 
-it('restores unrestricted pinch zoom 300ms after the latest mobile opening', () => {
+it('never restricts pinch zoom during mobile modal openings', () => {
   const meta = setup(390);
   const original = meta.content;
   resetMobileZoom();
-  expect(meta.content).toContain('maximum-scale=1.0');
+  expect(meta.content).toBe(original);
   vi.advanceTimersByTime(200);
   resetMobileZoom();
   vi.advanceTimersByTime(100);
-  expect(meta.content).toContain('user-scalable=no');
+  expect(meta.content).toBe(original);
   vi.advanceTimersByTime(200);
   expect(meta.content).toBe(original);
 });

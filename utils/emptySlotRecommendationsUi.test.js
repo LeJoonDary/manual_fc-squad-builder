@@ -213,7 +213,10 @@ test('pitch detail custom edits update pitch and storage; reset, replace and rem
   expect(modal.hidden).toBe(false);
   expect(document.querySelector('#player-modal').hidden).toBe(true);
   const panel = () => modal.querySelector('.slot-custom-panel');
-  expect(panel().querySelectorAll('details')[1].open).toBe(false);
+  expect(panel().querySelector('.slot-custom-appearance').hidden).toBe(true);
+  panel().querySelector('.slot-custom-appearance-toggle').click();
+  expect(panel().querySelector('.slot-custom-appearance').hidden).toBe(false);
+  expect(panel().querySelectorAll('input[inputmode="numeric"]')).toHaveLength(9);
   panel().querySelector('[role="switch"]').click();
   expect(slot.classList.contains('is-locked')).toBe(true);
   expect(slot.querySelector('.pitch-custom-badge').textContent).toBe('3✦');

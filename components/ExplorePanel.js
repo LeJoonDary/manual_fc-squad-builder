@@ -1,3 +1,4 @@
+import { hasDesktopPointer, DESKTOP_POINTER_QUERY } from '../utils/desktopPointer.js';
 import { getCardBackground } from '../utils/cardBackground.js';
 import { CardCostBadge } from './CardCostBadge';
 import { squadPresets } from '../src/data/squadPresets';
@@ -52,7 +53,7 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
       message.disabled = !failed; message.onclick = refresh; grid.append(message); return;
     }
     for (const card of cards) {
-      const tile = document.createElement('button'); tile.type = 'button'; tile.className = 'explore-tile'; tile.draggable = true;
+      const tile = document.createElement('button'); tile.type = 'button'; tile.className = 'explore-tile'; tile.draggable = hasDesktopPointer();
       tile.title = `${name(card)} · ${explorePositions(card).join(' / ')}`;
       const backgroundUrl = (card.raw?.background_url || card.background_url) ? getCardBackground(card) : '';
       if (backgroundUrl) {
@@ -73,10 +74,14 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
       info.append(badge, playerName, price); tile.append(thumbnail, info);
       let dragged = false;
       let suppressClickUntil = 0;
-      tile.ondragstart = event => { dragged = true; event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData(EXPLORE_DRAG_TYPE, JSON.stringify({ source: 'explore_panel', id: card.id })); drag(card); };
+      tile.ondragstart = event => { if (!hasDesktopPointer()) { event.preventDefault(); return; } dragged = true; event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData(EXPLORE_DRAG_TYPE, JSON.stringify({ source: 'explore_panel', id: card.id })); drag(card); };
       tile.ondragend = () => { endDrag(); dragged = false; suppressClickUntil = Date.now() + 350; };
       tile.onclick = event => { event.stopPropagation(); if (!dragged && Date.now() >= suppressClickUntil) openDetail(card); }; grid.append(tile);
     }
   }
   subscribeLanguage(render); void refresh();
 }
+
+if (typeof window !== 'undefined' && window.matchMedia) window.matchMedia(DESKTOP_POINTER_QUERY).addEventListener('change', () => {
+  document.querySelectorAll('.explore-tile').forEach(tile => { tile.draggable = hasDesktopPointer(); });
+});
