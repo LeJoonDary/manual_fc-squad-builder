@@ -851,6 +851,21 @@ def owned_ids(card, *keys):
 # -------------------------------------------------------------
 # ★ 핵심: 버전 및 카드 타입 스마트 자동 판별 (토큰/SBC/시즌패스/헤드샷 지원)
 # -------------------------------------------------------------
+def extract_display_name(card, fallback_info_name=None):
+    """카드 표시명 추출: commonName(예: Pedri, Vini Jr.) 최우선, 없을 때만 풀네임 사용"""
+    common = (card.get("commonName") or "").strip() if isinstance(card, dict) else ""
+    if common:
+        return common
+    first = (card.get("firstName") or "").strip() if isinstance(card, dict) else ""
+    last = (card.get("lastName") or "").strip() if isinstance(card, dict) else ""
+    full_from_card = " ".join(p for p in (first, last) if p).strip()
+    if full_from_card:
+        return full_from_card
+    if fallback_info_name and str(fallback_info_name).strip():
+        return str(fallback_info_name).strip()
+    return "Unknown"
+
+
 def detect_version_info(
     soup,
     card,
@@ -982,7 +997,7 @@ def parse_card_page(
         m = re.search(rf"{label}\n+([^\n]+)", info_text, re.IGNORECASE)
         return m.group(1).strip() if m else None
 
-    name = card.get("commonName") or card.get("lastName") or get_info("Name") or "Unknown"
+    name = extract_display_name(card, get_info("Name"))
     nation_name = (card.get("nation", {}).get("name") if isinstance(card.get("nation"), dict) else None) or get_info("Nation")
     club_name = (card.get("club", {}).get("name") if isinstance(card.get("club"), dict) else None) or get_info("Club")
     league_name = (card.get("league", {}).get("name") if isinstance(card.get("league"), dict) else None) or get_info("League")
@@ -1135,7 +1150,22 @@ def save_to_supabase(data):
     club_id = get_or_create_club(data.get("club_name"), league_id=league_id, raw_logo_url=data.get("club_raw_url"))
     nation_id = get_or_create_nation(data.get("nation_name"))
 
-    supabase.table("players").upsert({"id": p_id, "name": name, "nation_id": nation_id}).execute()
+    player_cols = get_table_columns("players")
+    p_exist = supabase.table("players").select("id, name").eq("id", p_id).execute()
+    if p_exist.data:
+        existing_name = (p_exist.data[0].get("name") or "").strip()
+        update_payload = {}
+        if not existing_name or existing_name.lower() == "unknown":
+            update_payload["name"] = name
+        if nation_id and "nation_id" in player_cols:
+            update_payload["nation_id"] = nation_id
+        if update_payload:
+            supabase.table("players").update(update_payload).eq("id", p_id).execute()
+    else:
+        insert_payload = {"id": p_id, "name": name}
+        if nation_id and "nation_id" in player_cols:
+            insert_payload["nation_id"] = nation_id
+        supabase.table("players").insert(insert_payload).execute()
 
     cv_cols = get_table_columns("card_versions")
     cv_payload = {

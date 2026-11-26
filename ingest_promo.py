@@ -862,6 +862,21 @@ def owned_ids(card, *keys):
     return []
 
 
+def extract_display_name(card, fallback_info_name=None):
+    """카드 표시명 추출: commonName(예: Pedri, Vini Jr.) 최우선, 없을 때만 풀네임 사용"""
+    common = (card.get("commonName") or "").strip() if isinstance(card, dict) else ""
+    if common:
+        return common
+    first = (card.get("firstName") or "").strip() if isinstance(card, dict) else ""
+    last = (card.get("lastName") or "").strip() if isinstance(card, dict) else ""
+    full_from_card = " ".join(p for p in (first, last) if p).strip()
+    if full_from_card:
+        return full_from_card
+    if fallback_info_name and str(fallback_info_name).strip():
+        return str(fallback_info_name).strip()
+    return "Unknown"
+
+
 def detect_version_info(
     soup,
     card,
@@ -990,7 +1005,7 @@ def parse_card_page(
         m = re.search(rf"{label}\n+([^\n]+)", info_text, re.IGNORECASE)
         return m.group(1).strip() if m else None
 
-    name = card.get("commonName") or get_info("Name") or "Unknown"
+    name = extract_display_name(card, get_info("Name"))
     nation_name = card.get("nation", {}).get("name") if isinstance(card.get("nation"), dict) else get_info("Nation")
     league_name = card.get("league", {}).get("name") if isinstance(card.get("league"), dict) else get_info("League")
     club_name = card.get("club", {}).get("name") if isinstance(card.get("club"), dict) else get_info("Club")
@@ -1154,9 +1169,14 @@ def save_to_supabase(data):
     if "weight" in player_cols and data.get("weight"):
         player_payload["weight"] = data["weight"]
 
-    p_exist = supabase.table("players").select("id").eq("id", p_id).execute()
+    p_exist = supabase.table("players").select("id, name").eq("id", p_id).execute()
     if p_exist.data:
-        supabase.table("players").update(player_payload).eq("id", p_id).execute()
+        existing_name = (p_exist.data[0].get("name") or "").strip()
+        update_payload = {k: v for k, v in player_payload.items() if k != "id"}
+        if existing_name and existing_name.lower() != "unknown":
+            update_payload.pop("name", None)
+        if update_payload:
+            supabase.table("players").update(update_payload).eq("id", p_id).execute()
     else:
         supabase.table("players").insert(player_payload).execute()
 

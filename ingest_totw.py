@@ -560,6 +560,21 @@ def owned_ids(card, *keys):
             return [int(v) for v in card[key] if isinstance(v, (int, str)) and str(v).isdigit()]
     return []
 
+def extract_display_name(card, fallback_info_name=None):
+    """카드 표시명 추출: commonName(예: Pedri, Vini Jr.) 최우선, 없을 때만 풀네임 사용"""
+    common = (card.get("commonName") or "").strip() if isinstance(card, dict) else ""
+    if common:
+        return common
+    first = (card.get("firstName") or "").strip() if isinstance(card, dict) else ""
+    last = (card.get("lastName") or "").strip() if isinstance(card, dict) else ""
+    full_from_card = " ".join(p for p in (first, last) if p).strip()
+    if full_from_card:
+        return full_from_card
+    if fallback_info_name and str(fallback_info_name).strip():
+        return str(fallback_info_name).strip()
+    return "Unknown"
+
+
 def parse_card_page(url):
     clean_url = url.split("?")[0].rstrip("/") + "/"
     resp = requests.get(clean_url, headers=HEADERS, timeout=12)
@@ -584,7 +599,7 @@ def parse_card_page(url):
         m = re.search(rf"{label}\n+([^\n]+)", info_text, re.IGNORECASE)
         return m.group(1).strip() if m else None
 
-    name = get_info("Name") or card.get("commonName") or "Unknown"
+    name = extract_display_name(card, get_info("Name"))
     nation_name = get_info("Nation") or (card.get("nation", {}).get("name") if isinstance(card.get("nation"), dict) else None)
     league_name = (card.get("league", {}).get("name") if isinstance(card.get("league"), dict) else None) or get_info("League")
     club_name = (card.get("club", {}).get("name") if isinstance(card.get("club"), dict) else None) or get_info("Club")
@@ -719,9 +734,16 @@ def insert_totw_card(data):
     if club_id and "club_id" in player_cols: player_payload["club_id"] = club_id
     if league_id and "league_id" in player_cols: player_payload["league_id"] = league_id
 
-    p_exist = supabase.table("players").select("id").eq("id", p_id).execute()
-    if p_exist.data: supabase.table("players").update(player_payload).eq("id", p_id).execute()
-    else: supabase.table("players").insert(player_payload).execute()
+    p_exist = supabase.table("players").select("id, name").eq("id", p_id).execute()
+    if p_exist.data:
+        existing_name = (p_exist.data[0].get("name") or "").strip()
+        update_payload = {k: v for k, v in player_payload.items() if k != "id"}
+        if existing_name and existing_name.lower() != "unknown":
+            update_payload.pop("name", None)
+        if update_payload:
+            supabase.table("players").update(update_payload).eq("id", p_id).execute()
+    else:
+        supabase.table("players").insert(player_payload).execute()
 
     cv_cols = get_table_columns("card_versions")
     cv_payload = {
