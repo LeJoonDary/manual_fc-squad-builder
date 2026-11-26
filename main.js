@@ -1593,6 +1593,15 @@ async function openPlayerModal(slot) {
   renderMessage('Loading players…');
 
   resetModalSearch();
+  const focusRequest = modalRequest;
+  const isDesktopPointer = typeof window !== 'undefined'
+    && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    && window.innerWidth >= 768;
+  if (isDesktopPointer) requestAnimationFrame(() => {
+    if (!modal.hidden && activeSlot === slot && modalRequest === focusRequest) {
+      modalPlayerSearchInput.focus({ preventScroll: true });
+    }
+  });
   await loadModalPlayerPage();
 }
 

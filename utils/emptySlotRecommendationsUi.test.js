@@ -147,6 +147,43 @@ test('empty slot opens on All Meta without search focus and fetches once per ope
 });
 
 test.each([
+  [1280, true, true],
+  [768, true, true],
+  [375, true, false],
+  [375, false, false],
+  [1024, false, false],
+])('search autofocus at width %i and desktop pointer %s is %s', async (width, desktopPointer, shouldFocus) => {
+  const originalWidth = window.innerWidth;
+  const media = vi.spyOn(window, 'matchMedia').mockImplementation(query => ({
+    matches: query === '(hover: hover) and (pointer: fine)' && desktopPointer,
+    addEventListener() {}, removeEventListener() {},
+  }));
+  const input = document.querySelector('#modal-player-search-input');
+  const focus = vi.spyOn(input, 'focus');
+  try {
+    window.innerWidth = width;
+    input.blur();
+    document.querySelector('.slot:not(.occupied)').click();
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    expect(input.hasAttribute('autofocus')).toBe(false);
+    expect(document.querySelector('#player-modal .recommendation-tabs button').getAttribute('aria-pressed')).toBe('true');
+    if (shouldFocus) {
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+      expect(document.activeElement).toBe(input);
+    } else {
+      expect(focus).not.toHaveBeenCalled();
+      expect(document.activeElement).not.toBe(input);
+      input.focus(); // Touch users can still explicitly enter the search field.
+    }
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(document.querySelector('#player-modal').hidden).toBe(true);
+  } finally {
+    input.blur();
+    focus.mockRestore(); media.mockRestore(); window.innerWidth = originalWidth;
+  }
+});
+
+test.each([
   [800, { card_type: 'SPECIAL_SBC', sbc_price: null }, 'SBC'],
   [801, { card_type: 'SPECIAL_SBC', sbc_price: 99570 }, 'SBC 99.6K'],
   [802, { card_type: 'SPECIAL_TOKEN', token_cost: 300 }, '300'],
