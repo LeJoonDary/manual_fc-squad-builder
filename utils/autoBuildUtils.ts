@@ -1,3 +1,4 @@
+import { getPlayerUniqueKey, isSamePlayer } from './playerIdentity.js';
 import { isAcquisitionCard, getPickerCost } from './cardCost';
 import { calculatePlaystyleAndSkillBonus } from './playstyleBonus';
 import { applyAffiliationQuery, matchesAffiliation } from './affiliationFilters.js';
@@ -1357,7 +1358,7 @@ function prepareCandidate(card: RawCandidate, slotPosition: string, threeBack: b
   const normalized = normalizeChemistryPosition(slotPosition);
   const metaScore = calculatePlayerStrength(card, normalized);
   return { ...chemistryCard, slotPosition, price, metaScore, card, isOwned, isLocked,
-    playerKey: String(card.player_id ?? player.id ?? card.id) };
+    playerKey: getPlayerUniqueKey(card)! };
 }
 
 /** Reuses the exact UI chemistry rules and simulates the manager only when enabled. */
@@ -1655,7 +1656,7 @@ async function generateOptimalSquadPass(
       if (excluded.has(getCardVersionId(card)) || card.overall == null || card.overall < squadOvrRange.min || card.overall > squadOvrRange.max) continue;
       if (!meetsRoleRequirement(card, position, options)) continue;
       const prepared = prepareCandidate(card, position, threeBack, ownedIds.has(String(card.id)) || card.isOwned === true);
-      if (prepared && fixedPlayerKeys.has(prepared.playerKey)) continue;
+      if (prepared && (fixedPlayerKeys.has(prepared.playerKey) || [...fixedPlayers.values()].some(player => isSamePlayer(player.card, card)))) continue;
       if (prepared && prepared.price > remainingTotalBudget) continue;
       if (prepared) {
         prepared.searchJitter = 0;
@@ -2467,7 +2468,7 @@ export async function getRecommendedPlayersForSlot(
     if (!candidate || !isPositionMatched(options.slotPosition, candidate)
       || candidate.id === replacedId
       || !matchesAffiliation(card, options.affiliation)
-      || current.some(p => p.id === candidate.id || p.playerKey === candidate.playerKey)
+      || current.some(p => isSamePlayer(p.card, card))
       || excluded.has(getCardVersionId(card)) || (!affiliationActive && !acquisition && !passesMarketPriceFilter(card, options))
       || (!affiliationActive && (card.overall < minOvr || card.overall > range.max)) || (cap !== null && getPickerCost(card) > cap)
       || !matchesSlotRequirements(card, slotRequirement(options.slotPosition, options), options.slotPosition)

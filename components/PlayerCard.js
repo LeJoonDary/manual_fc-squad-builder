@@ -4,18 +4,19 @@ import { CardCostBadge } from './CardCostBadge';
 
 // Shared DOM card component for the Players tab and selection modal.
 export function createPlayerCard(card, {
-  onActivate, actionLabel = 'View player details', showMetaScore = true, synergyBadge,
+  onActivate, disabled = false, disabledLabel = 'In Squad', actionLabel = 'View player details', showMetaScore = true, synergyBadge,
   getCardName, getCardRating, getCardPosition,
   unwrapRelation, affiliationCatalog, createReviewButton,
 }) {
   const article = document.createElement('article');
   article.className = 'browser-player-card rounded-xl overflow-hidden shadow-md border border-slate-700/50 flex flex-col w-full';
-  article.tabIndex = 0;
+  article.tabIndex = disabled ? -1 : 0;
+  if (disabled) { article.setAttribute('aria-disabled', 'true'); article.classList.add('is-in-squad'); }
   article.setAttribute('role', 'button');
   article.setAttribute('aria-label', `${getCardName(card)} ${actionLabel}`);
-  article.addEventListener('click', () => onActivate(card));
+  article.addEventListener('click', () => { if (!disabled) onActivate(card); });
   article.addEventListener('keydown', (event) => {
-    if (event.target !== article) return;
+    if (disabled || event.target !== article) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onActivate(card);
@@ -66,6 +67,7 @@ export function createPlayerCard(card, {
   const priceBar = document.createElement('div');
   priceBar.className = 'browser-player-price';
   priceBar.append(CardCostBadge(card, { coinIcon: true }));
+  if (disabled) { const badge = document.createElement('span'); badge.className = 'in-squad-badge'; badge.textContent = disabledLabel; content.prepend(badge); }
   footer.append(priceBar);
   article.append(content, footer);
   return article;

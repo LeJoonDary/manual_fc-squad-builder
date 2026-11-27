@@ -278,3 +278,20 @@ test('saved Evo survives Clear All, filters and restores all overrides with lock
   expect(slot.querySelector('.pitch-custom-badge').textContent).toBe('3✦');
   expect(JSON.parse(localStorage.getItem('metaxi_squad_state_v1')).players[slot.dataset.position].customOverrides).toEqual(saved[0].customOverrides);
 });
+
+test('identity guard keeps searched versions visible but disabled in another pitch slot', async () => {
+  setLanguage('en', false);
+  const occupied = mocks.services.getCurrentSquad().find(entry => entry?.card);
+  const slot = document.querySelector('.slot:not(.occupied)');
+  const duplicate = raw(99001, slot.dataset.position);
+  duplicate.player_id = occupied.card.player_id;
+  mocks.search.mockResolvedValue([duplicate]);
+  slot.click(); type('Player');
+  await vi.waitFor(() => expect(document.querySelector('#player-list .browser-player-card[aria-disabled="true"]')).not.toBeNull());
+  const result = document.querySelector('#player-list .browser-player-card');
+  expect(result.querySelector('.in-squad-badge').textContent).toBe('In Squad');
+  const before = mocks.detail.mock.calls.length;
+  result.click();
+  expect(mocks.detail.mock.calls.length).toBe(before);
+  expect(slot.classList.contains('occupied')).toBe(false);
+});

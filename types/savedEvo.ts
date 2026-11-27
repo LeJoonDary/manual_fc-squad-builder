@@ -3,6 +3,7 @@ import type { SlotCustomOverrides } from './slotCustom';
 /** Browser player snapshot, including catalog relations used by pitch/chemistry adapters. */
 export type PlayerCardData = {
   id: string | number;
+  player_id?: string | number | null;
   name?: string;
   primary_position?: string;
   secondary_positions?: string[];

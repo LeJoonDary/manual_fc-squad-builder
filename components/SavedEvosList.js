@@ -24,6 +24,7 @@ export function createSavedEvosList({ query = '', position, unavailable = () => 
     const mismatch = position && !positions.includes(position), duplicate = unavailable(item);
     const row = document.createElement('article'); row.className = 'saved-evo-row';
     const choose = document.createElement('button'); choose.type = 'button'; choose.className = 'saved-evo-select'; choose.disabled = Boolean(mismatch || duplicate || !select);
+    if (duplicate) choose.classList.add('is-in-squad');
     choose.append(PlayerCard({ card }));
     const info = document.createElement('span'); info.className = 'saved-evo-positions';
     info.textContent = positions.join(' / '); info.title = info.textContent;
@@ -33,7 +34,7 @@ export function createSavedEvosList({ query = '', position, unavailable = () => 
       const chem = document.createElement('span'); chem.className = 'saved-evo-chem'; chem.textContent = '3✦'; skills.append(chem);
     }
     if (mismatch || duplicate) {
-      const reason = document.createElement('span'); reason.textContent = mismatch ? text('포지션 불일치', 'Position mismatch') : text('이미 피치에 배치된 선수', 'Already on pitch'); choose.append(reason);
+      const reason = document.createElement('span'); reason.className = duplicate ? 'in-squad-badge' : ''; reason.textContent = duplicate ? text('배치됨', 'In Squad') : text('포지션 불일치', 'Position mismatch'); choose.append(reason);
     }
     choose.append(info, skills);
     choose.onclick = () => select(item);

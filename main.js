@@ -1,3 +1,4 @@
+import { hasDuplicatePitchPlayer } from './utils/playerIdentity.js';
 import { createSpecialCardsPreference } from './utils/specialCardsPreference.js';
 import { bindPitchTouchDrag } from './utils/pitchTouchDrag.js';
 import { savedEvosStore, evoCardId } from './utils/savedEvos.js';
@@ -237,7 +238,7 @@ const alternativeModal = createAlternativePlayerModal({
     if (replacementSnapshot !== getSquadSnapshot() || squad[position] !== original || !valid.length) throw new Error(recommendationText('더 이상 선택할 수 없는 선수입니다.', 'This player is no longer eligible'));
     const slot = document.querySelector(`.slot[data-position="${position}"]`);
     if (!slot) return;
-    placeCard(slot, detail, false);
+    if (!placeCard(slot, detail, false)) return;
     squad[position].isLocked = true;
     squad[position].isOwned = false;
     updateSlotLockUI(slot);
@@ -390,7 +391,7 @@ function applyAutoBuildResult(result, request) {
   clearSlotDragFeedback();
   Object.keys(squad).forEach(key => delete squad[key]);
   placements.forEach(({ slot, card, state, isOwned, isLocked }) => {
-    placeCard(slot, card, false, { ...state, isOwned });
+    if (!placeCard(slot, card, false, { ...state, isOwned })) return;
     squad[slot.dataset.position].isLocked = isLocked;
     updateSlotLockUI(slot);
   });
@@ -420,7 +421,7 @@ function applyFormation(formation, savedPlayers = null) {
     pitch.append(slot);
     const entry = nextSquad[position];
     if (entry) {
-      placeCard(slot, entry.card, false, entry);
+      if (!placeCard(slot, entry.card, false, entry)) { resetSlot(slot, false); return; }
       squad[position].isLocked = entry.isLocked === true;
       updateSlotLockUI(slot);
     } else resetSlot(slot, false);
@@ -1695,9 +1696,7 @@ async function loadModalPlayerPage() {
     });
     cacheSearchResult(cacheKey, rows);
     if (requestId !== modalRequest || modal.hidden) return;
-    const selectedCardIds = getSelectedCardIds(position);
-    const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean)
-      .filter(card => !selectedCardIds.has(String(card.id)));
+    const cards = rows.map(normalizeBrowserPlayerCard).filter(Boolean);
     const portraitsReady = preloadCardImages(cards);
     if (portraitsReady) {
       modalLoadMore.textContent = 'Loading…';
@@ -1723,14 +1722,6 @@ async function loadModalPlayerPage() {
       modalLoadMore.textContent = `Load More (${MODAL_PAGE_SIZE} Players)`;
     }
   }
-}
-
-function getSelectedCardIds(currentSlotKey) {
-  return new Set(
-    Object.entries(squad)
-      .filter(([slotKey, item]) => slotKey !== currentSlotKey && item?.card_id !== undefined && item.card_id !== null)
-      .map(([, item]) => String(item.card_id)),
-  );
 }
 
 function normalizePosition(slot) {
@@ -1934,11 +1925,11 @@ function updateModalPlayerSearch() {
 }
 
 function evoUnavailable(item, position) {
-  return getSelectedCardIds(position).has(String(toChemistryPlayerCard(item.player).id));
+  return hasDuplicatePitchPlayer(squad, position, item.player);
 }
 function placeSavedEvo(slot, item) {
   if (evoUnavailable(item, slot.dataset.position)) return;
-  placeCard(slot, item.player, true, { originalCard: item.player, customOverrides: item.customOverrides, isLocked: true });
+  if (!placeCard(slot, item.player, true, { originalCard: item.player, customOverrides: item.customOverrides, isLocked: true })) return;
   updateSlotLockUI(slot);
   window.dispatchEvent(new Event('auto-build-context-change'));
 }
@@ -1978,14 +1969,17 @@ function buildPlayerCard(card, options) {
 function renderFilteredPlayerList() {
   playerList.replaceChildren();
   modalPlayerCards.forEach(card => {
+    const duplicate = hasDuplicatePitchPlayer(squad, activeSlot?.dataset.position, card);
     const recommendation = recommendationRows.get(String(card.id));
+    if (recommendation && duplicate) return;
     const badge = recommendation ? emptySlotRecommendationBadge(recommendation, lockedSquadCount()) : null;
     const article = buildPlayerCard(card, {
       actionLabel: recommendation ? recommendationText('선수 선택', 'Select Player') : 'Select Player',
+      disabled: duplicate, disabledLabel: recommendationText('배치됨', 'In Squad'),
       textAffiliations: false,
       synergyBadge: badge?.text,
       onActivate: async () => {
-        if (!activeSlot) return;
+        if (!activeSlot || hasDuplicatePitchPlayer(squad, activeSlot.dataset.position, card)) return;
         const slot = activeSlot;
         const requestId = modalRequest;
         const selectionId = ++modalSelectionRequest;
@@ -1994,7 +1988,7 @@ function renderFilteredPlayerList() {
           const detail = normalizeBrowserPlayerCard(await loadPlayerDetail(supabase, card.id));
           if (selectionId !== modalSelectionRequest || requestId !== modalRequest || activeSlot !== slot || modal.hidden) return;
           if (!detail) throw new Error('Unable to load player details.');
-          placeCard(slot, detail);
+          if (!placeCard(slot, detail)) return;
           if (recommendation) {
             squad[slot.dataset.position].isLocked = true;
             squad[slot.dataset.position].isOwned = false;
@@ -2082,8 +2076,15 @@ function openPitchDetail(slot) {
     remove: () => { playerDetail.close(); resetSlot(slot); },
   }) });
 }
-function placeCard(slot, card, shouldUpdate = true, state = {}) {
+function duplicatePlayerMessage() {
+  return recommendationText('이미 스쿼드에 배치된 선수입니다.', 'This player is already in your squad.');
+}
+function placeCard(slot, card, shouldUpdate = true, state = {}, movingFrom = null) {
   const originalCard = state.originalCard ?? card;
+  if (hasDuplicatePitchPlayer(squad, slot.dataset.position, originalCard, movingFrom)) {
+    status.textContent = duplicatePlayerMessage();
+    return false;
+  }
   const customOverrides = sanitizeCustom(state.customOverrides);
   card = applySlotCustom(originalCard, customOverrides);
   preloadImages([{ card }]);
@@ -2155,6 +2156,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   slot.append(priceBadge);
   updateSlotOwnedUI(slot);
   if (shouldUpdate) updateSquadChemistry();
+  return true;
 }
 
 function handleTogglePlayerLock(event, slot) {
@@ -2405,9 +2407,9 @@ function movePitchPlayer(originPosition, targetSlot) {
 
   const targetCard = squad[targetPosition]?.card ?? null;
   const targetState = squad[targetPosition];
-  placeCard(targetSlot, originCard, false, originState);
+  placeCard(targetSlot, originCard, false, originState, originPosition);
   if (targetCard) {
-    placeCard(originSlot, targetCard, false, targetState);
+    placeCard(originSlot, targetCard, false, targetState, targetPosition);
     status.textContent = `Swapped players at ${originPosition} and ${targetPosition}.`;
   } else {
     resetSlot(originSlot, false);
@@ -2951,6 +2953,9 @@ async function applyExploreCard(card, position) {
       return false;
     }
   }
+  if (hasDuplicatePitchPlayer(squad, position, card)) {
+    exploreToast(duplicatePlayerMessage()); return false;
+  }
   const next = placeExplorePlayer(squad, position, card);
   if (!next) {
     exploreToast(recommendationText(`${getCardName(card)} 선수는 ${formatSlotPosition(position)} 포지션으로 뛸 수 없습니다`, `${getCardName(card)} cannot play at ${formatSlotPosition(position)}`));
@@ -2960,7 +2965,8 @@ async function applyExploreCard(card, position) {
     if (entry && !next[key]) resetSlot(document.querySelector(`.slot[data-position="${key}"]`), false);
   }
   const slot = document.querySelector(`.slot[data-position="${position}"]`);
-  placeCard(slot, card, false); squad[position].isLocked = true; updateSlotLockUI(slot); updateSquadChemistry();
+  if (!placeCard(slot, card, false)) return false;
+  squad[position].isLocked = true; updateSlotLockUI(slot); updateSquadChemistry();
   return true;
 }
 function endExploreDrag() {

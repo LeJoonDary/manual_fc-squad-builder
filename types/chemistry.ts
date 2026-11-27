@@ -2,6 +2,7 @@ import type { CardCostFields } from './cardCost';
 
 export interface PlayerCard extends CardCostFields {
   id: string;
+  player_id?: string | number | null;
   name: string;
   position: string;
   altPositions?: string[];

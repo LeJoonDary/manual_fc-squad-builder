@@ -1,3 +1,4 @@
+import { getPlayerId } from './playerIdentity.js';
 import { isCardIcon, isCardHero, isCardHallOfFut } from './specialCardIdentity.js';
 import type { ChemistryManager, ChemistryResult, PlayerCard, SquadSlot } from '../types/chemistry';
 import { sharedClubKey, getSharedClubKey } from './clubIdentity';
@@ -165,6 +166,7 @@ export function adaptChemistryPlayerCard(rawCard: Record<string, unknown>): Play
 
   return {
     id: String(firstValue(rawCard, ['id', 'card_id']) ?? ''),
+    player_id: getPlayerId(rawCard),
     name: String(firstValue(rawCard, ['name', 'player_name', 'card_name', 'display_name']) ?? 'Unnamed Player'),
     position: String(firstValue(rawCard, ['position', 'primary_position', 'position_name', 'role']) ?? ''),
     altPositions,

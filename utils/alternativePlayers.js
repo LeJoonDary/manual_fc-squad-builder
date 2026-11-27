@@ -1,3 +1,5 @@
+import { getPlayerId as getSwapPlayerId, hasDuplicatePitchPlayer } from './playerIdentity.js';
+export { getPlayerId as getSwapPlayerId } from './playerIdentity.js';
 import { adaptChemistryPlayerCard, calculateChemistry, prepareChemistryDelta, isPositionMatched, normalizeChemistryPosition } from './chemistry.ts';
 import { calculate_base_score } from './metaScore.js';
 import { isCardIcon, isCardHero } from './specialCardIdentity.js';
@@ -9,15 +11,6 @@ const swapIcon = card => isCardIcon(card) || [card?.league, card?.club, card?.le
   .some(name => /^icons?$/i.test(String(name ?? '').trim()));
 
 // Card version IDs must never be used as person IDs.
-export function getSwapPlayerId(card) {
-  for (const source of [card, card?.raw]) {
-    const player = Array.isArray(source?.players) ? source.players[0] : source?.players;
-    for (const value of [source?.player_id, source?.playerId, source?.player?.id, player?.id]) {
-      if (value != null && String(value).trim() !== '') return String(value).trim();
-    }
-  }
-  return null;
-}
 
 export function getOccupiedSwapPlayerIds(squad, targetPosition) {
   return new Set(Object.entries(squad)
@@ -27,8 +20,7 @@ export function getOccupiedSwapPlayerIds(squad, targetPosition) {
 }
 
 export function assertUniqueSwapPlayer(squad, targetPosition, card) {
-  const playerId = getSwapPlayerId(card);
-  if (playerId !== null && getOccupiedSwapPlayerIds(squad, targetPosition).has(playerId)) {
+  if (hasDuplicatePitchPlayer(squad, targetPosition, card)) {
     throw new Error('This player is already in another squad slot. Choose a different player.');
   }
 }
@@ -78,7 +70,6 @@ function prepareSwap({ squad, targetPosition, manager = null, settings = {}, min
   if (!squad[targetPosition]?.card) return null;
   const entries = Object.entries(squad).filter(([, entry]) => entry?.card);
   const fixed = entries.filter(([position]) => position !== targetPosition);
-  const occupiedPlayerIds = getOccupiedSwapPlayerIds(squad, targetPosition);
   const used = new Set(entries.map(([, entry]) => String(entry.card.id)));
   const excluded = new Set((settings.excludedCardVersionIds ?? []).map(String));
   const remaining = maxBudget > 0 ? maxBudget - calculateSquadTotalCost(Object.fromEntries(fixed)) : Infinity;
@@ -114,8 +105,7 @@ function prepareSwap({ squad, targetPosition, manager = null, settings = {}, min
   const seen = new Set();
   return {
     eligible(card) {
-      const playerId = getSwapPlayerId(card);
-      if (playerId !== null && occupiedPlayerIds.has(playerId)) return null;
+      if (hasDuplicatePitchPlayer(squad, targetPosition, card)) return null;
       // Lightweight eligibility and affordability run before chemistry or scoring.
       const positions = card.alt_positions ?? card.secondary_positions ?? card.altPositions ?? [];
       const altPositions = Array.isArray(positions) ? positions : String(positions).replace(/[{}"\[\]]/g, '').split(',');
