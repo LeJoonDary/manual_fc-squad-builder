@@ -96,3 +96,7 @@
 #fellaini, 88, hall, https://www.youtube.com/shorts/U7bB4TSV8ZU
 
 #diaby, 86, thunderstuck, https://www.youtube.com/shorts/l8FMuAZiRSA
+
+#joao felix, 87, thunderstruck, https://www.youtube.com/shorts/cBMtxCCiXQs
+#araujo, 86, thunderstruck, https://www.youtube.com/shorts/gHERaSKIizE
+#dybala, 88, flash, https://www.youtube.com/shorts/kYFe66N3gbk
