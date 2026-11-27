@@ -45,10 +45,15 @@ test('short taps and movement of 8px before the hold retain native behavior', ()
 });
 
 test('220ms hold starts drag, prevents scrolling, drops once, and suppresses one click', () => {
+  source.querySelector('.slot-card-body').innerHTML = '<img class="ea-card-background" src="custom-bg.png"><img class="ea-card-portrait" src="face.png"><b class="ea-card-rating">97</b><b class="ea-card-position">ST</b><strong class="ea-card-name">Player Name</strong><span class="ea-card-secondary">RW CAM RM</span>';
   touch('touchstart'); vi.advanceTimersByTime(219);
   expect(document.querySelector('.pitch-touch-ghost')).toBeNull();
   vi.advanceTimersByTime(1);
-  expect(document.querySelector('.pitch-touch-ghost')).not.toBeNull();
+  const preview = document.querySelector('.pitch-touch-ghost');
+  expect(preview.querySelector('.pitch-touch-background').getAttribute('src')).toContain('custom-bg.png');
+  expect(preview.querySelector('.pitch-touch-name').textContent).toBe('Player Name');
+  expect(preview.querySelector('.pitch-touch-rating').textContent).toBe('97ST');
+  expect(preview.querySelector('.ea-card-secondary')).toBeNull();
   expect(touch('touchmove', source, [finger(80)]).defaultPrevented).toBe(true);
   expect(target.classList.contains('is-drop-target')).toBe(true);
   touch('touchend', source, [], [finger(80)]);

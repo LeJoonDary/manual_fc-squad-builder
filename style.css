@@ -2634,8 +2634,35 @@ body:has(.modal:not([hidden])), body:has(dialog:modal) { overflow: hidden; }
 .acquisition-toggle[aria-checked="true"] .slot-chem-switch-track { background: #10b981; }
 .acquisition-toggle[aria-checked="true"] .slot-chem-switch-track::after { background: #fff; }
 
-.pitch-touch-ghost { position: fixed; z-index: 10000; pointer-events: none; opacity: .7; transform: translate(-50%, -60%); }
+.pitch-touch-ghost { position: fixed; z-index: 10000; pointer-events: none; box-sizing: border-box; width: 78px; height: 104px; border-radius: 12px; overflow: hidden; border: 1px solid rgb(52 211 153 / .8); background: rgb(13 22 40 / .95); box-shadow: 0 12px 28px #0009; opacity: .95; transform: translate(-50%, -65%); }
+.pitch-touch-background { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pitch-touch-portrait { position: absolute; top: 14px; left: 0; width: 100%; height: 82px; object-fit: cover; object-position: top; }
+.pitch-touch-rating { position: absolute; top: 5px; left: 5px; color: #fff; font-size: 11px; font-weight: 700; line-height: 1.1; text-shadow: 0 1px 3px #000; }
+.pitch-touch-rating span { display: block; }
+.pitch-touch-name { position: absolute; bottom: 0; left: 0; right: 0; padding: 18px 4px 5px; background: linear-gradient(transparent, #020617 65%); color: #fff; font-size: 10px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 .pitch-touch-ghost * { pointer-events: none !important; }
 @media (hover: none), (max-width: 767px) {
   .pitch .slot-card-body { -webkit-touch-callout: none; }
+}
+
+.recommendation-price-tail { display: contents; }
+@media (width < 768px) {
+  #player-modal .recommendation-controls-row { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px 4px; margin: 8px 0; }
+  #player-modal .recommendation-controls-row > .recommendation-tabs { display: contents; }
+  #player-modal .recommendation-tabs button { grid-column: span 4; min-width: 0; height: 28px; padding: 4px; font-size: clamp(9px, 2.7vw, 11px); line-height: 16px; white-space: nowrap; }
+  #player-modal .recommendation-tabs button:nth-child(4) { grid-column: span 5; }
+  #player-modal .recommendation-controls-row > .acquisition-toggle { grid-column: span 7; justify-self: stretch; justify-content: center; height: 28px; min-width: 0; padding: 4px 8px; gap: 6px; font-size: clamp(9px, 2.5vw, 11px); line-height: 16px; }
+  #player-modal .acquisition-toggle .slot-chem-switch-track { width: 28px; height: 16px; }
+  #player-modal .acquisition-toggle .slot-chem-switch-track::after { width: 12px; height: 12px; left: 2px; top: 2px; }
+  #player-modal .acquisition-toggle[aria-checked="true"] .slot-chem-switch-track::after { transform: translateX(12px); }
+  #player-modal .recommendation-tab-icon, .swap-player-dialog .recommendation-tab-icon { display: none; }
+  .swap-player-dialog .recommendation-controls-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .swap-player-dialog .recommendation-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 0; }
+  .swap-player-dialog .recommendation-tabs button { min-width: 0; padding: 6px 8px; font-size: 10.5px; white-space: nowrap; }
+  .swap-player-dialog .acquisition-toggle { justify-self: start; }
+  #player-modal .recommendation-prices, .swap-player-dialog .recommendation-prices { display: flex; flex-wrap: wrap; gap: 6px; }
+  #player-modal .recommendation-prices .budget-input-wrap, .swap-player-dialog .recommendation-prices .budget-input-wrap { flex-basis: 100%; width: 100%; min-width: 0; }
+  #player-modal .recommendation-prices button, .swap-player-dialog .recommendation-prices button { flex: 0 0 auto; min-width: 0; height: auto; padding: 6px 10px; font-size: 11px; line-height: 16px; white-space: nowrap; overflow-wrap: normal; }
+  #player-modal .recommendation-prices button:last-child { white-space: nowrap; overflow-wrap: normal; line-height: 16px; }
+  .recommendation-price-tail { display: inline-flex; flex-wrap: nowrap; gap: 6px; flex: 0 0 auto; }
 }

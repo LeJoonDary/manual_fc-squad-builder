@@ -38,11 +38,28 @@ export function bindPitchTouchDrag(root, { getEntry, isLocked, canMove, move }) 
       ghost = document.createElement('div');
       ghost.className = 'pitch-touch-ghost';
       ghost.setAttribute('aria-hidden', 'true');
-      const copy = body.cloneNode(true);
-      copy.removeAttribute('id');
-      copy.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
-      ghost.append(copy);
-      ghost.style.width = `${body.getBoundingClientRect().width}px`;
+      // Read the rendered face so custom backgrounds and headshots stay in sync.
+      for (const [selector, className] of [
+        ['.ea-card-background', 'pitch-touch-background'],
+        ['.ea-card-portrait', 'pitch-touch-portrait'],
+      ]) {
+        const source = body.querySelector(selector);
+        if (!source) continue;
+        const image = document.createElement('img');
+        image.className = className;
+        image.src = source.currentSrc || source.src;
+        image.alt = ''; image.draggable = false;
+        ghost.append(image);
+      }
+      const rating = document.createElement('div'); rating.className = 'pitch-touch-rating';
+      for (const selector of ['.ea-card-rating', '.ea-card-position']) {
+        const line = document.createElement('span');
+        line.textContent = body.querySelector(selector)?.textContent ?? '';
+        rating.append(line);
+      }
+      const name = document.createElement('div'); name.className = 'pitch-touch-name';
+      name.textContent = body.querySelector('.ea-card-name')?.textContent ?? pending.entry.card.name ?? '';
+      ghost.append(rating, name);
       document.body.append(ghost);
       slot.classList.add('is-dragging');
       point({ clientX: pending.x, clientY: pending.y });

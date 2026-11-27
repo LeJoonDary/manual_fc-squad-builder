@@ -17,7 +17,10 @@ export function createRecommendationControls({ mode = 'empty', lockedCount = 1, 
   let timer;
   const dispose = () => clearTimeout(timer);
   for (const [key, label] of labels) {
-    const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+    const button = document.createElement('button'); button.type = 'button';
+    const icon = document.createElement('span'); icon.className = 'recommendation-tab-icon';
+    const split = label.indexOf(' '); icon.textContent = label.slice(0, split + 1);
+    button.append(icon, document.createTextNode(label.slice(split + 1)));
     button.disabled = mode === 'empty' && lockedCount === 0 && key !== 'all_meta';
     if (button.disabled) button.title = recommendationText('피치에 선수를 1명 이상 배치하면 활성화됩니다', 'Place 1+ player on the pitch to unlock');
     button.setAttribute('aria-pressed', String(sort === key));
@@ -35,11 +38,14 @@ export function createRecommendationControls({ mode = 'empty', lockedCount = 1, 
     dispose(); onInvalidate(); timer = setTimeout(() => onPrice(value), 300);
   };
   const unit = document.createElement('span'); unit.textContent = 'C'; wrap.append(input, unit); prices.append(wrap);
+  const priceTail = document.createElement('span'); priceTail.className = 'recommendation-price-tail';
   for (const value of [10000, 30000, 50000, 100000, 300000, 500000, 1000000, undefined]) {
     const button = document.createElement('button'); button.type = 'button';
     button.textContent = value ? (value === 1000000 ? '1M' : `${value / 1000}K`) : totalBudget
       ? recommendationText('잔여 예산', 'Remaining Budget') : recommendationText('전체', 'All');
-    button.onclick = () => { dispose(); onPrice(value); }; prices.append(button);
+    button.onclick = () => { dispose(); onPrice(value); };
+    if (value === 500000) prices.append(priceTail);
+    (value === 500000 || value === 1000000 || value === undefined ? priceTail : prices).append(button);
   }
   const row = document.createElement('div'); row.className = 'recommendation-controls-row';
   row.append(tabs);
