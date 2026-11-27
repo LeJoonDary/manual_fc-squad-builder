@@ -1,3 +1,4 @@
+import { isAcquisitionCard, getPickerCost } from './cardCost';
 import { calculatePlaystyleAndSkillBonus } from './playstyleBonus';
 import { applyAffiliationQuery, matchesAffiliation } from './affiliationFilters.js';
 import { STAT_KEYS, activeStats, applyStatQuery, matchesDetailedStats } from './statFilters.js';
@@ -1132,7 +1133,7 @@ export function calculateDynamicSlotCap(position: string, unfilledPositions: rea
   return Math.floor(Math.min(calculatedCap, reservedCap));
 }
 
-export interface AnchorBudgetContext { skipFullbackPriceRatio?: boolean; anchorStepIndex?: number; remainingBudget?: number; remainingSlotsCount?: number; maxPriceCap?: number; }
+export interface AnchorBudgetContext { allowAcquisitionCards?: boolean; skipFullbackPriceRatio?: boolean; anchorStepIndex?: number; remainingBudget?: number; remainingSlotsCount?: number; maxPriceCap?: number; }
 export function passesNewCandidateFilter(card: any, position: string, budget: number, formationPositions?: readonly string[], context: AnchorBudgetContext = {}): boolean {
   if (!card) return false;
   const getNormalizedSlot = (slot: string): string => {
@@ -1174,7 +1175,7 @@ export function passesNewCandidateFilter(card: any, position: string, budget: nu
   const sourceCard = card.card ?? card.raw ?? card;
   if ((!budget || budget >= 5000000) && Number(sourceCard.overall ?? 80) < 85) return false;
   const sources = [card, sourceCard, card.raw, sourceCard.raw].filter(Boolean);
-  if (sources.some(source => [source.version, source.card_type]
+  if (!context.allowAcquisitionCards && sources.some(source => [source.version, source.card_type]
     .some(value => /potm|sbc/i.test(String(value ?? ''))))) return false;
   const pace = calculatePlayerStrength(sourceCard, 'ST') / 1.2;
   const price = Number(sourceCard.price ?? 0);
@@ -2365,6 +2366,8 @@ export interface EmptySlotRecommendationOptions extends AutoBuildOptions {
   slotMaxPrice?: number | null;
   sort?: 'meta_synergy' | 'instant_chem' | 'maintain_chem' | 'all_meta';
   mode?: 'empty' | 'replace';
+  includeAcquisitionCards?: boolean;
+  manager?: { leagueId?: string; nationId?: string } | null;
   considerManager?: boolean;
 }
 export function getEmptySlotPriceCap(options: EmptySlotRecommendationOptions): number | null {
@@ -2374,11 +2377,9 @@ export function getEmptySlotPriceCap(options: EmptySlotRecommendationOptions): n
   }
   if (Object.values(options.affiliation ?? {}).some(Boolean) || options.slotMaxPrice === null || !options.totalBudget) return null;
   const layout = FORMATIONS.find(item => item.name === options.formation);
-  const entries = options.mode === 'replace'
-    ? getNormalizedSquadArray(options.currentSquad, layout?.slots.length ?? 11, layout?.slots ?? [])
-    : Object.values(options.currentSquad ?? {});
+  const entries = getNormalizedSquadArray(options.currentSquad, layout?.slots.length ?? 11, layout?.slots ?? []);
   const targetIndex = layout?.slots.findIndex(slot => slot.position === options.slotPosition);
-  const spent = entries.filter((_, index) => options.mode !== 'replace' || index !== targetIndex).reduce((sum, entry) =>
+  const spent = entries.filter((_, index) => index !== targetIndex).reduce((sum, entry) =>
     sum + (entry && !entry.isOwned ? getCardCoinPrice(rawEntryCard(entry)) : 0), 0);
   return Math.max(0, options.totalBudget - spent);
 }
@@ -2403,17 +2404,18 @@ export async function getRecommendedPlayersForSlot(
   const targetIndex = layout.slots.findIndex(slot => slot.position === options.slotPosition);
   if (targetIndex < 0) throw new Error('Unsupported slot');
   const target = entries[targetIndex];
-  const lockedCount = entries.filter(entry => entry?.card && entry.isLocked === true).length;
+  const lockedCount = entries.filter((entry, index) => index !== targetIndex && entry?.card).length;
   const sort = options.sort ?? (replacing ? 'maintain_chem' : lockedCount ? 'meta_synergy' : 'all_meta');
-  if (replacing ? !target?.card : target?.card || (!lockedCount && sort !== 'all_meta')) return [];
+  if (replacing ? !target?.card : (!lockedCount && sort !== 'all_meta')) return [];
   const considerManager = replacing && (options.considerManager ?? true);
   const fullSquad = entries.flatMap((entry, index) => {
     if (!entry) return [];
-    const player = prepareCandidate(rawEntryCard(entry), layout.slots[index].position, false, entry.isOwned, true);
+    const raw = rawEntryCard(entry);
+    const player = prepareCandidate({ ...raw, price: raw.price ?? 0 }, layout.slots[index].position, false, entry.isOwned, true);
     return player ? [player] : [];
   });
-  const current = replacing ? fullSquad.filter(player => player.slotPosition !== options.slotPosition) : fullSquad;
-  const replacedId = replacing ? getCardVersionId(target!.card) : null;
+  const current = fullSquad.filter(player => player.slotPosition !== options.slotPosition);
+  const replacedId = target?.card ? getCardVersionId(target.card) : null;
   const affiliationActive = Object.values(options.affiliation ?? {}).some(Boolean);
   const cap = getEmptySlotPriceCap(options);
   const range = validateSquadOvrRange(options.squadOvrRange);
@@ -2424,8 +2426,8 @@ export async function getRecommendedPlayersForSlot(
     let query = supabase.from('card_versions')
       .select((activeStats(slotStats).length ? AUTO_BUILD_CANDIDATE_SELECT.replace('player_stats(', 'player_stats!inner(') : AUTO_BUILD_CANDIDATE_SELECT) + ', candidate_positions:card_positions!inner(positions!inner(name))')
       .eq('candidate_positions.positions.name', normalizeChemistryPosition(options.slotPosition));
-    if (!affiliationActive) query = query.gte('overall', minOvr).lte('overall', range.max).gt('price', 0);
-    if (cap !== null) query = query.lte('price', cap);
+    if (!affiliationActive) query = query.gte('overall', minOvr).lte('overall', range.max);
+    // Acquisition costs are checked below; market price cannot bound this pool.
     query = applyAffiliationQuery(query, options.affiliation);
     if (options.maxFemalePlayers === 'exclude') query = query.or('gender.is.null,and(gender.not.ilike.*women*,gender.not.ilike.*female*)', { referencedTable: 'players' });
     const stars = slotRequirement(options.slotPosition, options);
@@ -2440,30 +2442,36 @@ export async function getRecommendedPlayersForSlot(
     query = query.order('overall', { ascending: false }).order('id', { ascending: true });
     candidates = [];
     for (let offset = 0; ; offset += 300) {
-      const { data, error } = await (affiliationActive ? query.range(offset, offset + 299) : query.limit(300));
+      const { data, error } = await query.range(offset, offset + 299);
       if (error) throw error;
       candidates.push(...(data ?? []));
-      if (!affiliationActive || !data || data.length < 300) break;
+      if (!data || data.length < 300) break;
     }
   }
   const counts = linkCounts(current);
   const leagues = counts.league;
   const icons = current.filter(isCardIcon).length, heroes = current.filter(isCardHero).length;
   const dynamicMax = Math.min(5, 3 + icons + (heroes > 0 ? 1 : 0));
-  const baseline = calculateSquadChemistry(fullSquad, considerManager, replacing).totalChemistry;
+  const chemistryFor = (players: GeneratedPlayer[]) => replacing
+    ? calculateSquadChemistry(players, considerManager, true)
+    : { ...calculateChemistry(players.map(player => ({ position: player.slotPosition, player })), options.manager ?? null), manager: null };
+  const baseline = chemistryFor(replacing ? fullSquad : current).totalChemistry;
   const deficits = getChemistryDeficits(current);
   const results = [];
   for (const card of candidates) {
-    const candidate = prepareCandidate(card, options.slotPosition, false);
+    const acquisition = isAcquisitionCard(card);
+    if (options.includeAcquisitionCards === false && (acquisition || !passesMarketPriceFilter(card, options))) continue;
+    const pickerCard = { ...card, price: getPickerCost(card) };
+    const candidate = prepareCandidate(pickerCard, options.slotPosition, false);
     if (!candidate || !isPositionMatched(options.slotPosition, candidate)
       || candidate.id === replacedId
       || !matchesAffiliation(card, options.affiliation)
       || current.some(p => p.id === candidate.id || p.playerKey === candidate.playerKey)
-      || excluded.has(getCardVersionId(card)) || (!affiliationActive && !passesMarketPriceFilter(card, options))
-      || (!affiliationActive && (card.overall < minOvr || card.overall > range.max)) || (cap !== null && Number(card.price) > cap)
+      || excluded.has(getCardVersionId(card)) || (!affiliationActive && !acquisition && !passesMarketPriceFilter(card, options))
+      || (!affiliationActive && (card.overall < minOvr || card.overall > range.max)) || (cap !== null && getPickerCost(card) > cap)
       || !matchesSlotRequirements(card, slotRequirement(options.slotPosition, options), options.slotPosition)
-      || (!affiliationActive && !passesNewCandidateFilter(card, options.slotPosition, cap !== null ? Math.max(1, cap) : options.totalBudget,
-        layout.slots.map(s => s.position), { maxPriceCap: cap ?? Infinity, skipFullbackPriceRatio: true }))) continue;
+      || (!affiliationActive && !passesNewCandidateFilter(pickerCard, options.slotPosition, cap !== null ? Math.max(1, cap) : options.totalBudget,
+        layout.slots.map(s => s.position), { maxPriceCap: cap ?? Infinity, skipFullbackPriceRatio: true, allowAcquisitionCards: true }))) continue;
     const trial = [...current, candidate];
     // Recommendation limits count everyone already on the pitch.
     const limitPlayers = trial.map(p => ({ ...p, isLocked: false }));
@@ -2471,7 +2479,7 @@ export async function getRecommendedPlayersForSlot(
       || trial.filter(isSpecialCard).length > specialLimit(options)))) continue;
     const keys = linkKeys(candidate);
     const shares = (kind: LinkKind) => keys[kind] !== null && counts[kind].has(keys[kind]!);
-    const chemistry = calculateSquadChemistry(trial, considerManager, replacing);
+    const chemistry = chemistryFor(trial);
     const allowed = isCardIcon(candidate) || shares('league') || shares('club')
       || (isCardHero(candidate) ? shares('nation')
         : shares('nation') && (leagues.size < dynamicMax || chemistry.playerChemMap[candidate.id] >= 2));

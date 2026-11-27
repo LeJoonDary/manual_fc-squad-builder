@@ -16,18 +16,19 @@ export function createAlternativePlayerModal({ load, select, renderCard, getPric
   const more = document.createElement('button'); more.type = 'button'; more.className = 'alternative-load-more swap-secondary-button'; more.hidden = true;
   const footer = document.createElement('div'); footer.className = 'swap-load-more-container'; footer.append(more);
   body.append(controlsHost, results, footer); dialog.append(header, body); document.body.append(dialog);
-  let controller, controls, position, currentCard, sort, slotMaxPrice;
+  let controller, controls, position, currentCard, sort, slotMaxPrice, includeAcquisitionCards = true;
   const invalidate = () => controller?.abort();
   close.onclick = () => dialog.close();
   dialog.addEventListener('close', () => { invalidate(); controls?.dispose(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
-  const state = () => ({ sort, slotMaxPrice });
+  const state = () => ({ sort, slotMaxPrice, includeAcquisitionCards });
   function renderControls() {
     controls?.dispose();
     title.textContent = text(`대체 선수 추천 (${formatSlotPosition(position)})`, `Replacement Recommendations (${formatSlotPosition(position)})`);
     close.setAttribute('aria-label', text('교체 모달 닫기', 'Close swap modal'));
     more.textContent = text('더 보기 (20명)', 'Load More (20 Players)');
-    controls = createRecommendationControls({ mode: 'replace', sort, ...getPriceContext(position, state()),
+    controls = createRecommendationControls({ mode: 'replace', sort, includeAcquisitionCards,
+      onIncludeAcquisitionCards: value => { includeAcquisitionCards = value; renderControls(); refresh(); }, ...getPriceContext(position, state()),
       onInvalidate: invalidate,
       onSort: value => { sort = value; renderControls(); refresh(); },
       onPrice: value => { slotMaxPrice = value; renderControls(); refresh(); },
@@ -78,7 +79,7 @@ export function createAlternativePlayerModal({ load, select, renderCard, getPric
   subscribeLanguage(() => { if (dialog.isConnected && dialog.open) { renderControls(); refresh(); } });
   return {
     async open(nextPosition, nextCard) {
-      invalidate(); position = nextPosition; currentCard = nextCard; sort = 'maintain_chem'; slotMaxPrice = undefined;
+      invalidate(); position = nextPosition; currentCard = nextCard; sort = 'maintain_chem'; slotMaxPrice = undefined; includeAcquisitionCards = true;
       renderControls(); resetMobileZoom(); if (!dialog.open) dialog.showModal();
       await refresh();
     },

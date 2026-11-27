@@ -66,7 +66,7 @@ it('renders full cards with price and stats and swaps the requested slot', async
   expect(button.textContent).not.toContain('/33');
   button.click();
   await vi.waitFor(() => expect(document.querySelector('dialog').open).toBe(false));
-  expect(select).toHaveBeenCalledWith('LB', card, expect.any(AbortSignal), bestManager, { sort: 'maintain_chem', slotMaxPrice: undefined });
+  expect(select).toHaveBeenCalledWith('LB', card, expect.any(AbortSignal), bestManager, { sort: 'maintain_chem', slotMaxPrice: undefined, includeAcquisitionCards: true });
 });
 
 it('cancels a pending lookup when closed', async () => {
@@ -104,11 +104,27 @@ it('price reload cancels stale recommendations and translates controls to Korean
   chip.click();
   expect(load.mock.calls[0][1].aborted).toBe(true);
   await vi.waitFor(()=>expect(document.querySelector('.alternative-results').textContent).toContain('Fresh'));
-  expect(load.mock.calls[1][3]).toEqual({sort:'maintain_chem',slotMaxPrice:500000});
+  expect(load.mock.calls[1][3]).toEqual({sort:'maintain_chem',slotMaxPrice:500000,includeAcquisitionCards:true});
   finish([{card:{name:'Stale',overall:99}}]); await pending;
   expect(document.querySelector('.alternative-results').textContent).not.toContain('Stale');
   setLanguage('ko',false);
   expect(document.querySelector('#alternative-title').textContent).toBe('대체 선수 추천 (CM)');
   expect(document.querySelector('.recommendation-tabs').textContent).toContain('케미 유지/상승');
   document.querySelector('dialog').close();
+});
+
+it('includes acquisition cards by default and reloads immediately when toggled', async () => {
+  const load = vi.fn().mockResolvedValue([]);
+  const modal = createAlternativePlayerModal({ load, select: vi.fn(), renderCard });
+  await modal.open('CM');
+  expect(load.mock.calls[0][3].includeAcquisitionCards).toBe(true);
+  const toggle = [...document.querySelectorAll('button')].find(b => b.textContent === 'Include SBC / OBJ / Token');
+  expect(toggle.getAttribute('role')).toBe('switch');
+  expect(toggle.getAttribute('aria-checked')).toBe('true');
+  expect(toggle.querySelector('.slot-chem-switch-track')).not.toBeNull();
+  expect(toggle.parentElement.querySelector('.recommendation-tabs')).not.toBeNull();
+  toggle.click();
+  await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+  expect(load.mock.calls[1][3].includeAcquisitionCards).toBe(false);
+  expect(document.querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('false');
 });

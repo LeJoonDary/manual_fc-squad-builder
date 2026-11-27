@@ -3,7 +3,7 @@ import { parseBudgetInput, formatBudgetNumber } from '../utils/budget';
 export const recommendationText = (ko, en) => getLanguage() === 'ko' ? ko : en;
 
 /** Both slot pickers share formatting, chips, debounce and tab styling. */
-export function createRecommendationControls({ mode = 'empty', lockedCount = 1, sort, totalBudget, maxPrice, onSort, onPrice, onInvalidate = () => {} }) {
+export function createRecommendationControls({ mode = 'empty', lockedCount = 1, sort, totalBudget, maxPrice, onSort, onPrice, includeAcquisitionCards = true, onIncludeAcquisitionCards, onInvalidate = () => {} }) {
   const element = document.createElement('div');
   const tabs = document.createElement('div'); tabs.className = 'recommendation-tabs';
   const labels = mode === 'replace' ? [
@@ -19,7 +19,7 @@ export function createRecommendationControls({ mode = 'empty', lockedCount = 1, 
   for (const [key, label] of labels) {
     const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
     button.disabled = mode === 'empty' && lockedCount === 0 && key !== 'all_meta';
-    if (button.disabled) button.title = recommendationText('선수를 1명 이상 잠그면 활성화됩니다', 'Lock 1+ player to unlock');
+    if (button.disabled) button.title = recommendationText('피치에 선수를 1명 이상 배치하면 활성화됩니다', 'Place 1+ player on the pitch to unlock');
     button.setAttribute('aria-pressed', String(sort === key));
     button.onclick = () => { if (mode === 'empty' && key === sort) return; dispose(); onSort(key); }; tabs.append(button);
   }
@@ -41,10 +41,25 @@ export function createRecommendationControls({ mode = 'empty', lockedCount = 1, 
       ? recommendationText('잔여 예산', 'Remaining Budget') : recommendationText('전체', 'All');
     button.onclick = () => { dispose(); onPrice(value); }; prices.append(button);
   }
-  element.append(tabs, prices);
+  const row = document.createElement('div'); row.className = 'recommendation-controls-row';
+  row.append(tabs);
+  if (onIncludeAcquisitionCards) {
+    const toggle = document.createElement('button'); toggle.type = 'button';
+    toggle.className = 'acquisition-toggle slot-chem-switch';
+    toggle.setAttribute('role', 'switch');
+    toggle.setAttribute('aria-checked', String(includeAcquisitionCards));
+    const track = document.createElement('span'); track.className = 'slot-chem-switch-track';
+    track.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('span');
+    label.textContent = recommendationText('SBC / OBJ / 토큰 포함', 'Include SBC / OBJ / Token');
+    toggle.append(track, label);
+    toggle.onclick = () => { dispose(); onIncludeAcquisitionCards(!includeAcquisitionCards); };
+    row.append(toggle);
+  }
+  element.append(row, prices);
   if (mode === 'empty' && lockedCount === 0) {
     const hint = document.createElement('p'); hint.className = 'recommendation-hint';
-    hint.textContent = recommendationText('선수를 1명 이상 잠그면 활성화됩니다', 'Lock 1+ player to unlock');
+    hint.textContent = recommendationText('피치에 선수를 1명 이상 배치하면 활성화됩니다', 'Place 1+ player on the pitch to unlock');
     element.append(hint);
   }
   return { element, dispose };

@@ -21,9 +21,9 @@ test('price cap allows low OVR, blocks expensive and invalid cards, returns fini
 });
 test('all-meta still applies DB cap and lowered OVR before limiting candidates',async()=>{
   const calls=[];const query:any={};for(const key of ['select','eq','gte','lte','gt','not','order'])query[key]=(...args)=>{calls.push([key,...args]);return query;};
-  query.limit=async()=>({data:[],error:null});
+  query.range=async()=>({data:[],error:null});
   await recommend({from:()=>query} as any,opts({slotMaxPrice:30000}));
-  expect(calls).toContainEqual(['lte','price',30000]);expect(calls).toContainEqual(['gte','overall',80]);
+  expect(calls).not.toContainEqual(['lte','price',30000]);expect(calls).toContainEqual(['gte','overall',80]);
 });
 test('unlinked new league at dynamic capacity remains visible with warning',async()=>{
   const currentSquad=Object.fromEntries(['LB','RB','GK'].map((position,i)=>[position,{card:card(i+1,{position,leagueId:`L${i}`,clubId:`C${i}`}),isLocked:true}]));

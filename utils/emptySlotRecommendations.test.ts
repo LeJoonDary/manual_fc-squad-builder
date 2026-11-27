@@ -8,8 +8,8 @@ const options = (extra = {}) => ({ formation: '4-3-3', slotPosition: 'CM', total
   currentSquad: { LB: locked(card(1, { position: 'LB' })) }, ...extra });
 const run = (cards: any[], extra = {}) => recommend(null as any, options(extra), cards);
 
-test('no locked player disables synergy mode', async () => {
-  expect(await run([card(2)], { sort: 'meta_synergy', currentSquad: { LB: { card: card(1), isLocked: false } } })).toEqual([]);
+test('unlocked pitch players enable synergy mode', async () => {
+  expect(await run([card(2)], { sort: 'meta_synergy', currentSquad: { LB: { card: card(1), isLocked: false } } })).toHaveLength(1);
 });
 test.each(['LB', 'RB'])('explicit price permits 80–84 OVR %s and preserves auto-build ratio', async position => {
   const cheap = card(2, { position, overall: 83, price: 30000 });
@@ -23,11 +23,11 @@ test('DB price and lowered overall filters run before LIMIT', async () => {
   const calls: any[] = [];
   const query: any = {};
   for (const method of ['select', 'eq', 'gte', 'lte', 'gt', 'not', 'order']) query[method] = (...args: any[]) => { calls.push([method, ...args]); return query; };
-  query.limit = vi.fn(async () => ({ data: [], error: null }));
+  query.range = vi.fn(async () => ({ data: [], error: null }));
   await recommend({ from: () => query } as any, options({ slotMaxPrice: 10000 }));
-  expect(calls).toContainEqual(['lte', 'price', 10000]);
+  expect(calls).not.toContainEqual(['lte', 'price', 10000]);
   expect(calls).toContainEqual(['gte', 'overall', 80]);
-  expect(query.limit).toHaveBeenCalledWith(300);
+  expect(query.range).toHaveBeenCalledWith(0, 299);
 });
 test('zero-delta league bridge remains in meta tab', async () => {
   const rows = await run([card(2, { nationId: 'FR' })]);
@@ -90,4 +90,27 @@ test('recommendation exposes a finite slot metaScore without changing ranking sc
     expect(row.metaScore).toBe(pureMetaScore(row.card, 'CM'));
     expect(Number.isFinite(row.score)).toBe(true);
   }
+});
+
+test('picker admits acquisition cards and compares SBC cost without changing solver exclusions', async () => {
+  const cards = [card(20, { card_type: 'SPECIAL_SBC', price: null, sbc_price: 10000 }),
+    card(21, { card_type: 'SPECIAL_SBC', price: 0, sbc_price: 10001 }),
+    card(22, { card_type: 'SPECIAL_SBC', price: null }),
+    card(23, { card_type: 'SPECIAL_OBJ', price: null }),
+    card(24, { card_type: 'SPECIAL_TOKEN', price: 0, token_cost: 5 })];
+  for (const sort of ['all_meta', 'meta_synergy', 'instant_chem']) {
+    const rows = await run(cards, { sort, slotMaxPrice: 10000,
+      currentSquad: { LB: { card: card(1, { position: 'LB' }), isLocked: false } } });
+    expect(rows.map(row => row.card.id).sort()).toEqual([20, 22, 23, 24]);
+    expect(await run(cards, { sort, slotMaxPrice: 10000, includeAcquisitionCards: false })).toEqual([]);
+  }
+  expect(passesNewCandidateFilter(cards[0], 'CM', 10000)).toBe(false);
+});
+test('target slot is excluded and the placed manager contributes to instant chemistry', async () => {
+  const currentSquad = { CM: locked(card(1)), LB: { card: card(2, { position: 'LB' }), isLocked: false } };
+  const noManager = await run([card(3)], { currentSquad, sort: 'all_meta' });
+  const withManager = await run([card(3)], { currentSquad, sort: 'all_meta', manager: { leagueId: 'L1', nationId: 'ES' } });
+  expect(noManager[0].lockedCount).toBe(1);
+  expect(withManager[0].afterChem).toBeGreaterThan(noManager[0].afterChem);
+  expect(await run([card(3)], { sort: 'meta_synergy', currentSquad: { CM: locked(card(1)) } })).toEqual([]);
 });

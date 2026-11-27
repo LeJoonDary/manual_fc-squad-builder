@@ -54,7 +54,7 @@ test('empty-slot UI gates recommendations, prioritizes search, debounces price, 
   expect([...document.querySelectorAll('.recommendation-tabs button')].every(button=>!button.disabled)).toBe(true);
   expect(document.querySelector('.recommendation-loading[role="status"]')).not.toBeNull();
   await vi.waitFor(() => expect(document.querySelector('.recommendation-badge')?.textContent).toBe('+2 Chem 🔥'));
-  expect(document.querySelector('.slot-recommendations').textContent).toContain('Recommended for Locked Squad (1)');
+  expect(document.querySelector('.slot-recommendations').textContent).toContain('Recommended for Pitch Squad (1)');
   const metaRow = document.querySelector('#player-list .browser-player-meta-row');
   expect(metaRow.firstElementChild.classList.contains('recommendation-badge')).toBe(true);
   expect(metaRow.lastElementChild.textContent).toBe('Meta Score 89.4');
@@ -90,7 +90,13 @@ test('replacement shares controls, passes mode and locks the selected upgrade', 
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new Event('close')); };
   const slot = document.querySelector('.slot.occupied');
-  slot.querySelector('.lock-player').click();
+  const lock = slot.querySelector('.lock-player');
+  lock.focus(); lock.click();
+  expect(lock.getAttribute('aria-pressed')).toBe('false');
+  expect(lock.querySelector('path').getAttribute('d')).toBe('M8 10V6a4 4 0 0 1 8 0');
+  expect(document.activeElement).not.toBe(lock);
+  expect(slot.classList.contains('is-locked')).toBe(false);
+  expect(slot.querySelector('.remove-player')).not.toBeNull();
   const upgrade = raw(702, slot.dataset.position);
   upgrade.player_id = 700;
   mocks.replace.mockResolvedValue([{ card:upgrade, metaScore:92.5, chemDelta:0, bestManager:null }]);
@@ -185,8 +191,8 @@ test.each([
 
 test.each([
   [800, { card_type: 'SPECIAL_SBC', sbc_price: null }, 'SBC'],
-  [801, { card_type: 'SPECIAL_SBC', sbc_price: 99570 }, 'SBC 99.6K'],
-  [802, { card_type: 'SPECIAL_TOKEN', token_cost: 300 }, '300'],
+  [801, { card_type: 'SPECIAL_SBC', sbc_price: 99570 }, 'SBC · 99.6K'],
+  [802, { card_type: 'SPECIAL_TOKEN', token_cost: 300 }, 'TOKEN · 300'],
 ])('preserves acquisition costs from selection to pitch for card %s', async (id, costs, expected) => {
   const slot = document.querySelector('.slot:not(.occupied)');
   const card = { ...raw(id, slot.dataset.position), price: 0, ...costs };

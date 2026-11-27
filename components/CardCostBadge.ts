@@ -15,8 +15,8 @@ export function CardCostBadge(card: CardCostFields & { raw?: CardCostFields }, {
     if (cost.text !== 'SBC') {
       const amount = document.createElement('span');
       amount.className = 'card-cost-sbc-amount';
-      amount.textContent = cost.text.slice(4);
-      badge.append(document.createTextNode(' '), amount);
+      amount.textContent = cost.text.slice(6);
+      badge.append(document.createTextNode(' · '), amount);
     }
     return badge;
   }

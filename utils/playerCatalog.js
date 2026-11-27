@@ -1,3 +1,4 @@
+import { getPickerCost, isAcquisitionCard } from './cardCost';
 import { PLAYER_CARD_SELECT } from './playerCards.js';
 import { applyAffiliationQuery } from './affiliationFilters.js';
 import { PLAYER_PAGE_SIZE } from './playerPagination.js';
@@ -32,21 +33,23 @@ export async function cachedPlayerPage(db, key, load, signal) {
   return rows;
 }
 
-export function fetchPlayerListPage(db, { keyword = '', position = null, positionMode = 'all', offset = 0, limit = PLAYER_PAGE_SIZE, signal, affiliation = {}, maxPrice } = {}) {
+export function fetchPlayerListPage(db, { keyword = '', position = null, positionMode = 'all', offset = 0, limit = PLAYER_PAGE_SIZE, signal, affiliation = {}, maxPrice, acquisitionCosts = false, includeAcquisitionCards = true } = {}) {
   const pageSize = Math.min(50, Math.max(1, limit));
   const term = keyword.trim();
-  const key = JSON.stringify(['list', term, position, positionMode, offset, pageSize, affiliation.leagueId, affiliation.clubId, affiliation.nationId, maxPrice]);
+  const key = JSON.stringify(['list', term, position, positionMode, offset, pageSize, affiliation.leagueId, affiliation.clubId, affiliation.nationId, maxPrice, acquisitionCosts, includeAcquisitionCards]);
   return cachedPlayerPage(db, key, async () => {
     const matches = [];
     const matchName = createPlayerNameMatcher(term);
     const playerIds = term ? await findPlayerNameIds(db, term) : null;
     if (playerIds?.length === 0) return [];
-    for (let scanned = term ? 0 : offset; ;) {
+    const filterCost = acquisitionCosts && maxPrice != null && Number.isFinite(maxPrice);
+    const marketOnly = !includeAcquisitionCards;
+    for (let scanned = term || filterCost || marketOnly ? 0 : offset; ;) {
       let query = db.from('card_versions').select(PLAYER_LIST_SELECT
         + (position ? ',slot_positions:card_positions!inner(is_primary,positions!inner(name))' : ''));
       query = playerIds ? query.in('player_id', playerIds) : applyPlayerNameQuery(query, term);
       query = applyAffiliationQuery(query, affiliation);
-      if (maxPrice != null && Number.isFinite(maxPrice)) query = query.lte('price', maxPrice);
+      if (!acquisitionCosts && maxPrice != null && Number.isFinite(maxPrice)) query = query.lte('price', maxPrice);
       if (position) {
         query.eq('slot_positions.positions.name', position);
         if (positionMode === 'primary' || positionMode === 'secondary') query.eq('slot_positions.is_primary', positionMode === 'primary');
@@ -56,10 +59,12 @@ export function fetchPlayerListPage(db, { keyword = '', position = null, positio
         .range(scanned, scanned + pageSize - 1).limit(pageSize);
       if (error) throw error;
       for (const row of data ?? []) {
+        if (marketOnly && (isAcquisitionCard(row) || !Number.isFinite(Number(row.price)) || Number(row.price) <= 0)) continue;
+        if (filterCost && getPickerCost(row) > maxPrice) continue;
         const player = Array.isArray(row.players) ? row.players[0] : row.players;
         if (!term || matchName(preparePlayerSearch(player ?? {}))) matches.push({ ...row, summary_only: true });
       }
-      if (!term) return matches;
+      if (!term && !filterCost && !marketOnly) return matches;
       if (matches.length >= offset + pageSize || !data?.length) return matches.slice(offset, offset + pageSize);
       // A full candidate page can include regex false positives. Continue until
       // the requested normalized-match page is filled, or candidates end.

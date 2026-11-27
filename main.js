@@ -1,3 +1,4 @@
+import { bindPitchTouchDrag } from './utils/pitchTouchDrag.js';
 import { savedEvosStore, evoCardId } from './utils/savedEvos.js';
 import { mountSavedEvos } from './components/SavedEvosLifecycle.jsx';
 import { createSavedEvosList } from './components/SavedEvosList.js';
@@ -270,6 +271,12 @@ function bindSquadSlot(slot) {
   slot.addEventListener('dragend', handleSlotDragEnd);
 }
 document.querySelectorAll('.slot').forEach(bindSquadSlot);
+bindPitchTouchDrag(document.querySelector('.pitch'), {
+  getEntry: slot => squad[slot.dataset.position],
+  isLocked: isSquadSlotLocked,
+  canMove: (origin, target) => canMovePitchEntry(squad, origin.dataset.position, target.dataset.position),
+  move: (origin, target) => movePitchPlayer(origin.dataset.position, target),
+});
 
 const formationPicker = document.querySelector('#formation-picker');
 const formationMenu = document.querySelector('#formation-menu');
@@ -684,7 +691,7 @@ function playersResultKey(offset = 0) {
   return searchResultKey('players', { ...filters, name: filters.name.trim() }, offset);
 }
 function modalResultKey(offset = 0) {
-  return searchResultKey('modal', [normalizePosition(activeSlot?.dataset.position ?? ''), modalPositionMode, modalPlayerSearchInput.value.trim(), modalAffiliation.getValue(), modalPriceCap()], offset);
+  return searchResultKey('modal', [normalizePosition(activeSlot?.dataset.position ?? ''), modalPositionMode, modalPlayerSearchInput.value.trim(), modalAffiliation.getValue(), modalPriceCap(), includeAcquisitionCards], offset);
 }
 function cacheSearchResult(key, result) {
   searchResultCache.delete(key);
@@ -1525,7 +1532,7 @@ function restorePlayerPanelScrollPositions(scrollPositions) {
 }
 
 const emptySlotTabs = createEmptySlotTabState();
-const lockedSquadCount = () => Object.values(squad).filter(entry => entry?.card && entry.isLocked === true).length;
+const lockedSquadCount = () => Object.entries(squad).filter(([position, entry]) => position !== activeSlot?.dataset.position && entry?.card).length;
 let recommendationSort = 'all_meta';
 let myEvos = false;
 mountSavedEvos();
@@ -1536,6 +1543,7 @@ window.addEventListener('auto-build-context-change', () => {
   if (!modal.hidden && activeSlot) { renderRecommendationControls(); updateModalPlayerSearch(); }
 });
 let slotMaxPrice;
+let includeAcquisitionCards = true;
 let recommendationControls;
 let recommendationRows = new Map();
 const recommendationPanel = document.createElement('section');
@@ -1548,11 +1556,11 @@ document.querySelector('.modal-player-search')?.after(recommendationPanel);
 if (!recommendationPanel.isConnected) modalPlayerSearchInput.parentElement.after(recommendationPanel);
 const recommendationText = (ko, en) => getLanguage() === 'ko' ? ko : en;
 function recommendationEnabled() {
-  return activeSlot && !squad[activeSlot.dataset.position]?.card;
+  return !!activeSlot;
 }
 function recommendationOptions() {
   return { ...excludedCardVersionsStore.getState(), ...getRoleOptions(), currentSquad: squad,
-    affiliation: modalAffiliation.getValue(),
+    affiliation: modalAffiliation.getValue(), manager: managerState, includeAcquisitionCards,
     formation: currentFormation, slotPosition: activeSlot.dataset.position,
     totalBudget: targetBudget, slotMaxPrice, sort: recommendationSort === 'chem_boost' ? 'instant_chem' : recommendationSort, excludeZeroPriceCards: true };
 }
@@ -1565,12 +1573,14 @@ function renderRecommendationControls() {
   recommendationPanel.hidden = !activeSlot;
   recommendationPanel.replaceChildren();
   if (recommendationPanel.hidden) return;
-  const count = Object.values(squad).filter(entry => entry?.isLocked === true).length;
+  const count = lockedSquadCount();
   const header = document.createElement('h3');
-  header.textContent = count ? recommendationText(`잠긴 선수(${count}명) 기준 맞춤 추천`, `Recommended for Locked Squad (${count})`)
+  header.textContent = count ? recommendationText(`배치 선수(${count}명) 기준 맞춤 추천`, `Recommended for Pitch Squad (${count})`)
     : recommendationText('포지션별 메타 추천', 'Meta Recommendations');
   recommendationControls?.dispose();
   recommendationControls = createRecommendationControls({
+    includeAcquisitionCards,
+    onIncludeAcquisitionCards: myEvos ? undefined : value => { includeAcquisitionCards = value; renderRecommendationControls(); updateModalPlayerSearch(); },
     lockedCount: count, sort: myEvos ? 'my_evos' : recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
     onInvalidate: () => { modalAbort?.abort(); modalRequest++; },
     onSort: value => { playerList.querySelector('.saved-evos-list')?.resetDeleteConfirmation?.(); myEvos = false; recommendationSort = emptySlotTabs.select(value, lockedSquadCount()); renderRecommendationControls(); updateModalPlayerSearch(); },
@@ -1617,7 +1627,7 @@ async function openPlayerModal(slot, allowReplace = false) {
   if (!allowReplace && isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot; myEvos = false;
   modalAffiliation.reset();
-  slotMaxPrice = undefined; recommendationSort = emptySlotTabs.select('all_meta', lockedSquadCount());
+  slotMaxPrice = undefined; includeAcquisitionCards = true; recommendationSort = emptySlotTabs.select('all_meta', lockedSquadCount());
   renderRecommendationControls();
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
@@ -1675,7 +1685,7 @@ async function loadModalPlayerPage() {
     const rows = cached ?? await fetchModalPlayerPage(supabase, {
       position: normalizePosition(position), keyword: modalPlayerSearchInput.value,
       positionMode: modalPositionMode,
-      affiliation: modalAffiliation.getValue(), maxPrice: modalPriceCap(),
+      affiliation: modalAffiliation.getValue(), maxPrice: modalPriceCap(), includeAcquisitionCards,
       offset: ticket.offset, signal: modalAbort.signal,
     });
     cacheSearchResult(cacheKey, rows);
@@ -1964,7 +1974,7 @@ function renderFilteredPlayerList() {
   playerList.replaceChildren();
   modalPlayerCards.forEach(card => {
     const recommendation = recommendationRows.get(String(card.id));
-    const badge = recommendation ? emptySlotRecommendationBadge(recommendation, Object.values(squad).filter(entry => entry?.isLocked === true).length) : null;
+    const badge = recommendation ? emptySlotRecommendationBadge(recommendation, lockedSquadCount()) : null;
     const article = buildPlayerCard(card, {
       actionLabel: recommendation ? recommendationText('선수 선택', 'Select Player') : 'Select Player',
       textAffiliations: false,
@@ -2151,6 +2161,7 @@ function handleTogglePlayerLock(event, slot) {
   persistCurrentSquad();
   window.dispatchEvent(new Event('auto-build-context-change'));
   updateSlotLockUI(slot);
+  event.currentTarget.blur();
   status.textContent = `${getCardName(entry.card)} ${isLocked ? 'locked.' : 'unlocked.'}`;
 }
 
@@ -2175,7 +2186,7 @@ function updateSlotLockUI(slot) {
     slot.querySelector('.slot-card-actions')?.append(button);
   }
   if (lockButton) {
-    lockButton.textContent = isLocked ? '🔒' : '🔓';
+    lockButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="${isLocked ? 'M8 10V6a4 4 0 0 1 8 0v4' : 'M8 10V6a4 4 0 0 1 8 0'}"/><path d="M12 14v3"/></svg>`;
     setCardAction(lockButton, isLocked ? 'unlock' : 'lock');
     lockButton.setAttribute('aria-pressed', String(isLocked));
   }
@@ -2373,6 +2384,10 @@ function handleSlotDrop(event) {
   event.preventDefault();
   const targetSlot = event.currentTarget;
   const originPosition = dragOriginPosition || event.dataTransfer.getData('text/plain');
+  movePitchPlayer(originPosition, targetSlot);
+}
+
+function movePitchPlayer(originPosition, targetSlot) {
   const targetPosition = targetSlot.dataset.position;
   const originSlot = document.querySelector(`.slot[data-position="${originPosition}"]`);
   const originCard = squad[originPosition]?.card;

@@ -43,9 +43,9 @@ test('linked chemistry loss is only offered by all-meta tab, with finite scores'
 test('replacement price filtering occurs in DB before LIMIT',async()=>{
   const calls:any[]=[];const query:any={};
   for(const method of ['select','eq','gte','lte','gt','not','order']) query[method]=(...args:any[])=>{calls.push([method,...args]);return query;};
-  query.limit=async()=>({data:[],error:null});
+  query.range=async()=>({data:[],error:null});
   await getRecommendedPlayersForSlot({from:()=>query} as any,opts({totalBudget:150000,slotMaxPrice:30000}));
-  expect(calls).toContainEqual(['lte','price',30000]);expect(calls).toContainEqual(['gte','overall',80]);
+  expect(calls).not.toContainEqual(['lte','price',30000]);expect(calls).toContainEqual(['gte','overall',80]);
 });
 
 test.each(['LB','RB'])('replacement honors cheap 83 OVR %s cards and the explicit fullback cap', async position=>{
@@ -55,4 +55,12 @@ test.each(['LB','RB'])('replacement honors cheap 83 OVR %s cards and the explici
     slotPosition:position,slotMaxPrice:30000,
   });
   expect(result.map(row=>row.card.id)).toEqual([100]);
+});
+
+test('replacement toggle admits acquisition cards by default and excludes them when off', async () => {
+  const candidate = keeper(100, { card_type: 'SPECIAL_SBC', sbc_price: 1000, price: null });
+  const settings = { sort: 'meta_synergy', slotMaxPrice: 1000 };
+  expect((await run([candidate], settings)).map(row => row.card.id)).toEqual([100]);
+  expect(await run([candidate], { ...settings, slotMaxPrice: 999 })).toEqual([]);
+  expect(await run([candidate], { ...settings, includeAcquisitionCards: false })).toEqual([]);
 });

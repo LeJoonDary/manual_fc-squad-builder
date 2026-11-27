@@ -13,11 +13,11 @@ test.each([[1250000, '1.25M'], [1000000, '1M'], [99570, '99.6K'], [335400, '335.
 });
 
 test.each([
-  [{ card_type: 'SPECIAL_TOKEN' }, 'token', 'Token'],
-  [{ token_cost: 300, sbc_price: 99570 }, 'token', '300'],
+  [{ card_type: 'SPECIAL_TOKEN' }, 'token', 'TOKEN'],
+  [{ token_cost: 300, sbc_price: 99570 }, 'token', 'TOKEN · 300'],
   [{ card_type: 'SPECIAL_SBC', sbc_price: null }, 'sbc', 'SBC'],
   [{ card_type: 'POTM', sbc_price: 0 }, 'sbc', 'SBC'],
-  [{ sbc_price: 99570, season_pass_level: 20 }, 'sbc', 'SBC 99.6K'],
+  [{ sbc_price: 99570, season_pass_level: 20 }, 'sbc', 'SBC · 99.6K'],
   [{ season_pass_level: 20, card_type: 'SPECIAL_OBJ' }, 'season', 'SP Lv.20'],
   [{ card_type: 'SPECIAL_SEASON' }, 'season', 'SEASON'],
   [{ card_type: 'SPECIAL_OBJ', price: 100 }, 'objective', 'OBJ'],
@@ -36,8 +36,8 @@ test('keeps token and SBC costs out of coin totals and includes fields in lean q
 
 test.each([
   [{ name: 'Batistuta', card_type: 'SPECIAL_SBC', sbc_price: null }, 'SBC'],
-  [{ name: 'Batistuta', card_type: 'SPECIAL_SBC', sbc_price: 99570 }, 'SBC 99.6K'],
-  [{ name: 'Moleiro', card_type: 'SPECIAL_TOKEN', token_cost: 300 }, '300'],
+  [{ name: 'Batistuta', card_type: 'SPECIAL_SBC', sbc_price: 99570 }, 'SBC · 99.6K'],
+  [{ name: 'Moleiro', card_type: 'SPECIAL_TOKEN', token_cost: 300 }, 'TOKEN · 300'],
 ])('renders %j consistently in presets and selection cards', async (cost, expected) => {
   const card = { id: 1, primary_position: 'ST', price: 0, ...cost };
   const mount = document.createElement('div');
