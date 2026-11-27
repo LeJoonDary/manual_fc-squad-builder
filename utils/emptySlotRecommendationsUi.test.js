@@ -31,8 +31,8 @@ test('empty-slot UI gates recommendations, prioritizes search, debounces price, 
   first.click();
   expect(document.querySelector('.slot-recommendations').hidden).toBe(false);
   const tabs = [...document.querySelectorAll('.recommendation-tabs button')];
-  expect(tabs).toHaveLength(3);
-  expect(tabs.map(button=>button.disabled)).toEqual([false,true,true]);
+  expect(tabs).toHaveLength(4);
+  expect(tabs.map(button=>button.disabled)).toEqual([false,true,true,false]);
   expect(tabs[0].getAttribute('aria-pressed')).toBe('true');
   expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('all_meta');
   await vi.waitFor(()=>expect(document.querySelector('.recommendation-badge')?.textContent).toBe('Premier League'));
@@ -124,7 +124,7 @@ test('empty slot opens on All Meta without search focus and fetches once per ope
   const close = () => document.querySelector('#player-modal [data-close-modal]').click();
   mocks.recommend.mockClear(); openSlot.click();
   expect(mocks.recommend).toHaveBeenCalledTimes(1);
-  expect(tabs().map(button=>button.textContent)).toEqual(['🌍 All Meta','⚡ Meta + Synergy','🔗 Instant Chem Boost']);
+  expect(tabs().map(button=>button.textContent)).toEqual(['🌍 All Meta','⚡ Meta + Synergy','🔗 Instant Chem Boost','My Evos (0/10)']);
   expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('all_meta');
   tabs()[0].click(); expect(mocks.recommend).toHaveBeenCalledTimes(1);
   tabs()[1].click(); expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('meta_synergy');
@@ -230,6 +230,9 @@ test('pitch detail custom edits update pitch and storage; reset, replace and rem
   expect(slot.classList.contains('is-locked')).toBe(false);
   expect(saved.players[slot.dataset.position].card.overall).not.toBe(97);
   panel().querySelector('.slot-custom-actions').children[2].click();
+  expect(panel().querySelector('.slot-custom-actions').children[2].textContent).toBe('Update Evo');
+  expect(JSON.parse(localStorage.getItem('metaxi_saved_evos_v1'))).toHaveLength(1);
+  panel().querySelector('.slot-custom-actions').children[3].click();
   expect(slot.querySelector('.pitch-custom-badge')).toBeNull();
   expect(slot.querySelector('.ea-card-rating').textContent).not.toBe('97');
   panel().querySelector('[role="switch"]').click();
@@ -248,4 +251,24 @@ test('pitch detail custom edits update pitch and storage; reset, replace and rem
   document.querySelector('#clear-squad').click();
   expect(document.querySelectorAll('.slot.occupied')).toHaveLength(0);
   expect(localStorage.getItem('metaxi_squad_state_v1')).toBeNull();
+});
+
+
+test('saved Evo survives Clear All, filters and restores all overrides with lock', async () => {
+  const saved = JSON.parse(localStorage.getItem('metaxi_saved_evos_v1'));
+  expect(saved).toHaveLength(1);
+  const slot = [...document.querySelectorAll('.slot')].find(node => node.dataset.position === saved[0].player.primary_position) ?? document.querySelector('.slot');
+  slot.click();
+  const tab = [...document.querySelectorAll('.recommendation-tabs button')].find(b => b.textContent.startsWith('My Evos'));
+  tab.click();
+  type('no-such-player');
+  expect(document.querySelectorAll('#player-list .saved-evo-row')).toHaveLength(0);
+  type('');
+  const choose = document.querySelector('#player-list .saved-evo-select');
+  expect(choose.disabled).toBe(false); choose.click();
+  expect(document.querySelector('#player-modal').hidden).toBe(true);
+  expect(slot.classList.contains('is-locked')).toBe(true);
+  expect(slot.querySelector('.ea-card-rating').textContent).toBe('97');
+  expect(slot.querySelector('.pitch-custom-badge').textContent).toBe('3✦');
+  expect(JSON.parse(localStorage.getItem('metaxi_squad_state_v1')).players[slot.dataset.position].customOverrides).toEqual(saved[0].customOverrides);
 });

@@ -1,4 +1,5 @@
 export type SlotCustomOverrides = {
+  playstyles?: Array<{ playstyle_id: number; name: string; is_plus: boolean; image_url?: string; image_url_plus?: string }>;
   forceFullChem?: boolean;
   addedPositions?: string[];
   backgroundUrl?: string | null;

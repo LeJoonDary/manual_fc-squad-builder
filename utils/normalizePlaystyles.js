@@ -20,6 +20,9 @@ function parsePlaystyleSource(value) {
 }
 
 export function normalizePlaystyles(...records) {
+  // An explicit empty override also replaces every legacy/nested source.
+  const override = records.find(record => Array.isArray(record?.customPlaystyles));
+  if (override) records = [{ playstyles: override.customPlaystyles }];
   const normalized = new Map();
 
   const addSource = (source, forcedPlus = null) => {

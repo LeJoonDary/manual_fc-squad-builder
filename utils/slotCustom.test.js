@@ -6,6 +6,25 @@ import { FORMATIONS } from './formations.js';
 import { getCardFaceStats } from './cardFaceStats.js';
 import { generateOptimalSquad } from './autoBuildUtils';
 import { normalizeChemistryPosition } from './chemistry';
+import { normalizePlaystyles } from './normalizePlaystyles.js';
+import { hasCustom } from './slotCustom.js';
+
+test('custom playstyles replace nested originals, survive serialization and reset, including empty selection', () => {
+  const base = { ...original, playstyles: [{ name: 'Rapid', is_plus: true }], raw: { players: { playstyles: [{ name: 'Rapid', is_plus: true }] } } };
+  const overrides = sanitizeCustom({ playstyles: [
+    { playstyle_id: 2, name: 'Finesse Shot', is_plus: false, image_url: 'https://example.com/silver.png' },
+    { playstyle_id: 1, name: 'Quick Step', is_plus: true, image_url_plus: 'https://example.com/gold.png' },
+  ] });
+  const card = applySlotCustom(base, JSON.parse(JSON.stringify(overrides)));
+  const styles = normalizePlaystyles(card, card.raw, card.raw.players);
+  expect(styles.map(style => style.name)).toEqual(['Quick Step', 'Finesse Shot']);
+  expect(styles[0].image_url_plus).toBe('https://example.com/gold.png');
+  expect(hasCustom({ playstyles: [] })).toBe(true);
+  const cleared = applySlotCustom(base, { playstyles: [] });
+  expect(normalizePlaystyles(cleared, cleared.raw, cleared.raw.players)).toEqual([]);
+  expect(applySlotCustom(base, {})).toBe(base);
+  expect(normalizePlaystyles(base)[0].name).toBe('Rapid');
+});
 
 const original = { id: 1, position: 'CM', overall: 80, sm: 3, wf: 3, price: 100, nation_id: 1, club_id: 1, league_id: 1, player_stats: { pac: 70 } };
 test('custom stats and added positions preserve original; full chemistry only in valid positions and links stay unchanged', () => {

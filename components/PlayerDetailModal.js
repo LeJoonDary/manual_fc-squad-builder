@@ -76,6 +76,7 @@ export function createPlayerDetailModal({
     } catch { /* Reviews are optional; player details remain usable. */ }
   }
   async function openPlayerDetailModal(card, { onAddToPitch = null, customPanel = null, getPitchCard = null } = {}) {
+    customMount.firstElementChild?.dispose?.();
     pitchCard = getPitchCard; customMount.replaceChildren(...(customPanel ? [customPanel] : []));
     addToPitch = onAddToPitch; addButton.hidden = !addToPitch; addButton.disabled = false;
     closeReview();
@@ -115,6 +116,7 @@ export function createPlayerDetailModal({
     closeReview();
     review = null;
     playerDetailModal.hidden = true;
+    customMount.firstElementChild?.dispose?.();
     selectedPlayer = null; pitchCard = null; customMount.replaceChildren();
     addToPitch = null; addButton.hidden = true;
     playerDetailRequest += 1;

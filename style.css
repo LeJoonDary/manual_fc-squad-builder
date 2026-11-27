@@ -2504,8 +2504,8 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .slot-custom-panel button { min-height: 36px; border: 1px solid #475569; border-radius: 7px; padding: 5px 8px; color: inherit; background: #1e293b; cursor: pointer; }
 .slot-custom-panel button:disabled { opacity: .45; cursor: default; }
 .slot-custom-panel button[aria-pressed="true"] { background: #115e59; border-color: #5eead4; }
-.slot-custom-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
-.slot-custom-actions button { font-size: 12px; min-height: 44px; }
+.slot-custom-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.slot-custom-actions button { min-width: 0; font-size: 12px; min-height: 44px; padding: 5px 8px; white-space: nowrap; }
 .slot-custom-panel summary { padding: 10px 0; cursor: pointer; font-size: 13px; }
 .slot-custom-positions { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 4px; }
 .slot-custom-panel input[type="search"], .slot-custom-stats input { width: 100%; min-width: 0; box-sizing: border-box; background: #0b172c; color: #fff; border: 1px solid #475569; border-radius: 6px; padding: 8px; }
@@ -2574,3 +2574,48 @@ body:has(.modal:not([hidden])), body:has(dialog:modal) { overflow: hidden; }
 .slot-custom-accordion-heading::-webkit-details-marker { display: none; }
 .slot-custom-accordion-heading::marker { content: ''; }
 .slot-custom-panel details[open] > .slot-custom-accordion-heading > span { transform: rotate(180deg); }
+
+@media (max-width: 380px) { .slot-custom-actions button { font-size: 11px; padding-inline: 4px; } }
+.saved-evos-list { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 8px; width: 100%; }
+#player-list > .saved-evos-list { grid-column: 1 / -1; }
+ .saved-evo-row { min-width: 0; border: 1px solid #334155b3; border-radius: 12px; overflow: hidden; background: #0d1628e6; color: #f1f5f9; }
+.saved-evo-row:hover { background: #13203a; border-color: #34d39999; }
+.saved-evo-select { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 0 12px; font-size: 12px; border: 0; background: transparent; color: #f1f5f9; cursor: pointer; }
+.saved-evo-select:disabled { opacity: .45; cursor: not-allowed; }
+.saved-evo-select img { object-fit: contain; }
+.saved-evo-positions { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #e2e8f0; }
+.saved-evo-skills { display: flex; justify-content: center; align-items: center; gap: 6px; white-space: nowrap; font-size: 11px; }
+.saved-evo-chem { color: #6ee7b7; background: #10b98126; border-radius: 4px; padding: 1px 4px; }
+/* Evo editor: fixed category order; only each button's face changes on toggle. */
+.slot-custom-trait-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; font-size: 11px; color: #cbd5e1; white-space: nowrap; }
+.slot-custom-trait-header > :last-child { overflow: hidden; text-overflow: ellipsis; }
+.slot-custom-trait-grid { display: flex; flex-direction: column; gap: 6px; }
+.slot-custom-trait-row { display: flex; align-items: center; gap: 8px; }
+.slot-custom-trait-category { width: 80px; flex-shrink: 0; font-size: 12px; font-weight: 500; color: #cbd5e1; }
+.slot-custom-trait-icons { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.slot-custom-trait { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 36px; width: 36px; height: 36px; padding: 4px; border: 1px solid #334155; border-radius: 6px; background: #0d1628; cursor: pointer; }
+.slot-custom-trait-face { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.slot-custom-trait img { width: 26px; height: 26px; object-fit: contain; opacity: .35; }
+.slot-custom-trait:hover img { opacity: .75; }
+.slot-custom-trait.is-normal { border-color: #cbd5e1cc; background: #1e293b; }
+.slot-custom-trait.is-plus { border-color: #fbbf24; background: #f59e0b26; box-shadow: 0 0 7px #f59e0b33; }
+.slot-custom-trait.is-normal img, .slot-custom-trait.is-plus img { opacity: 1; }
+.slot-custom-trait:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; }
+.slot-custom-trait-tooltip { position: absolute; bottom: calc(100% + 5px); left: 50%; transform: translateX(-50%); z-index: 50; padding: 3px 6px; border-radius: 4px; background: #020617; color: #f1f5f9; font-size: 11px; white-space: nowrap; pointer-events: none; visibility: hidden; }
+.slot-custom-trait:focus-visible .slot-custom-trait-tooltip { visibility: visible; }
+@media (hover: hover) { .slot-custom-trait:hover .slot-custom-trait-tooltip { visibility: visible; } }
+@media (min-width: 640px) { .slot-custom-trait-category { width: 112px; } }
+
+.saved-evo-delete-area { margin: 8px 12px 12px; text-align: center; }
+.saved-evo-delete-area button { box-sizing: border-box; width: 100%; min-height: 0; padding: 6px 8px; font-size: 11px; font-weight: 500; line-height: 16px; border-radius: 8px; cursor: pointer; transition: background-color .15s, color .15s; }
+.saved-evo-delete-area .saved-evo-delete { border: 1px solid #f43f5e4d; background: #f43f5e1a; color: #fda4af; }
+.saved-evo-delete-area .saved-evo-delete:hover { background: #f43f5e33; color: #fecdd3; }
+.saved-evo-delete-prompt { display: block; margin-bottom: 4px; font-size: 11px; }
+.saved-evo-delete-confirm { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; }
+.saved-evo-delete-area .saved-evo-delete-yes { border: 1px solid transparent; background: #e11d48; color: white; }
+.saved-evo-delete-area .saved-evo-delete-yes:hover { background: #f43f5e; }
+.saved-evo-delete-area .saved-evo-delete-no { border: 1px solid transparent; background: #334155; color: #e2e8f0; }
+.saved-evo-delete-area .saved-evo-delete-no:hover { background: #475569; }
+
+.saved-evos-empty { grid-column: 1 / -1; width: 100%; box-sizing: border-box; margin: 0; padding: 16px 0; font-size: 14px; color: #94a3b8; text-align: center; }
+@media (min-width: 640px) { .saved-evos-empty { white-space: nowrap; } }

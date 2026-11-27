@@ -6,6 +6,15 @@ const gkKeys = ['gk_diving','gk_handling','gk_kicking','gk_reflexes','gk_speed',
 export function sanitizeCustom(value = {}) {
   const result = {};
   if (!value || typeof value !== 'object') return result;
+  if (Array.isArray(value.playstyles)) {
+    result.playstyles = [...new Map(value.playstyles.filter(style => style && Number.isInteger(style.playstyle_id)
+      && style.playstyle_id > 0 && typeof style.name === 'string' && typeof style.is_plus === 'boolean')
+      .map(style => {
+        const clean = { playstyle_id: style.playstyle_id, name: style.name.slice(0, 120), is_plus: style.is_plus };
+        for (const key of ['image_url', 'image_url_plus']) if (typeof style[key] === 'string' && /^(https?:\/\/|\/(?!\/))/.test(style[key])) clean[key] = style[key];
+        return [clean.playstyle_id, clean];
+      })).values()].sort((a,b) => Number(b.is_plus) - Number(a.is_plus));
+  }
   if (value.forceFullChem === true) result.forceFullChem = true;
   if (Array.isArray(value.addedPositions)) {
     const positions = [...new Set(value.addedPositions.filter(p => CUSTOM_POSITIONS.includes(p)))];
@@ -26,6 +35,11 @@ export function applySlotCustom(original, value) {
   const custom = sanitizeCustom(value);
   if (!hasCustom(custom)) return original;
   const card = { ...original, originalHeadshot: isHeadshotCard(original), forceFullChem: custom.forceFullChem === true };
+  if (custom.playstyles) {
+    card.customPlaystyles = custom.playstyles;
+    card.playstyles = custom.playstyles;
+    card.card_playstyles = custom.playstyles;
+  }
   for (const key of ['overall','sm','wf']) if (custom[key] != null) card[key] = custom[key];
   if (custom.backgroundUrl) { card.background_url = custom.backgroundUrl; card.raw = { ...original.raw, background_url: custom.backgroundUrl }; }
   if (custom.versionLabel) card.version = custom.versionLabel;

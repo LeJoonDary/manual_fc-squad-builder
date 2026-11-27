@@ -1,3 +1,4 @@
+import { getLanguage } from '../src/i18n/languageStore';
 // One active tooltip across all tactical grids; no per-icon CSS hover state.
 let activeTooltip = null;
 function clearActiveTooltip() {
@@ -32,7 +33,17 @@ export const CATEGORY_DISPLAY_ORDER = ['Shooting', 'Passing', 'Defending', 'Ball
 const EXCLUDED_PLAYSTYLE_NAMES = ['Power Header', 'Trivela', 'Flair', 'Aerial'];
 const EXCLUDED_PLAYSTYLE_IDS = [11, 13, 18, 22];
 
-function appendPlaystyleImage(face, item, gold) {
+export function playstyleCategoryLabel(category) {
+  const labels = { Shooting: ['마무리', 'Finishing'], Passing: ['패스', 'Passing'], Defending: ['수비', 'Defending'], 'Ball Control': ['볼 컨트롤', 'Ball Control'], Physical: ['피지컬', 'Physical'], Goalkeeper: ['골키퍼', 'Goalkeeper'] };
+  return labels[category]?.[getLanguage() === 'ko' ? 0 : 1] ?? category;
+}
+export function tacticalPlaystyleGroups(options) {
+  const active = options.filter(item => !EXCLUDED_PLAYSTYLE_IDS.includes(Number(item.id))
+    && !EXCLUDED_PLAYSTYLE_NAMES.some(name => name.toLowerCase() === item.name?.trim().toLowerCase()));
+  return CATEGORY_DISPLAY_ORDER.map(category => ({ category, items: active.filter(item => item.category?.trim().toLowerCase() === category.toLowerCase()) }));
+}
+
+export function appendPlaystyleImage(face, item, gold) {
   const base = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/\/$/, '');
   const storage = level => base ? `${base}/storage/v1/object/public/playstyle-icons/${level}_${encodeURIComponent(item.id)}.png` : '';
   const urls = [...new Set((gold
@@ -58,9 +69,6 @@ function appendPlaystyleImage(face, item, gold) {
 
 export function createPlaystylesGridSelector({ selectedSlot, playstylesList, currentReqList = [], onChange }) {
   clearActiveTooltip();
-  const activePlaystyles = playstylesList.filter(item =>
-    !EXCLUDED_PLAYSTYLE_IDS.includes(Number(item.id))
-    && !EXCLUDED_PLAYSTYLE_NAMES.some(name => name.toLowerCase() === item.name?.trim().toLowerCase()));
   const grid = document.createElement('div');
   grid.className = 'tactical-playstyles-grid';
   const header = document.createElement('div');
@@ -70,13 +78,12 @@ export function createPlaystylesGridSelector({ selectedSlot, playstylesList, cur
   selection.textContent = 'Click: None → Silver → Gold+ → None';
   header.append(selection);
   grid.append(header);
-  for (const category of CATEGORY_DISPLAY_ORDER) {
-    const items = activePlaystyles.filter(item => item.category?.trim().toLowerCase() === category.toLowerCase());
+  for (const { category, items } of tacticalPlaystyleGroups(playstylesList)) {
     if (!items.length) continue;
     const row = document.createElement('section');
     row.className = 'tactical-playstyles-category';
     const label = document.createElement('h3');
-    label.textContent = category === 'Shooting' ? 'FINISHING' : category.toUpperCase();
+    label.textContent = playstyleCategoryLabel(category).toUpperCase();
     const icons = document.createElement('div');
     icons.className = 'tactical-playstyles-icons';
     for (const item of items) {

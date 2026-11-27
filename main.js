@@ -1,3 +1,6 @@
+import { savedEvosStore, evoCardId } from './utils/savedEvos.js';
+import { mountSavedEvos } from './components/SavedEvosLifecycle.jsx';
+import { createSavedEvosList } from './components/SavedEvosList.js';
 import { hasDesktopPointer, DESKTOP_POINTER_QUERY } from './utils/desktopPointer.js';
 import { applySlotCustom, hasCustom, sanitizeCustom, canMovePitchEntry } from './utils/slotCustom.js';
 import { readSquadState, writeSquadState, SQUAD_STORAGE_KEY } from './utils/squadPersistence.js';
@@ -1511,11 +1514,13 @@ function restorePlayerPanelScrollPositions(scrollPositions) {
 const emptySlotTabs = createEmptySlotTabState();
 const lockedSquadCount = () => Object.values(squad).filter(entry => entry?.card && entry.isLocked === true).length;
 let recommendationSort = 'all_meta';
+let myEvos = false;
+mountSavedEvos();
 window.addEventListener('auto-build-context-change', () => {
   const next = emptySlotTabs.active(lockedSquadCount());
-  if (next === recommendationSort) return;
+  if (myEvos || next === recommendationSort) return;
   recommendationSort = next;
-  if (!modal.hidden && recommendationEnabled()) { renderRecommendationControls(); updateModalPlayerSearch(); }
+  if (!modal.hidden && activeSlot) { renderRecommendationControls(); updateModalPlayerSearch(); }
 });
 let slotMaxPrice;
 let recommendationControls;
@@ -1544,7 +1549,7 @@ function modalPriceCap() {
 function renderRecommendationControls() {
   modalAffiliation.close();
   document.querySelector('.modal-player-search').append(modalAffiliation.element);
-  recommendationPanel.hidden = !recommendationEnabled();
+  recommendationPanel.hidden = !activeSlot;
   recommendationPanel.replaceChildren();
   if (recommendationPanel.hidden) return;
   const count = Object.values(squad).filter(entry => entry?.isLocked === true).length;
@@ -1553,11 +1558,16 @@ function renderRecommendationControls() {
     : recommendationText('포지션별 메타 추천', 'Meta Recommendations');
   recommendationControls?.dispose();
   recommendationControls = createRecommendationControls({
-    lockedCount: count, sort: recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
+    lockedCount: count, sort: myEvos ? 'my_evos' : recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
     onInvalidate: () => { modalAbort?.abort(); modalRequest++; },
-    onSort: value => { recommendationSort = emptySlotTabs.select(value, lockedSquadCount()); renderRecommendationControls(); updateModalPlayerSearch(); },
+    onSort: value => { playerList.querySelector('.saved-evos-list')?.resetDeleteConfirmation?.(); myEvos = false; recommendationSort = emptySlotTabs.select(value, lockedSquadCount()); renderRecommendationControls(); updateModalPlayerSearch(); },
     onPrice: value => { slotMaxPrice = value; renderRecommendationControls(); updateModalPlayerSearch(); },
   });
+  const evoTab = document.createElement('button'); evoTab.type = 'button';
+  evoTab.textContent = recommendationText(`커스텀 카드 (${savedEvosStore.entries.length}/10)`, `Custom Cards (${savedEvosStore.entries.length}/10)`);
+  evoTab.setAttribute('aria-pressed', String(myEvos));
+  evoTab.onclick = () => { playerList.querySelector('.saved-evos-list')?.resetDeleteConfirmation?.(); myEvos = true; renderRecommendationControls(); updateModalPlayerSearch(); };
+  recommendationControls.element.querySelector('.recommendation-tabs').append(evoTab);
   recommendationPanel.append(header, recommendationControls.element);
 
 }
@@ -1587,12 +1597,12 @@ async function loadSlotRecommendations() {
 subscribeLanguage(() => {
   modalAffiliation.refresh();
   if (tacticalRolesDialog) renderRoleFilterRows();
-  if (!modal.hidden && recommendationEnabled()) { renderRecommendationControls(); updateModalPlayerSearch(); }
+  if (!modal.hidden && activeSlot) { renderRecommendationControls(); updateModalPlayerSearch(); }
 });
 
 async function openPlayerModal(slot, allowReplace = false) {
   if (!allowReplace && isSquadSlotLocked(squad[slot.dataset.position])) return;
-  activeSlot = slot;
+  activeSlot = slot; myEvos = false;
   modalAffiliation.reset();
   slotMaxPrice = undefined; recommendationSort = emptySlotTabs.select('all_meta', lockedSquadCount());
   renderRecommendationControls();
@@ -1636,6 +1646,7 @@ function resetModalSearch() {
 }
 
 async function loadModalPlayerPage() {
+  if (myEvos && activeSlot && !modal.hidden) { renderMyEvos(); return; }
   if (!modal.hidden && recommendationEnabled() && !modalPlayerSearchInput.value.trim()) return loadSlotRecommendations();
   if (modal.hidden || !activeSlot || !isSearchTermReady(modalPlayerSearchInput.value)) return;
   const ticket = modalPager.begin();
@@ -1884,6 +1895,7 @@ function renderPlayerList(cards) {
 function updateModalPlayerSearch() {
   modalPlayerSearchClear.hidden = !modalPlayerSearchInput.value;
   resetModalSearch();
+  if (myEvos) { renderMyEvos(); return; }
   if (recommendationEnabled() && !modalPlayerSearchInput.value.trim()) { loadSlotRecommendations(); return; }
   if (!isSearchTermReady(modalPlayerSearchInput.value)) return;
   if (searchResultCache.has(modalResultKey())) {
@@ -1892,6 +1904,41 @@ function updateModalPlayerSearch() {
   }
   modalSearchTimer = setTimeout(() => loadModalPlayerPage(), 180);
 }
+
+function evoUnavailable(item, position) {
+  return getSelectedCardIds(position).has(String(toChemistryPlayerCard(item.player).id));
+}
+function placeSavedEvo(slot, item) {
+  if (evoUnavailable(item, slot.dataset.position)) return;
+  placeCard(slot, item.player, true, { originalCard: item.player, customOverrides: item.customOverrides, isLocked: true });
+  updateSlotLockUI(slot);
+  window.dispatchEvent(new Event('auto-build-context-change'));
+}
+function removeSavedEvoFromPitch(item) {
+  const id = evoCardId(item.player);
+  const removed = [];
+  if (!id) return removed;
+  document.querySelectorAll('.slot').forEach(slot => {
+    const entry = squad[slot.dataset.position];
+    if (!entry?.card || evoCardId(entry.originalCard ?? entry.card) !== id) return;
+    removed.push(slot.dataset.position);
+    resetSlot(slot, false);
+  });
+  if (removed.length) updateSquadChemistry();
+  if (!modal.hidden && activeSlot && myEvos) renderMyEvos();
+  return removed;
+}
+function renderMyEvos() {
+  if (!activeSlot) return;
+  modalLoadMore.hidden = true;
+  modalDescription.textContent = recommendationText('저장된 커스텀 선수를 선택하세요.', 'Select a saved custom player.');
+  playerList.replaceChildren(createSavedEvosList({ query: modalPlayerSearchInput.value, position: normalizePosition(activeSlot.dataset.position),
+    unavailable: item => evoUnavailable(item, activeSlot.dataset.position),
+    onDeleted: removeSavedEvoFromPitch,
+    select: item => { if (!activeSlot || evoUnavailable(item, activeSlot.dataset.position)) return; const slot = activeSlot; placeSavedEvo(slot, item); closeModal(); },
+  }));
+}
+savedEvosStore.subscribe(() => { if (!modal.hidden && activeSlot) { renderRecommendationControls(); if (myEvos) renderMyEvos(); } });
 
 function buildPlayerCard(card, options) {
   return createPlayerCard(card, {
@@ -1948,6 +1995,7 @@ function renderMessage(message, isError = false) {
 }
 
 function closeModal() {
+  playerList.querySelector('.saved-evos-list')?.resetDeleteConfirmation?.();
   modalAffiliation.reset();
   recommendationControls?.dispose();
   clearTimeout(modalSearchTimer);
@@ -1991,7 +2039,10 @@ function openPitchDetail(slot) {
   const position = slot.dataset.position;
   const entry = squad[position]; if (!entry?.card) return;
   playerDetail.open(entry.card, { getPitchCard: () => squad[position]?.card, customPanel: createSlotCustomPanel({
-    db: supabase, getEntry: () => squad[position],
+    db: supabase, getEntry: () => squad[position], position: normalizePosition(position),
+    unavailable: item => evoUnavailable(item, position),
+    onDeleted: item => { if (removeSavedEvoFromPitch(item).includes(position)) playerDetail.close(); },
+    loadEvo: item => { placeSavedEvo(slot, item); playerDetail.refresh(squad[position].card); },
     change: custom => {
       const previous = squad[position]; if (!previous) return;
       const customOverrides = sanitizeCustom(custom);
