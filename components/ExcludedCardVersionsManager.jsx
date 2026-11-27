@@ -51,7 +51,7 @@ function ExclusionDialog({ supabase, onClose }) {
   const [searchRetry, setSearchRetry] = useState(0);
   const [detailRetry, setDetailRetry] = useState(0);
   const [selected, setSelected] = useState([]);
-  const cache = useRef(new Map());
+  const cache = useRef(new Map(Object.entries(exclusionState.excludedCardVersionCards ?? {})));
   const [, refreshDetails] = useState(0);
   const panel = useRef(null);
   const input = useRef(null);
@@ -206,7 +206,7 @@ function ExclusionDialog({ supabase, onClose }) {
               <CardSummary card={card} />
               <button type="button" className="exclusion-toggle" aria-pressed={banned}
                 aria-label={`${exclusionCardLabel(card)} ${ui(banned ? 'Remove exclusion' : 'Exclude')}`}
-                onClick={() => change(() => banned ? excludedCardVersionsStore.unban(id) : excludedCardVersionsStore.ban(id, exclusionCardLabel(card)),
+                onClick={() => change(() => banned ? excludedCardVersionsStore.unban(id) : excludedCardVersionsStore.ban(id, exclusionCardLabel(card), card),
                   banned ? 'Card exclusion removed.' : 'Card excluded.')}>{ui(banned ? '✅ Excluded' : '🚫 Exclude')}</button>
             </div>;
           })}

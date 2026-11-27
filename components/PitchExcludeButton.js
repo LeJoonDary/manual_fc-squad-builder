@@ -50,7 +50,7 @@ export function createPitchExcludeButton(card) {
         store.unban(id);
         toast(null, 'success', 'excludedRemoved');
       } else {
-        store.ban(id, `${card.name} · ${card.version || 'Card'} (#${id})`);
+        store.ban(id, `${card.name} · ${card.version || 'Card'} (#${id})`, card.raw ?? card);
         toast(null, 'warning', 'excludedSuccess');
       }
     } catch (error) { toast(error.message); }

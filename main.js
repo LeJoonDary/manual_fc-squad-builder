@@ -3,7 +3,7 @@ import { mountSavedEvos } from './components/SavedEvosLifecycle.jsx';
 import { createSavedEvosList } from './components/SavedEvosList.js';
 import { hasDesktopPointer, DESKTOP_POINTER_QUERY } from './utils/desktopPointer.js';
 import { applySlotCustom, hasCustom, sanitizeCustom, canMovePitchEntry } from './utils/slotCustom.js';
-import { readSquadState, writeSquadState, SQUAD_STORAGE_KEY } from './utils/squadPersistence.js';
+import { readSquadState, writeSquadState, createSquadAutosave } from './utils/squadPersistence.js';
 import { createSlotCustomPanel } from './components/SlotCustomPanel.js';
 import { createSlotDetailedStats } from './components/SlotDetailedStats.js';
 import { createModalAffiliationFilter } from './components/ModalAffiliationFilter.js';
@@ -181,10 +181,19 @@ let pendingPanelScrollPositions = null;
 let activeSlot = null;
 let managerState = null;
 let squadHydrated = false;
+let resumePromise;
+let savedMinChemistry = 33;
+const squadAutosave = createSquadAutosave(() => {
+  writeSquadState(localStorage, { formation: currentFormation, players: squad, manager: managerState,
+    budget: targetBudget, maxBudget: targetBudget, minChemistry: savedMinChemistry,
+    excludedCards: excludedCardVersionsStore.getState(),
+    advancedSettings: { filters, tacticalSlotRoles, tacticalSlotPlaystyles, tacticalSlotStars, tacticalSlotPhysical, tacticalSlotStats },
+  });
+});
 function persistCurrentSquad() {
-  if (!squadHydrated) return;
-  try { writeSquadState(localStorage, { formation: currentFormation, players: squad, manager: managerState, budget: targetBudget }); } catch {}
+  if (squadHydrated) squadAutosave.schedule();
 }
+function setSavedMinChemistry(value) { savedMinChemistry = value; persistCurrentSquad(); }
 let targetBudget = 0;
 let modalPlayerCards = [];
 let dragOriginPosition = null;
@@ -327,7 +336,9 @@ const updateAutoBuildFormation = mountAutoBuildSettings(
   { budgetSection: document.querySelector('.budget-summary'), supabase, getSquadSnapshot, applyAutoBuildResult,
     getCurrentSquad: () => structuredClone(FORMATIONS.find(layout => layout.name === currentFormation).slots
       .map(slot => squad[slot.position] ?? null)),
-    resetTargetBudget, openTacticalRoles, getRoleOptions, clearRolesAndPlaystyles },
+    resetTargetBudget, openTacticalRoles, getRoleOptions, clearRolesAndPlaystyles,
+    initializeAutoResume, setSavedMinChemistry, flushAutoResume: () => squadAutosave.flush(),
+    resetAdvancedSettings: clearAllFilters },
 );
 function resetTargetBudget() {
   targetBudgetInput.value = '';
@@ -687,6 +698,7 @@ function isSearchTermReady(value) {
 }
 
 function schedulePlayerSearch() {
+  persistCurrentSquad();
   window.clearTimeout(playerSearchTimer);
   ++playerSearchRequest;
   playerSearchAbort?.abort();
@@ -928,6 +940,7 @@ function resetPlayerResultsScroll() {
 }
 
 async function searchPlayers(scrollPositions = capturePlayerPanelScrollPositions(), append = false) {
+  persistCurrentSquad();
   if (!isSearchTermReady(filters.name)) return;
   if (append && (playersPager.state.loading || !playersPager.state.hasMore)) return;
   window.clearTimeout(playerSearchTimer);
@@ -1047,7 +1060,7 @@ function replaceMasterOptions(select, placeholder, rows, selectedValue) {
 
 function renderClubOptions() {
   replaceMasterOptions(clubFilter, 'All Clubs', clubsForLeague(affiliationCatalog.clubs, leagueFilter.value), filters.club);
-  filters.club = clubFilter.value;
+  if (affiliationCatalog.clubs.length) filters.club = clubFilter.value;
 }
 
 async function loadAffiliationFilterOptions() {
@@ -2219,7 +2232,7 @@ function clearAllPlayers() {
     ? `Cleared ${clearedSlots.length} players and manager settings.`
     : 'No players to clear.';
   updateSquadChemistry();
-  try { localStorage.removeItem(SQUAD_STORAGE_KEY); } catch {}
+  squadAutosave.flush();
 }
 
 function openManagerModal() {
@@ -2804,6 +2817,8 @@ function showSquadShareToast(success) {
 }
 async function hydrateSquadShare(shareCode = null) {
   const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#\??/, ''));
+  if (!params.has('s') && hashParams.has('s')) params.set('s', hashParams.get('s'));
   if (shareCode === null && !params.has('s')) return false;
   const payload = decodeSquadSharePayload(shareCode ?? params.get('s'));
   if (!payload) { showSquadShareToast(false); return; }
@@ -2957,15 +2972,72 @@ createExplorePanel({
   endDrag: endExploreDrag,
 });
 setSquadPanel(activeSquadPanel === 'explore' ? 'explore' : 'build'); syncExploreLabels();
-// DOM-based application: restore only after all client UI and stores are mounted.
-try {
-  const saved = readSquadState(localStorage, FORMATIONS);
-  if (saved) { managerState = saved.manager; targetBudget = saved.budget; targetBudgetInput.value = targetBudget ? formatBudgetNumber(targetBudget) : ''; applyFormation(saved.formation, saved.players); renderManagerSlot(); }
-} catch { /* Storage can be unavailable in private mode. */ }
-squadHydrated = true;
-window.addEventListener('pagehide', persistCurrentSquad);
+function restoreFilterControls() {
+  const fields = { name: playerNameSearch, minOvr: minOvrInput, maxOvr: maxOvrInput, minPrice: minPriceInput, maxPrice: maxPriceInput,
+    minPlaystyles: minPlaystylesInput, maxPlaystyles: maxPlaystylesInput, minPlaystylesPlus: minPlaystylesPlusInput, maxPlaystylesPlus: maxPlaystylesPlusInput,
+    minHeight: minHeightInput, maxHeight: maxHeightInput, minWeight: minWeightInput, maxWeight: maxWeightInput, minAge: minAgeInput, maxAge: maxAgeInput };
+  for (const [key, input] of Object.entries(fields)) input.value = filters[key] ?? '';
+  onlyPrimaryPositions.checked = filters.onlyPrimary; hasAllSelectedPositions.checked = filters.hasAllPositions;
+  requireAllPlaystyles.checked = filters.requireAllPlaystyles;
+  for (const key of STAT_KEYS) for (const bound of ['min', 'max']) document.getElementById(`${bound}-${key}`).value = filters.stats[key]?.[bound] ?? '';
+  document.querySelectorAll('[data-position-filter], [data-rarity-filter], [data-rating-filter], [data-misc-filter]').forEach(button => {
+    const d = button.dataset;
+    const selected = d.positionFilter ? filters.positions.has(d.positionFilter)
+      : d.rarityFilter ? filters.rarities.has(d.rarityFilter)
+      : d.ratingFilter ? filters[d.ratingFilter === 'sm' ? 'minSm' : 'minWf'] === Number(d.ratingValue)
+      : d.miscFilter === 'accele' ? filters.acceleTypes.has(d.miscValue)
+      : d.miscFilter === 'body' ? filters.bodyTypes.has(d.miscValue)
+      : filters[d.miscFilter === 'foot' ? 'preferredFoot' : 'gender'] === d.miscValue;
+    button.classList.toggle('is-selected', selected); button.setAttribute('aria-pressed', String(selected));
+  });
+  renderAffiliationOptions(); renderRoleFilterRows(); resetDualRangeControls();
+  if (tacticalPlaystylesStatus === 'ready') renderPlaystyleFilterButtons(tacticalPlaystylesList);
+}
+
+// Invoked once by the React controls' mount effect, after DOM setup is complete.
+function initializeAutoResume() {
+  return resumePromise ??= (async () => {
+    const query = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#\??/, ''));
+    const hasShare = query.has('s') || hash.has('s');
+    try {
+      if (hasShare) await hydrateSquadShare();
+      else {
+        const saved = readSquadState(localStorage, FORMATIONS);
+        if (saved) {
+          savedMinChemistry = saved.minChemistry;
+          excludedCardVersionsStore.restore(saved.excludedCards);
+          const advanced = saved.advancedSettings;
+          const defaults = createDefaultFilters();
+          for (const [key, fallback] of Object.entries(defaults)) {
+            const value = advanced.filters?.[key];
+            filters[key] = fallback instanceof Set ? new Set(Array.isArray(value) ? value : [])
+              : Array.isArray(fallback) ? (Array.isArray(value) ? value : fallback)
+              : fallback && typeof fallback === 'object' ? { ...fallback, ...(value && typeof value === 'object' ? value : {}) }
+              : value ?? fallback;
+          }
+          for (const [key, target] of Object.entries({ tacticalSlotRoles, tacticalSlotPlaystyles, tacticalSlotStars, tacticalSlotPhysical, tacticalSlotStats })) {
+            const value = advanced[key];
+            if (value && typeof value === 'object' && !Array.isArray(value)) Object.assign(target, value);
+          }
+          managerState = saved.manager; targetBudget = saved.budget;
+          targetBudgetInput.value = targetBudget ? formatBudgetNumber(targetBudget) : '';
+          applyFormation(saved.formation, saved.players);
+          renderManagerSlot(); restoreFilterControls();
+        }
+      }
+    } catch { /* Missing, legacy or blocked storage must not prevent startup. */ }
+    finally {
+      squadHydrated = true; squadAutosave.hydrate();
+      updateSquadChemistry();
+    }
+    return savedMinChemistry;
+  })();
+}
+window.addEventListener('pagehide', squadAutosave.flush);
+window.addEventListener('beforeunload', squadAutosave.flush);
 window.addEventListener('auto-build-context-change', persistCurrentSquad);
-void hydrateSquadShare();
+excludedCardVersionsStore.subscribe(persistCurrentSquad);
 
 window.matchMedia(DESKTOP_POINTER_QUERY).addEventListener('change', () => {
   clearSlotDragFeedback(); dragOriginPosition = null; suppressSlotClick = false;

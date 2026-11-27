@@ -52,7 +52,8 @@ export function validateSpecialCardLimit(value = null) {
 
 export function createExcludedCardVersionsStore(getStorage = () => globalThis.localStorage) {
   const listeners = new Set();
-  const makeState = (ids = [], names = {}, range = DEFAULT_SQUAD_OVR_RANGE, maxIcons = null, maxHeroes = null, maxFemalePlayers = 'any') => Object.freeze({
+  const makeState = (ids = [], names = {}, range = DEFAULT_SQUAD_OVR_RANGE, maxIcons = null, maxHeroes = null, maxFemalePlayers = 'any', cards = {}) => Object.freeze({
+    excludedCardVersionCards: Object.freeze(Object.fromEntries(normalizeExcludedCardVersionIds(ids).filter(id => cards?.[id] && typeof cards[id] === 'object').map(id => [id, cards[id]]))),
     maxFemalePlayers: validateMaxFemalePlayers(maxFemalePlayers),
     maxIcons: validateSpecialCardLimit(maxIcons), maxHeroes: validateSpecialCardLimit(maxHeroes),
     squadOvrRange: Object.freeze(validateSquadOvrRange(range)),
@@ -61,20 +62,27 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
       [id, typeof names?.[id] === 'string' && names[id].trim() ? names[id] : `Card ${id}`]))),
   });
   let state = makeState();
-  // Exclusions live only in memory. Remove old persisted values at app startup.
+  // Auto-Resume owns persistence; remove obsolete standalone exclusion snapshots.
   for (const key of [EXCLUDED_CARD_VERSIONS_STORAGE_KEY, 'fc-squad-builder:excluded-players:v1']) {
     try { getStorage()?.removeItem(key); }
     catch { /* Blocked storage must not prevent in-memory exclusions from working. */ }
   }
 
-  function update(ids, names, range = state.squadOvrRange, maxIcons = state.maxIcons, maxHeroes = state.maxHeroes, maxFemalePlayers = state.maxFemalePlayers) {
-    const next = makeState(ids, names, range, maxIcons, maxHeroes, maxFemalePlayers);
+  function update(ids, names, range = state.squadOvrRange, maxIcons = state.maxIcons, maxHeroes = state.maxHeroes, maxFemalePlayers = state.maxFemalePlayers, cards = state.excludedCardVersionCards) {
+    const next = makeState(ids, names, range, maxIcons, maxHeroes, maxFemalePlayers, cards);
     state = next;
     listeners.forEach(listener => listener());
   }
 
   return {
     getState: () => state,
+    restore(snapshot = {}) {
+      const safe = (validate, value, fallback) => { try { return validate(value ?? fallback); } catch { return fallback; } };
+      update(snapshot.excludedCardVersionIds ?? [], snapshot.excludedCardVersionNames ?? {},
+        safe(validateSquadOvrRange, snapshot.squadOvrRange, DEFAULT_SQUAD_OVR_RANGE),
+        safe(validateSpecialCardLimit, snapshot.maxIcons, null), safe(validateSpecialCardLimit, snapshot.maxHeroes, null),
+        safe(validateMaxFemalePlayers, snapshot.maxFemalePlayers, 'any'), snapshot.excludedCardVersionCards ?? {});
+    },
     setMaxFemalePlayers(value) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, state.squadOvrRange, state.maxIcons, state.maxHeroes, value); },
     setMaxIcons(value) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, state.squadOvrRange, value); },
     setMaxHeroes(value) { update(state.excludedCardVersionIds, state.excludedCardVersionNames, state.squadOvrRange, state.maxIcons, value); },
@@ -86,11 +94,11 @@ export function createExcludedCardVersionsStore(getStorage = () => globalThis.lo
       if (added.length) update([...state.excludedCardVersionIds, ...added], state.excludedCardVersionNames);
       return added.length;
     },
-    ban(id, name) {
+    ban(id, name, card) {
       id = normalizeCardVersionId(id);
       if (!id) throw new Error('Card version ID is unavailable.');
       if (state.excludedCardVersionIds.includes(id)) return;
-      update([...state.excludedCardVersionIds, id], { ...state.excludedCardVersionNames, [id]: name });
+      update([...state.excludedCardVersionIds, id], { ...state.excludedCardVersionNames, [id]: name }, state.squadOvrRange, state.maxIcons, state.maxHeroes, state.maxFemalePlayers, { ...state.excludedCardVersionCards, ...(card ? { [id]: card } : {}) });
     },
     unban(id) {
       id = normalizeCardVersionId(id);

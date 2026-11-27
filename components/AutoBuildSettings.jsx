@@ -13,7 +13,7 @@ import { fetchCandidatePlayers, generateOptimalSquad, getRemainingAutoBuildBudge
 export function AutoBuildSettings(props) {
   return <LanguageProvider><AutoBuildSettingsContent {...props} /></LanguageProvider>;
 }
-function AutoBuildSettingsContent({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {}, getRoleOptions = () => ({}), openTacticalRoles = () => {}, clearRolesAndPlaystyles = () => {} }) {
+function AutoBuildSettingsContent({ formation, getTargetBudget, budgetSection, supabase, getSquadSnapshot, applyAutoBuildResult, getCurrentSquad = () => ({}), resetTargetBudget = () => {}, getRoleOptions = () => ({}), openTacticalRoles = () => {}, clearRolesAndPlaystyles = () => {}, initializeAutoResume, setSavedMinChemistry = () => {}, flushAutoResume = () => {}, resetAdvancedSettings }) {
   const { t } = useTranslation();
   const budgetHost = useRef(null);
   useEffect(() => {
@@ -38,6 +38,18 @@ function AutoBuildSettingsContent({ formation, getTargetBudget, budgetSection, s
   const isLockedOverBudget = safeTargetBudget > 0 && lockedCost > safeTargetBudget;
   const lockedWarning = `⚠️ Locked player cost (${formatBudgetNumber(lockedCost)} C) exceeds your target budget (${formatBudgetNumber(safeTargetBudget)} C). Unlock players or increase your budget.`;
   const [minChemistry, setMinChemistry] = useState(33);
+  const [isStateHydrated, setIsStateHydrated] = useState(false);
+  useEffect(() => {
+    let mounted = true;
+    Promise.resolve(initializeAutoResume?.() ?? 33).then(value => {
+      if (mounted) { setMinChemistry(value); setIsStateHydrated(true); }
+    });
+    return () => { mounted = false; };
+  }, [initializeAutoResume]);
+  useEffect(() => {
+    if (!isStateHydrated) return;
+    setSavedMinChemistry(minChemistry);
+  }, [minChemistry, isStateHydrated, setSavedMinChemistry]);
   const requirements = Object.values(getRoleOptions().slotRequirements ?? {});
   const activeRolesCount = requirements.reduce((count, req) => count + (req?.roles?.length ?? (req?.role ? 1 : 0)), 0);
   const activePlaystylesCount = requirements.reduce((count, req) => count + (req?.playstyles?.length ?? (req?.playstyle ? 1 : 0)), 0);
@@ -84,9 +96,10 @@ function AutoBuildSettingsContent({ formation, getTargetBudget, budgetSection, s
     if (buildingRef.current) return;
     try { excludedCardVersionsStore.reset(); }
     catch (error) { setFeedback({ type: 'error', text: error.message }); return; }
-    clearRolesAndPlaystyles();
+    (resetAdvancedSettings ?? clearRolesAndPlaystyles)();
     resetTargetBudget();
-    setMinChemistry(33);
+    setMinChemistry(33); setSavedMinChemistry(33);
+    flushAutoResume();
     setFeedback(null);
   }
 
@@ -101,7 +114,7 @@ function AutoBuildSettingsContent({ formation, getTargetBudget, budgetSection, s
         <label htmlFor="min-chemistry">{t.squad.minChem}</label>
         <output htmlFor="min-chemistry">{minChemistry} / 33</output>
         <input id="min-chemistry" type="range" min="20" max="33" step="1" value={minChemistry} disabled={isAutoBuilding}
-          onChange={event => setMinChemistry(Number(event.target.value))} />
+          onChange={event => { const value = Number(event.target.value); setMinChemistry(value); if (isStateHydrated) setSavedMinChemistry(value); }} />
       </div>
       <hr className="auto-build-divider" />
       <div className="auto-build-modal-grid"><ExcludedCardVersionsManager supabase={supabase} /><div className="settings-inline-control"><button type="button" className="tactical-roles-trigger" aria-haspopup="dialog" onClick={openTacticalRoles}><span className="settings-trigger-content"><span className="settings-trigger-icon" aria-hidden="true">🎯</span><span className="settings-trigger-label">{t.squad.advancedSettings} ({totalActivePreferences})</span></span></button>{<button disabled={totalActivePreferences === 0} type="button" className="settings-inline-clear" aria-label={ui('Reset All Preferences')} title={ui('Reset All Preferences')} onClick={event => { event.stopPropagation(); clearRolesAndPlaystyles(); refreshContext(value => value + 1); }}><TrashIcon /></button>}</div></div>
