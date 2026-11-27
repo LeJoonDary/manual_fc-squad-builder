@@ -28,7 +28,7 @@ test.each([
 });
 
 test('keeps token and SBC costs out of coin totals and includes fields in lean queries', () => {
-  expect(calculateSquadTotalCost({ ST: { card: { price: 100, token_cost: 300 } as any }, LW: { card: { price: 0, sbc_price: 99570 } as any } })).toBe(100);
+  expect(calculateSquadTotalCost({ ST: { card: { price: 100, token_cost: 300 } as any }, LW: { card: { price: 0, sbc_price: 99570 } as any } })).toBe(0);
   for (const query of [PLAYER_LIST_SELECT, AUTO_BUILD_CANDIDATE_SELECT]) {
     for (const field of ['sbc_price', 'token_cost', 'season_pass_level', 'card_type']) expect(query).toContain(field);
   }

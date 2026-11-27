@@ -92,16 +92,16 @@ test('recommendation exposes a finite slot metaScore without changing ranking sc
   }
 });
 
-test('picker admits acquisition cards and compares SBC cost without changing solver exclusions', async () => {
+test('picker admits acquisition cards and ignores SBC cost without changing solver exclusions', async () => {
   const cards = [card(20, { card_type: 'SPECIAL_SBC', price: null, sbc_price: 10000 }),
-    card(21, { card_type: 'SPECIAL_SBC', price: 0, sbc_price: 10001 }),
+    card(21, { card_type: 'SPECIAL_SBC', price: 999999, sbc_price: 10001 }),
     card(22, { card_type: 'SPECIAL_SBC', price: null }),
     card(23, { card_type: 'SPECIAL_OBJ', price: null }),
     card(24, { card_type: 'SPECIAL_TOKEN', price: 0, token_cost: 5 })];
   for (const sort of ['all_meta', 'meta_synergy', 'instant_chem']) {
     const rows = await run(cards, { sort, slotMaxPrice: 10000,
       currentSquad: { LB: { card: card(1, { position: 'LB' }), isLocked: false } } });
-    expect(rows.map(row => row.card.id).sort()).toEqual([20, 22, 23, 24]);
+    expect(rows.map(row => row.card.id).sort()).toEqual([20, 21, 22, 23, 24]);
     expect(await run(cards, { sort, slotMaxPrice: 10000, includeAcquisitionCards: false })).toEqual([]);
   }
   expect(passesNewCandidateFilter(cards[0], 'CM', 10000)).toBe(false);

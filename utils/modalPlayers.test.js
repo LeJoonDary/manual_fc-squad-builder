@@ -89,10 +89,10 @@ test('slot eligibility modes apply before pagination and keep separate search ca
   expect(requests.at(-1).searchParams.get('offset')).toBe('15');
 });
 
-test('picker budgets use SBC estimates, pass OBJ/token, and name searches bypass price', async () => {
+test('picker budgets ignore acquisition costs, pass OBJ/token, and name searches bypass price', async () => {
   const cards = [
     { id: 1, players: { name: 'Player' }, card_type: 'SPECIAL_SBC', price: null, sbc_price: 10000 },
-    { id: 2, players: { name: 'Player' }, card_type: 'SPECIAL_SBC', price: 0, sbc_price: 10001 },
+    { id: 2, players: { name: 'Player' }, card_type: 'SPECIAL_SBC', price: 999999, sbc_price: 10001 },
     { id: 3, players: { name: 'Player' }, card_type: 'SPECIAL_SBC', price: null },
     { id: 4, players: { name: 'Player' }, card_type: 'SPECIAL_OBJ', price: null },
     { id: 5, players: { name: 'Player' }, card_type: 'SPECIAL_TOKEN', token_cost: 5, price: 0 },
@@ -100,8 +100,11 @@ test('picker budgets use SBC estimates, pass OBJ/token, and name searches bypass
   ];
   const db = createClient('https://example.supabase.co', 'test', { auth: { persistSession: false }, global: { fetch: async url =>
     new Response(JSON.stringify(new URL(url).pathname.endsWith('/players') ? [{ id: 10, name: 'Player' }] : cards)) } });
-  expect((await fetchModalPlayerPage(db, { maxPrice: 10000 })).map(card => card.id)).toEqual([1, 3, 4, 5, 6]);
+  expect((await fetchModalPlayerPage(db, { maxPrice: 10000 })).map(card => card.id)).toEqual([1, 2, 3, 4, 5, 6]);
   expect((await fetchModalPlayerPage(db, { keyword: 'Player', maxPrice: 1 })).map(card => card.id)).toEqual([1, 2, 3, 4, 5, 6]);
-  expect((await fetchModalPlayerPage(db, { keyword: 'Player', maxPrice: 1, includeAcquisitionCards: false })).map(card => card.id)).toEqual([6]);
+  const searchOptions = { keyword: 'Player', maxPrice: 1, includeAcquisitionCards: false };
+  expect((await fetchModalPlayerPage(db, searchOptions)).map(card => card.id)).toEqual([1, 2, 3, 4, 5, 6]);
+  expect(searchOptions.includeAcquisitionCards).toBe(false);
   expect((await fetchModalPlayerPage(db, { includeAcquisitionCards: false })).map(card => card.id)).toEqual([6]);
+  expect((await fetchModalPlayerPage(db, { keyword: '   ', includeAcquisitionCards: false })).map(card => card.id)).toEqual([6]);
 });

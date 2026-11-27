@@ -3,7 +3,7 @@ import { subscribeLanguage } from '../src/i18n/languageStore';
 import { formatSlotPosition } from '../utils/pitchCardLabels.js';
 import { createRecommendationControls, recommendationText as text } from './RecommendationControls.js';
 
-export function createAlternativePlayerModal({ load, select, renderCard, getPriceContext = () => ({ totalBudget: 0, maxPrice: null }) }) {
+export function createAlternativePlayerModal({ load, select, renderCard, getIncludeAcquisitionCards, onIncludeAcquisitionCards, getPriceContext = () => ({ totalBudget: 0, maxPrice: null }) }) {
   const dialog = document.createElement('dialog'); dialog.className = 'alternative-dialog swap-player-dialog';
   dialog.setAttribute('aria-labelledby', 'alternative-title');
   const title = document.createElement('h2'); title.id = 'alternative-title';
@@ -16,19 +16,19 @@ export function createAlternativePlayerModal({ load, select, renderCard, getPric
   const more = document.createElement('button'); more.type = 'button'; more.className = 'alternative-load-more swap-secondary-button'; more.hidden = true;
   const footer = document.createElement('div'); footer.className = 'swap-load-more-container'; footer.append(more);
   body.append(controlsHost, results, footer); dialog.append(header, body); document.body.append(dialog);
-  let controller, controls, position, currentCard, sort, slotMaxPrice, includeAcquisitionCards = true;
+  let controller, controls, position, currentCard, sort, slotMaxPrice;
   const invalidate = () => controller?.abort();
   close.onclick = () => dialog.close();
   dialog.addEventListener('close', () => { invalidate(); controls?.dispose(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
-  const state = () => ({ sort, slotMaxPrice, includeAcquisitionCards });
+  const state = () => ({ sort, slotMaxPrice, includeAcquisitionCards: getIncludeAcquisitionCards() });
   function renderControls() {
     controls?.dispose();
     title.textContent = text(`대체 선수 추천 (${formatSlotPosition(position)})`, `Replacement Recommendations (${formatSlotPosition(position)})`);
     close.setAttribute('aria-label', text('교체 모달 닫기', 'Close swap modal'));
     more.textContent = text('더 보기 (20명)', 'Load More (20 Players)');
-    controls = createRecommendationControls({ mode: 'replace', sort, includeAcquisitionCards,
-      onIncludeAcquisitionCards: value => { includeAcquisitionCards = value; renderControls(); refresh(); }, ...getPriceContext(position, state()),
+    controls = createRecommendationControls({ mode: 'replace', sort, includeAcquisitionCards: getIncludeAcquisitionCards(),
+      onIncludeAcquisitionCards: value => { onIncludeAcquisitionCards(value); renderControls(); refresh(); }, ...getPriceContext(position, state()),
       onInvalidate: invalidate,
       onSort: value => { sort = value; renderControls(); refresh(); },
       onPrice: value => { slotMaxPrice = value; renderControls(); refresh(); },
@@ -79,7 +79,7 @@ export function createAlternativePlayerModal({ load, select, renderCard, getPric
   subscribeLanguage(() => { if (dialog.isConnected && dialog.open) { renderControls(); refresh(); } });
   return {
     async open(nextPosition, nextCard) {
-      invalidate(); position = nextPosition; currentCard = nextCard; sort = 'maintain_chem'; slotMaxPrice = undefined; includeAcquisitionCards = true;
+      invalidate(); position = nextPosition; currentCard = nextCard; sort = 'maintain_chem'; slotMaxPrice = undefined;
       renderControls(); resetMobileZoom(dialog); if (!dialog.open) dialog.showModal();
       await refresh();
     },

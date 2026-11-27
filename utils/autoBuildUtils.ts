@@ -1336,9 +1336,10 @@ export function getAvailableCardPositions(input: any): string[] {
 }
 
 function prepareCandidate(card: RawCandidate, slotPosition: string, threeBack: boolean, isOwned = false, isLocked = false): GeneratedPlayer | null {
-  if (card.id == null || (!isOwned && (card.price == null || String(card.price).trim() === ''))) return null;
+  const noMarketCost = isOwned || (isLocked && isAcquisitionCard(card));
+  if (card.id == null || (!noMarketCost && (card.price == null || String(card.price).trim() === ''))) return null;
   const marketPrice = Number(card.price);
-  if (!isOwned && (!Number.isFinite(marketPrice) || marketPrice < 0)) return null;
+  if (!noMarketCost && (!Number.isFinite(marketPrice) || marketPrice < 0)) return null;
   const price = calculateSquadTotalCost({ candidate: { card, isOwned } });
   const rows = card.card_positions ?? [];
   const primary = rows.find((row: RawCandidate) => row.is_primary) ?? rows[0];

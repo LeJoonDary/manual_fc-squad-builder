@@ -58,9 +58,9 @@ test.each(['LB','RB'])('replacement honors cheap 83 OVR %s cards and the explici
 });
 
 test('replacement toggle admits acquisition cards by default and excludes them when off', async () => {
-  const candidate = keeper(100, { card_type: 'SPECIAL_SBC', sbc_price: 1000, price: null });
+  const candidate = keeper(100, { card_type: 'SPECIAL_SBC', sbc_price: 1000, price: 999999 });
   const settings = { sort: 'meta_synergy', slotMaxPrice: 1000 };
   expect((await run([candidate], settings)).map(row => row.card.id)).toEqual([100]);
-  expect(await run([candidate], { ...settings, slotMaxPrice: 999 })).toEqual([]);
+  expect(await run([candidate], { ...settings, slotMaxPrice: 0 })).toHaveLength(1);
   expect(await run([candidate], { ...settings, includeAcquisitionCards: false })).toEqual([]);
 });

@@ -1,3 +1,4 @@
+import { createSpecialCardsPreference } from './utils/specialCardsPreference.js';
 import { bindPitchTouchDrag } from './utils/pitchTouchDrag.js';
 import { savedEvosStore, evoCardId } from './utils/savedEvos.js';
 import { mountSavedEvos } from './components/SavedEvosLifecycle.jsx';
@@ -200,6 +201,8 @@ let modalPlayerCards = [];
 let dragOriginPosition = null;
 let suppressSlotClick = false;
 const squad = {};
+const specialCardsPreference = createSpecialCardsPreference();
+specialCardsPreference.hydrate();
 function replacementOptions(position, controls = {}) {
   return { ...excludedCardVersionsStore.getState(), ...getRoleOptions(), currentSquad: squad,
     formation: currentFormation, slotPosition: position, totalBudget: targetBudget,
@@ -207,6 +210,8 @@ function replacementOptions(position, controls = {}) {
 }
 let replacementSnapshot;
 const alternativeModal = createAlternativePlayerModal({
+  getIncludeAcquisitionCards: () => specialCardsPreference.value,
+  onIncludeAcquisitionCards: value => specialCardsPreference.set(value),
   getPriceContext: (position, controls) => ({ totalBudget: targetBudget,
     maxPrice: getEmptySlotPriceCap(replacementOptions(position, controls)) }),
   renderCard: (card, onActivate, suggestion) => {
@@ -691,7 +696,7 @@ function playersResultKey(offset = 0) {
   return searchResultKey('players', { ...filters, name: filters.name.trim() }, offset);
 }
 function modalResultKey(offset = 0) {
-  return searchResultKey('modal', [normalizePosition(activeSlot?.dataset.position ?? ''), modalPositionMode, modalPlayerSearchInput.value.trim(), modalAffiliation.getValue(), modalPriceCap(), includeAcquisitionCards], offset);
+  return searchResultKey('modal', [normalizePosition(activeSlot?.dataset.position ?? ''), modalPositionMode, modalPlayerSearchInput.value.trim(), modalAffiliation.getValue(), modalPriceCap(), specialCardsPreference.value], offset);
 }
 function cacheSearchResult(key, result) {
   searchResultCache.delete(key);
@@ -1543,7 +1548,7 @@ window.addEventListener('auto-build-context-change', () => {
   if (!modal.hidden && activeSlot) { renderRecommendationControls(); updateModalPlayerSearch(); }
 });
 let slotMaxPrice;
-let includeAcquisitionCards = true;
+
 let recommendationControls;
 let recommendationRows = new Map();
 const recommendationPanel = document.createElement('section');
@@ -1560,7 +1565,7 @@ function recommendationEnabled() {
 }
 function recommendationOptions() {
   return { ...excludedCardVersionsStore.getState(), ...getRoleOptions(), currentSquad: squad,
-    affiliation: modalAffiliation.getValue(), manager: managerState, includeAcquisitionCards,
+    affiliation: modalAffiliation.getValue(), manager: managerState, includeAcquisitionCards: specialCardsPreference.value,
     formation: currentFormation, slotPosition: activeSlot.dataset.position,
     totalBudget: targetBudget, slotMaxPrice, sort: recommendationSort === 'chem_boost' ? 'instant_chem' : recommendationSort, excludeZeroPriceCards: true };
 }
@@ -1579,8 +1584,8 @@ function renderRecommendationControls() {
     : recommendationText('포지션별 메타 추천', 'Meta Recommendations');
   recommendationControls?.dispose();
   recommendationControls = createRecommendationControls({
-    includeAcquisitionCards,
-    onIncludeAcquisitionCards: myEvos ? undefined : value => { includeAcquisitionCards = value; renderRecommendationControls(); updateModalPlayerSearch(); },
+    includeAcquisitionCards: specialCardsPreference.value,
+    onIncludeAcquisitionCards: myEvos ? undefined : value => { specialCardsPreference.set(value); renderRecommendationControls(); updateModalPlayerSearch(); },
     lockedCount: count, sort: myEvos ? 'my_evos' : recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
     onInvalidate: () => { modalAbort?.abort(); modalRequest++; },
     onSort: value => { playerList.querySelector('.saved-evos-list')?.resetDeleteConfirmation?.(); myEvos = false; recommendationSort = emptySlotTabs.select(value, lockedSquadCount()); renderRecommendationControls(); updateModalPlayerSearch(); },
@@ -1627,7 +1632,7 @@ async function openPlayerModal(slot, allowReplace = false) {
   if (!allowReplace && isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot; myEvos = false;
   modalAffiliation.reset();
-  slotMaxPrice = undefined; includeAcquisitionCards = true; recommendationSort = emptySlotTabs.select('all_meta', lockedSquadCount());
+  slotMaxPrice = undefined; recommendationSort = emptySlotTabs.select('all_meta', lockedSquadCount());
   renderRecommendationControls();
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
@@ -1685,7 +1690,7 @@ async function loadModalPlayerPage() {
     const rows = cached ?? await fetchModalPlayerPage(supabase, {
       position: normalizePosition(position), keyword: modalPlayerSearchInput.value,
       positionMode: modalPositionMode,
-      affiliation: modalAffiliation.getValue(), maxPrice: modalPriceCap(), includeAcquisitionCards,
+      affiliation: modalAffiliation.getValue(), maxPrice: modalPriceCap(), includeAcquisitionCards: specialCardsPreference.value,
       offset: ticket.offset, signal: modalAbort.signal,
     });
     cacheSearchResult(cacheKey, rows);

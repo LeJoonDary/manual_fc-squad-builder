@@ -1,8 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { createAlternativePlayerModal } from './AlternativePlayerModal.js';
+import { createAlternativePlayerModal as createModal } from './AlternativePlayerModal.js';
 import { setLanguage } from '../src/i18n/languageStore';
 import { createPlayerCard } from './PlayerCard.js';
+import { createSpecialCardsPreference } from '../utils/specialCardsPreference.js';
+function createAlternativePlayerModal(options) {
+  const preference = createSpecialCardsPreference(() => ({ getItem: () => null, setItem() {} }));
+  return createModal({ getIncludeAcquisitionCards: () => preference.value,
+    onIncludeAcquisitionCards: value => preference.set(value), ...options });
+}
 const renderCard = (card, onActivate) => createPlayerCard(card, {
   onActivate, showMetaScore: false, getCardName: c => c.name, getCardRating: c => c.overall,
   getCardPosition: c => c.position, unwrapRelation: value => value,
@@ -127,4 +133,7 @@ it('includes acquisition cards by default and reloads immediately when toggled',
   await vi.waitFor(() => expect(load).toHaveBeenCalledTimes(2));
   expect(load.mock.calls[1][3].includeAcquisitionCards).toBe(false);
   expect(document.querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('false');
+  document.querySelector('dialog').close();
+  await modal.open('CM');
+  expect(load.mock.calls.at(-1)[3].includeAcquisitionCards).toBe(false);
 });

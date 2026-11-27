@@ -28,12 +28,17 @@ export function getCardCost(card: CardCostFields & { raw?: CardCostFields }) {
   return { kind: 'market', text: `${Number(value('price') ?? 0).toLocaleString('en-US')} C`, title: '' };
 }
 
-// Picker budgets only; squad totals continue using market prices.
+// Reuse the badge classifier for all market spending calculations.
 export function isAcquisitionCard(card: CardCostFields & { raw?: CardCostFields }) {
   return getCardCost(card).kind !== 'market';
 }
-export function getPickerCost(card: CardCostFields & { raw?: CardCostFields }): number {
-  const kind = getCardCost(card).kind;
-  if (kind === 'sbc') return Math.max(0, Number(card.sbc_price ?? card.raw?.sbc_price) || 0);
-  return kind === 'market' ? Math.max(0, Number(card.price ?? card.raw?.price) || 0) : 0;
+export type MarketCostCard = Omit<CardCostFields, 'price'> & {
+  price?: unknown; cost?: unknown; raw?: CardCostFields;
+};
+export function getEffectiveMarketPrice(card: MarketCostCard | null | undefined, isOwned = false): number {
+  if (isOwned || !card || isAcquisitionCard(card as CardCostFields & { raw?: CardCostFields })) return 0;
+  const rawPrice = card.price ?? card.raw?.price ?? card.cost ?? 0;
+  const price = typeof rawPrice === 'number' ? rawPrice : Number(String(rawPrice).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(price) && price > 0 ? price : 0;
 }
+export const getPickerCost = getEffectiveMarketPrice;

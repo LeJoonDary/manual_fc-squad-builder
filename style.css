@@ -2679,3 +2679,7 @@ body:has(.modal:not([hidden])), body:has(dialog:modal) { overflow: hidden; }
 @media (width < 768px) and (hover: hover) {
   .pitch .slot.occupied > .slot-card-top .slot-card-actions > .alternative-player:hover { background: rgb(14 165 233 / .3); }
 }
+@media (min-width: 768px) {
+  .pitch .slot.occupied > .slot-card-top .slot-card-actions > .alternative-player { appearance: none; -webkit-appearance: none; display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; max-width: 22px; padding: 0; border-radius: 50%; border: 1px solid rgb(56 189 248 / .7); background: rgb(14 165 233 / .2); color: #38bdf8; }
+  .pitch .slot.occupied > .slot-card-top .slot-card-actions > .alternative-player:hover { background: rgb(14 165 233 / .3); color: #7dd3fc; }
+}
