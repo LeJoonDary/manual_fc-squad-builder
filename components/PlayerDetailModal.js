@@ -85,7 +85,7 @@ export function createPlayerDetailModal({
     const requestId = ++playerDetailRequest;
     selectedPlayer = card;
     renderPlayerDetail(card);
-    resetMobileZoom();
+    resetMobileZoom(playerDetailModal);
     playerDetailModal.hidden = false;
     playerDetailModal.querySelector('.player-detail-panel').scrollTop = 0;
     document.querySelector('#player-detail-close').focus();

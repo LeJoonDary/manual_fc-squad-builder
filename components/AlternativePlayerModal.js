@@ -80,7 +80,7 @@ export function createAlternativePlayerModal({ load, select, renderCard, getPric
   return {
     async open(nextPosition, nextCard) {
       invalidate(); position = nextPosition; currentCard = nextCard; sort = 'maintain_chem'; slotMaxPrice = undefined; includeAcquisitionCards = true;
-      renderControls(); resetMobileZoom(); if (!dialog.open) dialog.showModal();
+      renderControls(); resetMobileZoom(dialog); if (!dialog.open) dialog.showModal();
       await refresh();
     },
   };

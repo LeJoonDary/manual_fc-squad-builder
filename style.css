@@ -2666,3 +2666,16 @@ body:has(.modal:not([hidden])), body:has(dialog:modal) { overflow: hidden; }
   #player-modal .recommendation-prices button:last-child { white-space: nowrap; overflow-wrap: normal; line-height: 16px; }
   .recommendation-price-tail { display: inline-flex; flex-wrap: nowrap; gap: 6px; flex: 0 0 auto; }
 }
+
+.slot-card-actions > .alternative-player svg { width: 15px; height: 15px; vertical-align: middle; }
+@media (width < 768px) {
+  .pitch .slot.occupied > .slot-card-top .slot-card-actions > .alternative-player { appearance: none; -webkit-appearance: none; display: grid; place-items: center; width: 22px; height: 22px; max-width: 100%; padding: 0; border-radius: 50%; border: 1px solid rgb(56 189 248 / .7); background: rgb(14 165 233 / .2); color: #38bdf8; }
+  .swap-player-dialog .acquisition-toggle { padding: 4px 10px; gap: 6px; font-size: 11px; line-height: 16px; white-space: nowrap; }
+  .swap-player-dialog .acquisition-toggle .slot-chem-switch-track { width: 28px; height: 16px; }
+  .swap-player-dialog .acquisition-toggle .slot-chem-switch-track::after { width: 12px; height: 12px; left: 2px; top: 2px; }
+  .swap-player-dialog .acquisition-toggle[aria-checked="true"] .slot-chem-switch-track::after { transform: translateX(12px); }
+  .swap-player-dialog .recommendation-tabs button { letter-spacing: -.025em; }
+}
+@media (width < 768px) and (hover: hover) {
+  .pitch .slot.occupied > .slot-card-top .slot-card-actions > .alternative-player:hover { background: rgb(14 165 233 / .3); }
+}

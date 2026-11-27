@@ -1634,7 +1634,7 @@ async function openPlayerModal(slot, allowReplace = false) {
   modalPlayerSearchClear.hidden = true;
   setModalPositionMode('all');
   const position = slot.dataset.position;
-  resetMobileZoom();
+  resetMobileZoom(modal);
   modal.hidden = false;
   modalTitle.textContent = `Select ${formatSlotPosition(position)}`;
   modalDescription.textContent = `Loading ${position} players…`;
@@ -2126,7 +2126,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}) {
   const alternativeButton = document.createElement('button');
   alternativeButton.type = 'button';
   alternativeButton.className = 'alternative-player';
-  alternativeButton.textContent = '🔄';
+  alternativeButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4m12-4 4 4-4 4M4 17h16M8 13l-4 4 4 4"/></svg>';
   setCardAction(alternativeButton, 'swapPosition');
   alternativeButton.addEventListener('click', event => {
     event.stopPropagation();
