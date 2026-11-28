@@ -1540,6 +1540,7 @@ function restorePlayerPanelScrollPositions(scrollPositions) {
 }
 
 const emptySlotTabs = createEmptySlotTabState();
+emptySlotTabs.restore();
 const lockedSquadCount = () => Object.entries(squad).filter(([position, entry]) => position !== activeSlot?.dataset.position && entry?.card).length;
 let recommendationSort = 'all_meta';
 let myEvos = false;
@@ -1591,7 +1592,8 @@ function renderRecommendationControls() {
     onIncludeAcquisitionCards: myEvos ? undefined : value => { specialCardsPreference.set(value); renderRecommendationControls(); updateModalPlayerSearch(); },
     lockedCount: count, sort: myEvos ? 'my_evos' : recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
     onInvalidate: () => { modalAbort?.abort(); modalRequest++; },
-    onSort: value => { playerList.querySelector('.saved-evos-list')?.resetDeleteConfirmation?.(); myEvos = false; recommendationSort = emptySlotTabs.select(value, lockedSquadCount()); renderRecommendationControls(); updateModalPlayerSearch(); },
+    onSelectTab: value => emptySlotTabs.select(value, lockedSquadCount()),
+    onSort: value => { playerList.querySelector('.saved-evos-list')?.resetDeleteConfirmation?.(); myEvos = false; recommendationSort = emptySlotTabs.active(lockedSquadCount()); renderRecommendationControls(); updateModalPlayerSearch(); },
     onPrice: value => { slotMaxPrice = value; renderRecommendationControls(); updateModalPlayerSearch(); },
   });
   const evoTab = document.createElement('button'); evoTab.type = 'button';
@@ -1635,7 +1637,7 @@ async function openPlayerModal(slot, allowReplace = false) {
   if (!allowReplace && isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot; myEvos = false;
   modalAffiliation.reset();
-  slotMaxPrice = undefined; recommendationSort = emptySlotTabs.select('all_meta', lockedSquadCount());
+  slotMaxPrice = undefined; recommendationSort = emptySlotTabs.active(lockedSquadCount());
   renderRecommendationControls();
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
@@ -2033,6 +2035,7 @@ function closeModal() {
 
 function handleRemovePlayer(event, slotKey) {
   event.stopPropagation();
+  if (isSquadSlotLocked(squad[slotKey])) return;
 
   const slot = document.querySelector(`.slot[data-position="${slotKey}"]`);
   if (!slot) return;
@@ -2240,7 +2243,8 @@ function updateSlotOwnedUI(slot) {
 
 function clearAllPlayers() {
   const hadManager = Boolean(managerState);
-  const clearedSlots = Object.keys(squad).filter(key => squad[key]);
+  const lockedSlots = Object.keys(squad).filter(key => squad[key]?.card && isSquadSlotLocked(squad[key]));
+  const clearedSlots = Object.keys(squad).filter(key => squad[key] && !lockedSlots.includes(key));
   playerDetail.close();
   clearedSlots.forEach((slotKey) => {
     const slot = document.querySelector(`.slot[data-position="${slotKey}"]`);
@@ -2248,7 +2252,11 @@ function clearAllPlayers() {
   });
   managerState = null;
   renderManagerSlot();
-  status.textContent = clearedSlots.length || hadManager
+  status.textContent = lockedSlots.length
+    ? clearedSlots.length
+      ? recommendationText('잠금 해제된 선수만 비웠습니다. (잠긴 선수는 유지됨)', 'Cleared unlocked players. Locked players were kept.')
+      : recommendationText('배치된 선수가 모두 잠겨 있습니다. 잠금을 해제한 뒤 X 버튼으로 제거해 주세요.', 'All placed players are locked. Unlock them to remove.')
+    : clearedSlots.length || hadManager
     ? `Cleared ${clearedSlots.length} players and manager settings.`
     : 'No players to clear.';
   updateSquadChemistry();

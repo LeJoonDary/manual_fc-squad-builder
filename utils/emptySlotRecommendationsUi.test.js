@@ -122,7 +122,7 @@ test('replacement shares controls, passes mode and locks the selected upgrade', 
   expect(selected.isLocked).toBe(true); expect(selected.isOwned).toBe(false);
 });
 
-test('empty slot opens on All Meta without search focus and fetches once per opening', async () => {
+test('Player Select retains the preferred tab and fetches once per opening', async () => {
   setLanguage('en',false);
   mocks.recommend.mockResolvedValue([]);
   const openSlot = document.querySelector('.slot:not(.occupied)');
@@ -130,26 +130,30 @@ test('empty slot opens on All Meta without search focus and fetches once per ope
   const close = () => document.querySelector('#player-modal [data-close-modal]').click();
   mocks.recommend.mockClear(); openSlot.click();
   expect(mocks.recommend).toHaveBeenCalledTimes(1);
-  expect(tabs().map(button=>button.textContent)).toEqual(['🌍 All Meta','⚡ Meta + Synergy','🔗 Instant Chem Boost','My Evos (0/10)']);
+  expect(tabs().map(button=>button.textContent)).toEqual(['🌍 All Meta','⚡ Meta + Synergy','🔗 Instant Chem Boost','Custom Cards (0/10)']);
   expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('all_meta');
   tabs()[0].click(); expect(mocks.recommend).toHaveBeenCalledTimes(1);
   tabs()[1].click(); expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('meta_synergy');
   close(); mocks.recommend.mockClear();
   document.querySelectorAll('.slot:not(.occupied)')[1].click();
   expect(mocks.recommend).toHaveBeenCalledTimes(1);
-  expect(tabs()[0].getAttribute('aria-pressed')).toBe('true');
+  expect(tabs()[1].getAttribute('aria-pressed')).toBe('true');
+  expect(mocks.recommend.mock.calls[0][1].sort).toBe('meta_synergy');
   expect(document.activeElement).not.toBe(document.querySelector('#modal-player-search-input'));
   tabs()[2].click(); expect(mocks.recommend.mock.calls.at(-1)[1].sort).toBe('instant_chem');
   close(); mocks.recommend.mockClear(); openSlot.click();
   expect(mocks.recommend).toHaveBeenCalledTimes(1);
-  expect(tabs()[0].getAttribute('aria-pressed')).toBe('true');
+  expect(tabs()[2].getAttribute('aria-pressed')).toBe('true');
+  expect(mocks.recommend.mock.calls[0][1].sort).toBe('instant_chem');
+  tabs()[3].click();
+  expect(localStorage.getItem('metaxi_preferred_select_tab_v1')).toBe('chem_boost');
   close();
   document.querySelectorAll('.slot.is-locked .lock-player').forEach(button=>button.click());
   document.querySelector('.slot.occupied .lock-player').click();
   mocks.recommend.mockClear(); openSlot.click();
   expect(mocks.recommend).toHaveBeenCalledTimes(1);
-  expect(mocks.recommend.mock.calls[0][1].sort).toBe('all_meta');
-  expect(tabs()[0].getAttribute('aria-pressed')).toBe('true'); close();
+  expect(mocks.recommend.mock.calls[0][1].sort).toBe('instant_chem');
+  expect(tabs()[2].getAttribute('aria-pressed')).toBe('true'); close();
 });
 
 test.each([
@@ -172,7 +176,7 @@ test.each([
     document.querySelector('.slot:not(.occupied)').click();
     await new Promise(resolve => requestAnimationFrame(resolve));
     expect(input.hasAttribute('autofocus')).toBe(false);
-    expect(document.querySelector('#player-modal .recommendation-tabs button').getAttribute('aria-pressed')).toBe('true');
+    expect(document.querySelectorAll('#player-modal .recommendation-tabs button[aria-pressed="true"]')).toHaveLength(1);
     if (shouldFocus) {
       expect(focus).toHaveBeenCalledWith({ preventScroll: true });
       expect(document.activeElement).toBe(input);

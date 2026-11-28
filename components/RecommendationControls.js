@@ -3,7 +3,7 @@ import { parseBudgetInput, formatBudgetNumber } from '../utils/budget';
 export const recommendationText = (ko, en) => getLanguage() === 'ko' ? ko : en;
 
 /** Both slot pickers share formatting, chips, debounce and tab styling. */
-export function createRecommendationControls({ mode = 'empty', lockedCount = 1, sort, totalBudget, maxPrice, onSort, onPrice, includeAcquisitionCards = true, onIncludeAcquisitionCards, onInvalidate = () => {} }) {
+export function createRecommendationControls({ mode = 'empty', lockedCount = 1, sort, totalBudget, maxPrice, onSort, onSelectTab, onPrice, includeAcquisitionCards = true, onIncludeAcquisitionCards, onInvalidate = () => {} }) {
   const element = document.createElement('div');
   const tabs = document.createElement('div'); tabs.className = 'recommendation-tabs';
   const labels = mode === 'replace' ? [
@@ -24,7 +24,7 @@ export function createRecommendationControls({ mode = 'empty', lockedCount = 1, 
     button.disabled = mode === 'empty' && lockedCount === 0 && key !== 'all_meta';
     if (button.disabled) button.title = recommendationText('피치에 선수를 1명 이상 배치하면 활성화됩니다', 'Place 1+ player on the pitch to unlock');
     button.setAttribute('aria-pressed', String(sort === key));
-    button.onclick = () => { if (mode === 'empty' && key === sort) return; dispose(); onSort(key); }; tabs.append(button);
+    button.onclick = () => { onSelectTab?.(key); if (mode === 'empty' && key === sort) return; dispose(); onSort(key); }; tabs.append(button);
   }
   const prices = document.createElement('div'); prices.className = 'recommendation-prices';
   const wrap = document.createElement('label'); wrap.className = 'budget-input-wrap';
