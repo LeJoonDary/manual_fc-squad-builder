@@ -83,6 +83,21 @@ test('locked cards, toolbar buttons and multi-touch never start dragging', () =>
   expect(document.querySelector('.pitch-touch-ghost')).toBeNull();
 });
 
+test.each(['touchend', 'touchcancel'])('%s clears drag feedback and touch focus', type => {
+  source.tabIndex = 0;
+  target.tabIndex = 0;
+  source.focus();
+  touch('touchstart'); vi.advanceTimersByTime(220);
+  // Moving a card can itself change focus; cleanup must also cover that case.
+  if (type === 'touchend') move.mockImplementationOnce(() => target.focus());
+  touch(type, source, [], [finger()]);
+  expect(document.activeElement).toBe(document.body);
+  expect(root.querySelector('.is-dragging, .is-drop-target')).toBeNull();
+  expect(document.querySelector('.pitch-touch-ghost')).toBeNull();
+  expect(onDragEnd).toHaveBeenCalledOnce();
+  expect(touch('touchmove').defaultPrevented).toBe(false);
+});
+
 test('pinch and cancellation release an active drag; locked destinations cannot receive a drop', () => {
   touch('touchstart'); vi.advanceTimersByTime(220);
   expect(touch('touchmove', source, [finger(), finger(20, 20, 2)]).defaultPrevented).toBe(false);

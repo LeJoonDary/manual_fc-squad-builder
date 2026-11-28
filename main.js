@@ -283,7 +283,7 @@ bindPitchTouchDrag(document.querySelector('.pitch'), {
   canMove: (origin, target) => canMovePitchEntry(squad, origin.dataset.position, target.dataset.position),
   move: (origin, target) => movePitchPlayer(origin.dataset.position, target),
   onDragStart: origin => updatePitchDragHighlights(origin.dataset.position),
-  onDragEnd: () => updatePitchDragHighlights(null),
+  onDragEnd: () => { clearSlotDragFeedback(); dragOriginPosition = null; },
 });
 
 const formationPicker = document.querySelector('#formation-picker');
@@ -2134,7 +2134,7 @@ function placeCard(slot, card, shouldUpdate = true, state = {}, movingFrom = nul
   const alternativeButton = document.createElement('button');
   alternativeButton.type = 'button';
   alternativeButton.className = 'alternative-player';
-  alternativeButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4m12-4 4 4-4 4M4 17h16M8 13l-4 4 4 4"/></svg>';
+  alternativeButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H4m12-4 4 4-4 4M4 17h16M8 13l-4 4 4 4"/></svg>';
   setCardAction(alternativeButton, 'swapPosition');
   alternativeButton.addEventListener('click', event => {
     event.stopPropagation();
@@ -2195,7 +2195,7 @@ function updateSlotLockUI(slot) {
     slot.querySelector('.slot-card-actions')?.append(button);
   }
   if (lockButton) {
-    lockButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="${isLocked ? 'M8 10V6a4 4 0 0 1 8 0v4' : 'M8 10V6a4 4 0 0 1 8 0'}"/><path d="M12 14v3"/></svg>`;
+    lockButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" stroke-width="${isLocked ? 2.4 : 2}"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="${isLocked ? 'M8 10V6a4 4 0 0 1 8 0v4' : 'M8 10V6a4 4 0 0 1 8 0'}"/><path d="M12 14v3"/></svg>`;
     setCardAction(lockButton, isLocked ? 'unlock' : 'lock');
     lockButton.setAttribute('aria-pressed', String(isLocked));
   }

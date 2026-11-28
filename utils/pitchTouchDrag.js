@@ -3,12 +3,16 @@ export function bindPitchTouchDrag(root, { getEntry, isLocked, canMove, move, on
   if (!root) return;
   let pending, timer, ghost, target, ignoreClickUntil = 0;
   const clear = () => {
+    const wasDragging = Boolean(ghost);
     clearTimeout(timer);
     pending?.slot.classList.remove('is-dragging');
     target?.classList.remove('is-drop-target');
     ghost?.remove();
-    if (ghost) onDragEnd?.();
-    pending = ghost = target = null;
+    pending = timer = ghost = target = null;
+    if (wasDragging) {
+      onDragEnd?.();
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    }
   };
   const cancel = () => {
     if (ghost) ignoreClickUntil = Date.now() + 600;
@@ -89,7 +93,10 @@ export function bindPitchTouchDrag(root, { getEntry, isLocked, canMove, move, on
     const origin = pending.slot, destination = target;
     ignoreClickUntil = Date.now() + 600;
     clear();
-    if (touch && destination && canMove(origin, destination)) move(origin, destination);
+    if (touch && destination && canMove(origin, destination)) {
+      move(origin, destination);
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    }
   }, { passive: true });
   document.addEventListener('touchcancel', cancel, { passive: true });
   window.addEventListener('blur', cancel);
