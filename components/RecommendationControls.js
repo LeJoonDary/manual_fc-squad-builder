@@ -3,7 +3,7 @@ import { parseBudgetInput, formatBudgetNumber } from '../utils/budget';
 export const recommendationText = (ko, en) => getLanguage() === 'ko' ? ko : en;
 
 /** Both slot pickers share formatting, chips, debounce and tab styling. */
-export function createRecommendationControls({ mode = 'empty', lockedCount = 1, sort, totalBudget, maxPrice, onSort, onSelectTab, onPrice, includeAcquisitionCards = true, onIncludeAcquisitionCards, onInvalidate = () => {} }) {
+export function createRecommendationControls({ mode = 'empty', lockedCount = 1, sort, totalBudget, maxPrice, priceSelection, onSort, onSelectTab, onPrice, includeAcquisitionCards = true, onIncludeAcquisitionCards, onInvalidate = () => {} }) {
   const element = document.createElement('div');
   const tabs = document.createElement('div'); tabs.className = 'recommendation-tabs';
   const labels = mode === 'replace' ? [
@@ -14,8 +14,8 @@ export function createRecommendationControls({ mode = 'empty', lockedCount = 1, 
     ['meta_synergy', recommendationText('⚡ 성능+시너지', '⚡ Meta + Synergy')],
     ['chem_boost', recommendationText('🔗 즉시 케미 상승', '🔗 Instant Chem Boost')],
   ];
-  let timer;
-  const dispose = () => clearTimeout(timer);
+  let disposed = false;
+  const dispose = () => { disposed = true; };
   for (const [key, label] of labels) {
     const button = document.createElement('button'); button.type = 'button';
     const icon = document.createElement('span'); icon.className = 'recommendation-tab-icon';
@@ -27,26 +27,66 @@ export function createRecommendationControls({ mode = 'empty', lockedCount = 1, 
     button.onclick = () => { onSelectTab?.(key); if (mode === 'empty' && key === sort) return; dispose(); onSort(key); }; tabs.append(button);
   }
   const prices = document.createElement('div'); prices.className = 'recommendation-prices';
+  const priceButtons = new Map();
+  const syncPrices = selection => priceButtons.forEach((button, value) => {
+    button.setAttribute('aria-pressed', String(selection.remaining ? value === undefined : value !== undefined && value === selection.value));
+  });
   const wrap = document.createElement('label'); wrap.className = 'budget-input-wrap';
   const input = document.createElement('input'); input.type = 'text'; input.inputMode = 'numeric'; input.autocomplete = 'off';
   input.placeholder = recommendationText('최대 가격 (C)', 'Max Price (C)'); input.setAttribute('aria-label', input.placeholder);
   input.value = maxPrice == null ? '' : formatBudgetNumber(maxPrice);
+  input.enterKeyHint = 'done';
+  let appliedValue = maxPrice ?? undefined;
+  let dirty = false;
+  const applyPrice = (value, selection) => {
+    const changed = value !== appliedValue;
+    appliedValue = value; dirty = false;
+    syncPrices(selection);
+    onPrice(value, selection, changed);
+  };
   input.onfocus = () => input.select();
   input.oninput = () => {
+    dirty = true;
+    const raw = input.value;
+    const countDigits = end => raw.slice(0, end).replace(/\D/g, '').length;
+    const startDigits = countDigits(input.selectionStart ?? raw.length);
+    const endDigits = countDigits(input.selectionEnd ?? raw.length);
+    const digits = raw.replace(/\D/g, '');
+    input.value = digits ? BigInt(digits).toLocaleString('en-US') : '';
+    const position = count => {
+      if (!count) return 0;
+      let seen = 0;
+      for (let i = 0; i < input.value.length; i++) {
+        if (/\d/.test(input.value[i]) && ++seen === count) return i + 1;
+      }
+      return input.value.length;
+    };
+    input.setSelectionRange(position(startDigits), position(endDigits));
+  };
+  const commit = () => {
+    if (disposed || !dirty) return;
     const value = input.value.trim() === '' ? undefined : parseBudgetInput(input.value);
     input.value = value === undefined ? '' : formatBudgetNumber(value);
-    dispose(); onInvalidate(); timer = setTimeout(() => onPrice(value), 300);
+    applyPrice(value, { value });
   };
+  input.onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); commit(); } };
+  input.onblur = event => { if (![...priceButtons.values()].includes(event.relatedTarget)) commit(); };
   const unit = document.createElement('span'); unit.textContent = 'C'; wrap.append(input, unit); prices.append(wrap);
   const priceTail = document.createElement('span'); priceTail.className = 'recommendation-price-tail';
   for (const value of [10000, 30000, 50000, 100000, 300000, 500000, 1000000, undefined]) {
     const button = document.createElement('button'); button.type = 'button';
     button.textContent = value ? (value === 1000000 ? '1M' : `${value / 1000}K`) : totalBudget
       ? recommendationText('잔여 예산', 'Remaining Budget') : recommendationText('전체', 'All');
-    button.onclick = () => { dispose(); onPrice(value); };
+    priceButtons.set(value, button);
+    button.onpointerdown = event => { if (document.activeElement === input) event.preventDefault(); };
+    button.onclick = () => {
+      const selection = value === undefined ? { remaining: true } : { value };
+      applyPrice(value, selection);
+    };
     if (value === 500000) prices.append(priceTail);
     (value === 500000 || value === 1000000 || value === undefined ? priceTail : prices).append(button);
   }
+  syncPrices(priceSelection ?? { value: maxPrice });
   const row = document.createElement('div'); row.className = 'recommendation-controls-row';
   row.append(tabs);
   if (onIncludeAcquisitionCards) {

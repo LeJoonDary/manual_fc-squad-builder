@@ -7,6 +7,19 @@ import { decodeSquadSharePayload } from './squadShareUtils';
 import { loadSharedSquadCards } from './squadShareHydration.js';
 import { createExplorePanel } from '../components/ExplorePanel.js';
 const card = { id: 20, player_id: 7, primary_position: 'ST', alt_positions: ['LW'] };
+it('review badge opens the video directly and blocks detail and drag', async () => {
+  const mount = document.createElement('aside'); document.body.append(mount);
+  const review = { youtube_video_id: 'abcdefghijk' };
+  const openReview = vi.fn(), openDetail = vi.fn(), drag = vi.fn();
+  createExplorePanel({ mount, load: async () => [{ ...card, raw: { card_reviews: [review] } }], openReview, openDetail, drag, endDrag: vi.fn(), preset: vi.fn(), close: vi.fn(), name: () => 'Player', image: () => '', rating: () => 90 });
+  await vi.waitFor(() => expect(mount.querySelector('.explore-review-badge')).not.toBeNull());
+  const badge = mount.querySelector('.explore-review-badge');
+  expect(badge.tagName).toBe('SPAN');
+  badge.dispatchEvent(new Event('dragstart', { bubbles: true, cancelable: true }));
+  badge.click();
+  expect(openReview).toHaveBeenCalledExactlyOnceWith(review);
+  expect(openDetail).not.toHaveBeenCalled(); expect(drag).not.toHaveBeenCalled();
+});
 describe('explorer panel transitions', () => {
   it('opens the correct panel including empty or invalid shared codes', () => {
     expect(initialSquadPanel('')).toBe('explore');

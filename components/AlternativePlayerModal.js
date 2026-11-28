@@ -17,6 +17,7 @@ export function createAlternativePlayerModal({ load, select, renderCard, getIncl
   const footer = document.createElement('div'); footer.className = 'swap-load-more-container'; footer.append(more);
   body.append(controlsHost, results, footer); dialog.append(header, body); document.body.append(dialog);
   let controller, controls, position, currentCard, sort, slotMaxPrice;
+  let priceSelection;
   const invalidate = () => controller?.abort();
   close.onclick = () => dialog.close();
   dialog.addEventListener('close', () => { invalidate(); controls?.dispose(); });
@@ -27,11 +28,11 @@ export function createAlternativePlayerModal({ load, select, renderCard, getIncl
     title.textContent = text(`대체 선수 추천 (${formatSlotPosition(position)})`, `Replacement Recommendations (${formatSlotPosition(position)})`);
     close.setAttribute('aria-label', text('교체 모달 닫기', 'Close swap modal'));
     more.textContent = text('더 보기 (20명)', 'Load More (20 Players)');
-    controls = createRecommendationControls({ mode: 'replace', sort, includeAcquisitionCards: getIncludeAcquisitionCards(),
+    controls = createRecommendationControls({ mode: 'replace', sort, priceSelection, includeAcquisitionCards: getIncludeAcquisitionCards(),
       onIncludeAcquisitionCards: value => { onIncludeAcquisitionCards(value); renderControls(); refresh(); }, ...getPriceContext(position, state()),
       onInvalidate: invalidate,
       onSort: value => { sort = value; renderControls(); refresh(); },
-      onPrice: value => { slotMaxPrice = value; renderControls(); refresh(); },
+      onPrice: (value, selection, changed = true) => { slotMaxPrice = value; priceSelection = selection; renderControls(); if (changed) refresh(); },
     });
     controlsHost.replaceChildren(controls.element);
   }
@@ -79,7 +80,7 @@ export function createAlternativePlayerModal({ load, select, renderCard, getIncl
   subscribeLanguage(() => { if (dialog.isConnected && dialog.open) { renderControls(); refresh(); } });
   return {
     async open(nextPosition, nextCard) {
-      invalidate(); position = nextPosition; currentCard = nextCard; sort = 'maintain_chem'; slotMaxPrice = undefined;
+      invalidate(); position = nextPosition; currentCard = nextCard; sort = 'maintain_chem'; slotMaxPrice = undefined; priceSelection = undefined;
       renderControls(); resetMobileZoom(dialog); if (!dialog.open) dialog.showModal();
       await refresh();
     },

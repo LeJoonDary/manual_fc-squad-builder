@@ -5,7 +5,7 @@ import { squadPresets } from '../src/data/squadPresets';
 import { getLanguage, subscribeLanguage } from '../src/i18n/languageStore';
 import { EXPLORE_DRAG_TYPE, explorePositions, primaryPosition, getPrimaryMetaScore } from '../utils/exploreSquad.js';
 
-export function createExplorePanel({ mount, load, preset, openDetail, drag, endDrag, close, name, image, rating }) {
+export function createExplorePanel({ mount, load, preset, openDetail, openReview, drag, endDrag, close, name, image, rating }) {
   const text = (ko, en) => getLanguage() === 'ko' ? ko : en;
   mount.classList.add('explore-panel'); mount.id = 'explore-panel';
   let tab = 'new', request = 0, cards = [], loading = false, failed = false;
@@ -18,7 +18,7 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
   const tabs = document.createElement('div'); tabs.className = 'explore-tabs';
   const list = document.createElement('div'); list.className = 'explore-list';
   const grid = document.createElement('div'); grid.className = 'explore-grid grid-cols-2 gap-2';
-  const more = document.createElement('button'); more.type = 'button'; more.className = 'explore-message';
+  const more = document.createElement('button'); more.type = 'button'; more.className = 'explore-message explore-load-more';
   more.onclick = () => refresh(true);
   list.append(grid, more);
   grid.setAttribute('aria-live', 'polite');
@@ -91,12 +91,31 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
       const badge = document.createElement('b'); badge.textContent = `${rating(card)} · ${primaryPosition(card)}`;
       const playerName = document.createElement('span'); playerName.textContent = name(card);
       const price = document.createElement('small'); price.append(CardCostBadge(card, { coinIcon: true }));
-      info.append(badge, playerName, price); tile.append(thumbnail, info);
+      info.append(badge);
+      const reviews = card.card_reviews ?? card.raw?.card_reviews;
+      const review = (Array.isArray(reviews) ? reviews : [reviews]).find(review => /^[\w-]{11}$/.test(review?.youtube_video_id ?? ''));
+      if (review) {
+        const reviewBadge = document.createElement('span'); reviewBadge.className = 'explore-review-badge';
+        reviewBadge.textContent = '▶ Review'; reviewBadge.title = 'Gameplay Review';
+        reviewBadge.tabIndex = 0; reviewBadge.setAttribute('role', 'button');
+        for (const type of ['pointerdown', 'mousedown', 'dragstart']) reviewBadge.addEventListener(type, event => {
+          event.stopPropagation(); event.preventDefault();
+        });
+        reviewBadge.onkeydown = event => {
+          if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); openReview?.(review); }
+        };
+        reviewBadge.onkeyup = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); } };
+        info.append(reviewBadge);
+      }
+      info.append(playerName, price); tile.append(thumbnail, info);
       let dragged = false;
       let suppressClickUntil = 0;
-      tile.ondragstart = event => { if (!hasDesktopPointer()) { event.preventDefault(); return; } dragged = true; event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData(EXPLORE_DRAG_TYPE, JSON.stringify({ source: 'explore_panel', id: card.id })); drag(card); };
+      tile.ondragstart = event => { if (event.target.closest('.explore-review-badge') || !hasDesktopPointer()) { event.preventDefault(); return; } dragged = true; event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData(EXPLORE_DRAG_TYPE, JSON.stringify({ source: 'explore_panel', id: card.id })); drag(card); };
       tile.ondragend = () => { endDrag(); dragged = false; suppressClickUntil = Date.now() + 350; };
-      tile.onclick = event => { event.stopPropagation(); if (!dragged && Date.now() >= suppressClickUntil) openDetail(card); }; grid.append(tile);
+      tile.onclick = event => {
+        if (event.target.closest('.explore-review-badge')) { event.preventDefault(); event.stopPropagation(); openReview?.(review); return; }
+        event.stopPropagation(); if (!dragged && Date.now() >= suppressClickUntil) openDetail(card);
+      }; grid.append(tile);
     }
   }
   subscribeLanguage(render); void refresh();

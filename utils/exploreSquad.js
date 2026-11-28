@@ -2,7 +2,7 @@ import { normalizeChemistryPosition } from './chemistry.ts';
 import { getSwapPlayerId } from './alternativePlayers.js';
 // Keep the initial explorer page lean; the existing detail modal loads full stats/traits on demand.
 // The wildcard preserves all cost metadata alongside the market price.
-export const EXPLORE_CARD_SELECT = `*, players!inner(*, nations(name, flag_url)), clubs(id,name,logo_url), leagues(id,name,logo_url), card_positions(is_primary,meta_score,positions(name))`;
+export const EXPLORE_CARD_SELECT = `*, players!inner(*, nations(name, flag_url)), clubs(id,name,logo_url), leagues(id,name,logo_url), card_positions(is_primary,meta_score,positions(name)), card_reviews(youtube_video_id)`;
 
 
 export const EXPLORE_DRAG_TYPE = 'application/x-squad-explore';

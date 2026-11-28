@@ -1552,6 +1552,7 @@ window.addEventListener('auto-build-context-change', () => {
   if (!modal.hidden && activeSlot) { renderRecommendationControls(); updateModalPlayerSearch(); }
 });
 let slotMaxPrice;
+let selectPriceSelection;
 
 let recommendationControls;
 let recommendationRows = new Map();
@@ -1588,13 +1589,14 @@ function renderRecommendationControls() {
     : recommendationText('포지션별 메타 추천', 'Meta Recommendations');
   recommendationControls?.dispose();
   recommendationControls = createRecommendationControls({
+    priceSelection: selectPriceSelection,
     includeAcquisitionCards: specialCardsPreference.value,
     onIncludeAcquisitionCards: myEvos ? undefined : value => { specialCardsPreference.set(value); renderRecommendationControls(); updateModalPlayerSearch(); },
     lockedCount: count, sort: myEvos ? 'my_evos' : recommendationSort, totalBudget: targetBudget, maxPrice: getEmptySlotPriceCap(recommendationOptions()),
     onInvalidate: () => { modalAbort?.abort(); modalRequest++; },
     onSelectTab: value => emptySlotTabs.select(value, lockedSquadCount()),
     onSort: value => { playerList.querySelector('.saved-evos-list')?.resetDeleteConfirmation?.(); myEvos = false; recommendationSort = emptySlotTabs.active(lockedSquadCount()); renderRecommendationControls(); updateModalPlayerSearch(); },
-    onPrice: value => { slotMaxPrice = value; renderRecommendationControls(); updateModalPlayerSearch(); },
+    onPrice: (value, selection, changed = true) => { slotMaxPrice = value; selectPriceSelection = selection; renderRecommendationControls(); if (changed) updateModalPlayerSearch(); },
   });
   const evoTab = document.createElement('button'); evoTab.type = 'button';
   evoTab.textContent = recommendationText(`커스텀 카드 (${savedEvosStore.entries.length}/10)`, `Custom Cards (${savedEvosStore.entries.length}/10)`);
@@ -1637,7 +1639,7 @@ async function openPlayerModal(slot, allowReplace = false) {
   if (!allowReplace && isSquadSlotLocked(squad[slot.dataset.position])) return;
   activeSlot = slot; myEvos = false;
   modalAffiliation.reset();
-  slotMaxPrice = undefined; recommendationSort = emptySlotTabs.active(lockedSquadCount());
+  slotMaxPrice = undefined; selectPriceSelection = undefined; recommendationSort = emptySlotTabs.active(lockedSquadCount());
   renderRecommendationControls();
   modalPlayerCards = [];
   modalPlayerSearchInput.value = '';
@@ -2997,6 +2999,7 @@ function endExploreDrag() {
   suppressSlotClick = true; setTimeout(() => { suppressSlotClick = false; }, 0);
 }
 createExplorePanel({
+  openReview: playerDetail.openReview,
   mount: exploreMount, name: getCardName, image: getCardImage, rating: getCardRating,
   load: async (tab, offset) => (await fetchExploreCards(supabase, tab, offset)).map(row => normalizeBrowserPlayerCard({ ...row, summary_only: Boolean(supabase) })).filter(Boolean),
   close: () => { setSquadPanel('close'); closeExploreDrawer(); },

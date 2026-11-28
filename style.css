@@ -2351,6 +2351,9 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .explore-tile b { font-size: 12px; color: #6ee7b7; }
 .explore-tile small { font-size: 11px; color: #cbd5e1; }
 .explore-message { grid-column: 1 / -1; padding: 20px 8px; }
+.explore-load-more { grid-column: 1 / -1; box-sizing: border-box; width: 100%; margin-top: 8px; min-height: 42px; padding: 10px 14px; text-align: center; font-weight: 700; }
+@media (hover: hover) { .explore-load-more:hover { border-color: #34d399; } }
+.recommendation-prices button[aria-pressed="true"] { background: #165e52; border-color: #34d399; color: #ecfdf5; font-weight: 700; }
 .explore-edge-tab, .build-edge-tab, .explore-backdrop { display: none; }
 .explore-mobile-toggle { padding: 7px 10px; font-size: 12px; }
 .pitch .slot.explore-compatible { outline: 3px dashed #4ade80; outline-offset: 5px; filter: drop-shadow(0 0 9px #22c55e); }
@@ -2389,6 +2392,8 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .explore-tile .explore-card-info { position: absolute; inset: 31px 7px 5px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .explore-tile .explore-card-info b { color: #f8fafc; text-shadow: 0 1px 3px #000; font-size: 13px; }
 .explore-tile .explore-card-info > span { width: 100%; margin-top: auto; font-size: 13px; color: white; font-weight: 600; }
+.explore-tile .explore-card-info > .explore-review-badge { flex: none; width: auto; height: 16px; line-height: 16px; margin-top: auto; margin-bottom: auto; padding: 0 4px; border-radius: 4px; background: #ff0000; color: #fff; font-size: 9.5px; pointer-events: auto; cursor: pointer; position: relative; z-index: 35; }
+.explore-tile .explore-card-info > .explore-review-badge + span { margin-top: 0; }
 .explore-tile .explore-card-info small { color: #e2e8f0; font-size: 12px; }
 .explore-tile .card-cost--market { color: #fbbf24; font-weight: 600; }
 .explore-tile .card-cost > .coin-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 12px; height: 12px; font-size: 12px; line-height: 1; overflow: visible; }
