@@ -4,6 +4,8 @@ import { bindPitchTouchDrag } from './pitchTouchDrag.js';
 
 const root = document.createElement('div');
 const move = vi.fn();
+const onDragStart = vi.fn();
+const onDragEnd = vi.fn();
 let source, target, entry, hit;
 const finger = (x = 10, y = 10, identifier = 1) => ({ clientX: x, clientY: y, identifier });
 function touch(type, node = source, touches = [finger()], changedTouches = touches) {
@@ -17,7 +19,7 @@ beforeAll(() => {
   bindPitchTouchDrag(root, {
     getEntry: () => entry, isLocked: value => value.isLocked,
     canMove: (a, b) => a !== b && !b.dataset.locked,
-    move,
+    move, onDragStart, onDragEnd,
   });
 });
 beforeEach(() => {
@@ -28,6 +30,8 @@ beforeEach(() => {
   hit = target;
   document.elementFromPoint = () => hit;
   move.mockClear();
+  onDragStart.mockClear();
+  onDragEnd.mockClear();
 });
 afterEach(() => { touch('touchcancel'); vi.useRealTimers(); });
 
@@ -42,13 +46,17 @@ test('short taps and movement of 8px before the hold retain native behavior', ()
   vi.advanceTimersByTime(300);
   expect(document.querySelector('.pitch-touch-ghost')).toBeNull();
   expect(move).not.toHaveBeenCalled();
+  expect(onDragStart).not.toHaveBeenCalled();
+  expect(onDragEnd).not.toHaveBeenCalled();
 });
 
 test('220ms hold starts drag, prevents scrolling, drops once, and suppresses one click', () => {
   source.querySelector('.slot-card-body').innerHTML = '<img class="ea-card-background" src="custom-bg.png"><img class="ea-card-portrait" src="face.png"><b class="ea-card-rating">97</b><b class="ea-card-position">ST</b><strong class="ea-card-name">Player Name</strong><span class="ea-card-secondary">RW CAM RM</span>';
   touch('touchstart'); vi.advanceTimersByTime(219);
   expect(document.querySelector('.pitch-touch-ghost')).toBeNull();
+  expect(onDragStart).not.toHaveBeenCalled();
   vi.advanceTimersByTime(1);
+  expect(onDragStart).toHaveBeenCalledExactlyOnceWith(source);
   const preview = document.querySelector('.pitch-touch-ghost');
   expect(preview.querySelector('.pitch-touch-background').getAttribute('src')).toContain('custom-bg.png');
   expect(preview.querySelector('.pitch-touch-name').textContent).toBe('Player Name');
@@ -58,6 +66,7 @@ test('220ms hold starts drag, prevents scrolling, drops once, and suppresses one
   expect(target.classList.contains('is-drop-target')).toBe(true);
   touch('touchend', source, [], [finger(80)]);
   expect(move).toHaveBeenCalledExactlyOnceWith(source, target);
+  expect(onDragEnd).toHaveBeenCalledOnce();
   expect(document.querySelector('.pitch-touch-ghost')).toBeNull();
   const clicked = vi.fn(); target.addEventListener('click', clicked);
   target.click(); expect(clicked).not.toHaveBeenCalled();
@@ -79,6 +88,7 @@ test('pinch and cancellation release an active drag; locked destinations cannot 
   expect(touch('touchmove', source, [finger(), finger(20, 20, 2)]).defaultPrevented).toBe(false);
   expect(document.querySelector('.pitch-touch-ghost')).toBeNull();
   touch('touchstart'); vi.advanceTimersByTime(220); touch('touchcancel');
+  expect(onDragEnd).toHaveBeenCalledTimes(2);
   expect(move).not.toHaveBeenCalled();
   target.dataset.locked = 'true';
   touch('touchstart'); vi.advanceTimersByTime(220); touch('touchend', source, [], [finger()]);

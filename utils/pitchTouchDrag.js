@@ -1,5 +1,5 @@
 // Keep native scrolling/pinch untouched until a stationary single-touch hold.
-export function bindPitchTouchDrag(root, { getEntry, isLocked, canMove, move }) {
+export function bindPitchTouchDrag(root, { getEntry, isLocked, canMove, move, onDragStart, onDragEnd }) {
   if (!root) return;
   let pending, timer, ghost, target, ignoreClickUntil = 0;
   const clear = () => {
@@ -7,6 +7,7 @@ export function bindPitchTouchDrag(root, { getEntry, isLocked, canMove, move }) 
     pending?.slot.classList.remove('is-dragging');
     target?.classList.remove('is-drop-target');
     ghost?.remove();
+    if (ghost) onDragEnd?.();
     pending = ghost = target = null;
   };
   const cancel = () => {
@@ -62,6 +63,7 @@ export function bindPitchTouchDrag(root, { getEntry, isLocked, canMove, move }) 
       ghost.append(rating, name);
       document.body.append(ghost);
       slot.classList.add('is-dragging');
+      onDragStart?.(slot);
       point({ clientX: pending.x, clientY: pending.y });
     }, 220);
   }, { passive: true });

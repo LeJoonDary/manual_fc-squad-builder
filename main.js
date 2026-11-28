@@ -282,6 +282,8 @@ bindPitchTouchDrag(document.querySelector('.pitch'), {
   isLocked: isSquadSlotLocked,
   canMove: (origin, target) => canMovePitchEntry(squad, origin.dataset.position, target.dataset.position),
   move: (origin, target) => movePitchPlayer(origin.dataset.position, target),
+  onDragStart: origin => updatePitchDragHighlights(origin.dataset.position),
+  onDragEnd: () => updatePitchDragHighlights(null),
 });
 
 const formationPicker = document.querySelector('#formation-picker');
@@ -2335,6 +2337,10 @@ function renderManagerSlot() {
   managerSlot.append(title, league, nation);
 }
 
+function updatePitchDragHighlights(originPosition) {
+  document.querySelectorAll('.pitch .slot').forEach(target => target.classList.toggle('pitch-compatible', Boolean(originPosition) && canMovePitchEntry(squad, originPosition, target.dataset.position)));
+}
+
 function clearSlotDragFeedback() {
   document.querySelectorAll('.slot').forEach((slot) => {
     slot.classList.remove('is-dragging', 'is-drop-target', 'pitch-compatible');
@@ -2351,7 +2357,7 @@ function handleSlotDragStart(event) {
   dragOriginPosition = slot.dataset.position;
   suppressSlotClick = true;
   slot.classList.add('is-dragging');
-  document.querySelectorAll('.pitch .slot').forEach(target => target.classList.toggle('pitch-compatible', canMovePitchEntry(squad, dragOriginPosition, target.dataset.position)));
+  updatePitchDragHighlights(dragOriginPosition);
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', dragOriginPosition);
 }
