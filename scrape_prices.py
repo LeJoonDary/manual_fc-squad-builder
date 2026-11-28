@@ -134,86 +134,135 @@ def countdown_sleep(seconds: int, reason: str = ""):
     time.sleep(seconds)
 
 
-def get_target_cards(special_limit: int = 200, rotate_gold_limit: int = 40, rotate_totw_limit: int = 10):
-    total_target_cap = special_limit + rotate_gold_limit + rotate_totw_limit
-    log("=" * 65)
-    log(f"[INFO] 타겟 선별 시작: 1회 총 {total_target_cap}장 (스페셜 {special_limit}장 + 순환 {rotate_gold_limit + rotate_totw_limit}장)...")
+def fetch_group_prioritized(limit: int, build_query_fn, extra_filter_fn=None, global_seen_ids=None):
+    """
+    공통 2단계 우선 선별:
+      1순위: price가 0원 또는 NULL인 카드 (price_updated_at 오래된 순 / NULL 우선)
+      2순위: 부족한 수량만큼 price > 0인 카드 (price_updated_at 오래된 순 / NULL 우선)
+    """
+    if limit <= 0:
+        return [], 0, 0
 
-    # 1. 스페셜 군 (오래된 순 200장)
-    # 대소문자 무관하게 SBC/TOKEN/SEASON/OBJ/POTM card_type과 base_hall_of_fut을 DB 조회 단계부터 제외
-    fixed_res = (
-        supabase.table("card_versions")
-        .select("id, api_id, overall, version, card_type, price, price_updated_at")
-        .ilike("version", "%special%")
-        .not_.ilike("card_type", "%sbc%")
-        .not_.ilike("card_type", "%token%")
-        .not_.ilike("card_type", "%tocken%")
-        .not_.ilike("card_type", "%season%")
-        .not_.ilike("card_type", "%obj%")
-        .not_.ilike("card_type", "%potm%")
-        .not_.ilike("version", "%base_hall_of_fut%")
-        .not_.is_("api_id", "null")
-        .order("price_updated_at", desc=False, nullsfirst=True)
-        .execute()
-    )
-    specials = fixed_res.data or []
+    selected = []
+    seen_ids = set(global_seen_ids) if global_seen_ids else set()
 
-    candidate_specials = []
-    candidate_low_totw = []
-    excluded_cnt = 0
-
-    for card in specials:
-        v_low = str(card.get("version", "")).lower()
-        ovr = int(card.get("overall") or 0)
-
-        # TOKEN / SBC / SEASON / OBJ / Base Hall of FUT / POTM 등 거래 불가 카드 2차 필터링
-        if is_excluded_card(card):
-            excluded_cnt += 1
-            continue
-
-        if "totw" in v_low and ovr < 85:
-            if ovr >= 80:
-                candidate_low_totw.append(card)
+    def collect(only_zero: bool, need: int):
+        fetch_cap = min(max(need * 3, need + 80), 1000)
+        q = build_query_fn(
+            supabase.table("card_versions").select(
+                "id, api_id, overall, version, card_type, price, price_updated_at"
+            )
+        )
+        if only_zero:
+            q = q.or_("price.is.null,price.eq.0")
         else:
-            candidate_specials.append(card)
+            q = q.gt("price", 0)
 
-    selected_specials = candidate_specials[:special_limit]
-    selected_totw = candidate_low_totw[:rotate_totw_limit]
+        res = (
+            q.not_.is_("api_id", "null")
+            .order("price_updated_at", desc=False, nullsfirst=True)
+            .limit(fetch_cap)
+            .execute()
+        )
+        for card in (res.data or []):
+            if is_excluded_card(card):
+                continue
+            if extra_filter_fn and not extra_filter_fn(card):
+                continue
+            cid = card["id"]
+            if cid in seen_ids:
+                continue
+            selected.append(card)
+            seen_ids.add(cid)
+            if len(selected) >= limit:
+                break
 
-    # 2. 순환군 B: 82+ 일반 골드 카드 (오래된 순 40장)
-    gold_res = (
-        supabase.table("card_versions")
-        .select("id, api_id, overall, version, card_type, price, price_updated_at")
-        .gte("overall", 82)
-        .not_.ilike("version", "%special%")
-        .not_.ilike("card_type", "%sbc%")
-        .not_.ilike("card_type", "%token%")
-        .not_.ilike("card_type", "%tocken%")
-        .not_.ilike("card_type", "%season%")
-        .not_.ilike("card_type", "%obj%")
-        .not_.ilike("card_type", "%potm%")
-        .not_.is_("api_id", "null")
-        .order("price_updated_at", desc=False, nullsfirst=True)
-        .limit(rotate_gold_limit + 30)
-        .execute()
+    # 1순위: 0원 / NULL 우선
+    collect(only_zero=True, need=limit)
+    zero_cnt = len(selected)
+
+    # 2순위: 부족분은 price > 0 중 오래된 순
+    remaining = limit - len(selected)
+    if remaining > 0:
+        collect(only_zero=False, need=remaining)
+
+    priced_cnt = len(selected) - zero_cnt
+    return selected, zero_cnt, priced_cnt
+
+
+def get_target_cards(
+    special_limit: int = 180,
+    high_gold_limit: int = 40,
+    low_gold_limit: int = 10,
+    rotate_totw_limit: int = 20,
+):
+    total_target_cap = special_limit + high_gold_limit + low_gold_limit + rotate_totw_limit
+    log("=" * 65)
+    log(
+        f"[INFO] 타겟 선별 시작: 1회 총 {total_target_cap}장 "
+        f"(스페셜 {special_limit} + 85+골드 {high_gold_limit} + 82~84골드 {low_gold_limit} + 80~84 TOTW {rotate_totw_limit})..."
     )
-    candidate_gold = [
-        c for c in (gold_res.data or [])
-        if not is_excluded_card(c)
-    ]
-    selected_gold = candidate_gold[:rotate_gold_limit]
 
-    target_cards = selected_specials + selected_totw + selected_gold
+    global_seen = set()
 
-    log(f"[스페셜군] {len(selected_specials)}장 (아이콘/히어로/85+ TOTW) [TOKEN/SBC/SEASON/POTM 등 {excluded_cnt}장 추가 제외]")
-    log(f"[순환군] {len(selected_totw) + len(selected_gold)}장 (골드 {len(selected_gold)}장 + 저오버롤 TOTW {len(selected_totw)}장)")
+    # 1. 스페셜군 (아이콘/히어로/프로모/85+ TOTW, 0원 우선 -> 오래된 순)
+    def build_special_query(q):
+        return (
+            q.ilike("version", "%special%")
+            .not_.ilike("version", "%base_hall_of_fut%")
+        )
+
+    def filter_special(card):
+        v_low = str(card.get("version") or "").lower()
+        ovr = int(card.get("overall") or 0)
+        # 85 미만 TOTW는 4번 그룹에서 별도 선별
+        return not ("totw" in v_low and ovr < 85)
+
+    selected_specials, sp_zero, sp_priced = fetch_group_prioritized(
+        special_limit, build_special_query, extra_filter_fn=filter_special, global_seen_ids=global_seen
+    )
+    global_seen.update(c["id"] for c in selected_specials)
+
+    # 2. 85+ 일반 골드군 (0원 우선 -> 오래된 순)
+    def build_high_gold_query(q):
+        return q.gte("overall", 85).not_.ilike("version", "%special%")
+
+    selected_high_gold, hg_zero, hg_priced = fetch_group_prioritized(
+        high_gold_limit, build_high_gold_query, global_seen_ids=global_seen
+    )
+    global_seen.update(c["id"] for c in selected_high_gold)
+
+    # 3. 82~84 일반 골드군 (0원 우선 -> 오래된 순)
+    def build_low_gold_query(q):
+        return q.gte("overall", 82).lte("overall", 84).not_.ilike("version", "%special%")
+
+    selected_low_gold, lg_zero, lg_priced = fetch_group_prioritized(
+        low_gold_limit, build_low_gold_query, global_seen_ids=global_seen
+    )
+    global_seen.update(c["id"] for c in selected_low_gold)
+
+    # 4. 80~84 저오버롤 TOTW군 (0원 우선 -> 오래된 순)
+    def build_low_totw_query(q):
+        return q.ilike("version", "%totw%").gte("overall", 80).lte("overall", 84)
+
+    selected_totw, tw_zero, tw_priced = fetch_group_prioritized(
+        rotate_totw_limit, build_low_totw_query, global_seen_ids=global_seen
+    )
+    global_seen.update(c["id"] for c in selected_totw)
+
+    target_cards = selected_specials + selected_high_gold + selected_low_gold + selected_totw
+
+    log(f"[스페셜군]   {len(selected_specials)}장 (0원 우선 {sp_zero} / 오래된 순 {sp_priced})")
+    log(f"[85+ 골드]   {len(selected_high_gold)}장 (0원 우선 {hg_zero} / 오래된 순 {hg_priced})")
+    log(f"[82~84 골드] {len(selected_low_gold)}장 (0원 우선 {lg_zero} / 오래된 순 {lg_priced})")
+    log(f"[80~84 TOTW] {len(selected_totw)}장 (0원 우선 {tw_zero} / 오래된 순 {tw_priced})")
     log(f"[타겟] 이번 회차 총 수집 대상: {len(target_cards)}장 (예상 소요시간: 약 {int(len(target_cards)*4.3//60)}분)")
     log("=" * 65)
 
     return target_cards
 
 
-def fetch_futgg_price(api_id: int):
+def fetch_futgg_price(api_id: int, is_gold: bool = False):
     sign_url = "https://www.fut.gg/api/fut/price-access/sign/"
     target_path = f"/api/fut/player-prices/{GAME_VERSION}/{api_id}/?platform={PLATFORM}"
 
@@ -263,16 +312,6 @@ def fetch_futgg_price(api_id: int):
             overview = price_data.get("overview", {}) or {}
             prange = price_data.get("priceRange", {}) or {}
 
-            # API 응답에서 SBC / 목표 / 시즌패스 / 거래불가 확인 시 즉시 건너뜀
-            if (
-                curr.get("isSbc") is True
-                or curr.get("isObjective") is True
-                or curr.get("isUntradeable") is True
-                or curr.get("premiumSeasonPassLevel") is not None
-                or curr.get("standardSeasonPassLevel") is not None
-            ):
-                return None, "SBC_OR_UNTRADEABLE"
-
             updated_at = curr.get("priceUpdatedAt") or datetime.datetime.now(datetime.timezone.utc).isoformat()
 
             price = curr.get("price")
@@ -282,6 +321,20 @@ def fetch_futgg_price(api_id: int):
                     or overview.get("cheapestSale")
                     or (prange.get("maxPrice") if curr.get("isExtinct") else None)
                 )
+
+            # 일반 골드 카드인데 실제 시장 가격이 존재하면 SBC/시즌패스 플래그로 오스킵하지 않고 가격 저장
+            if is_gold and price is not None and price > 0:
+                return price, updated_at
+
+            # API 응답에서 SBC / 목표 / 시즌패스 / 거래불가 확인 시 건너뜀
+            if (
+                curr.get("isSbc") is True
+                or curr.get("isObjective") is True
+                or curr.get("isUntradeable") is True
+                or curr.get("premiumSeasonPassLevel") is not None
+                or curr.get("standardSeasonPassLevel") is not None
+            ):
+                return None, "SBC_OR_UNTRADEABLE"
 
             if price is not None and price > 0:
                 return price, updated_at
@@ -304,17 +357,25 @@ def update_card_price(card_id: int, price: int, updated_at: str):
     }).eq("id", card_id).execute()
 
 
+def touch_card_updated_at(card_id: int, updated_at: str):
+    supabase.table("card_versions").update({
+        "price_updated_at": updated_at,
+    }).eq("id", card_id).execute()
+
+
 def main():
-    parser = argparse.ArgumentParser(description="FUT.GG 시세 자동 수집기 (TOKEN/SBC/SEASON/POTM 제외 + 타임스탬프 로깅)")
-    parser.add_argument("--special", type=int, default=200, help="1회당 수집할 스페셜 카드 수 (기본값: 200장)")
-    parser.add_argument("--gold", type=int, default=40, help="1회당 수집할 82+ 골드 카드 수 (기본값: 40장)")
-    parser.add_argument("--totw", type=int, default=10, help="1회당 수집할 저오버롤 TOTW 수 (기본값: 10장)")
+    parser = argparse.ArgumentParser(description="FUT.GG 시세 자동 수집기 (0원 우선 -> 오래된 순 + 타임스탬프 로깅)")
+    parser.add_argument("--special", type=int, default=180, help="1회당 수집할 스페셜 카드 수 (기본값: 180장)")
+    parser.add_argument("--high-gold", type=int, default=40, help="1회당 수집할 85+ 골드 카드 수 (기본값: 40장)")
+    parser.add_argument("--low-gold", type=int, default=10, help="1회당 수집할 82~84 골드 카드 수 (기본값: 10장)")
+    parser.add_argument("--totw", type=int, default=20, help="1회당 수집할 80~84 TOTW 수 (기본값: 20장)")
     parser.add_argument("--delay", type=float, default=3.2, help="기본 딜레이 초 (기본값: 3.2초)")
     args = parser.parse_args()
 
     cards = get_target_cards(
         special_limit=args.special,
-        rotate_gold_limit=args.gold,
+        high_gold_limit=args.high_gold,
+        low_gold_limit=args.low_gold,
         rotate_totw_limit=args.totw,
     )
     total = len(cards)
@@ -332,8 +393,9 @@ def main():
         api_id = card["api_id"]
         ovr = card["overall"]
         ver = card.get("version", "card")
+        is_gold = "special" not in str(ver or "").lower()
 
-        price, status_or_date = fetch_futgg_price(api_id)
+        price, status_or_date = fetch_futgg_price(api_id, is_gold=is_gold)
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         # [서킷 브레이커: 403 감지 즉시 중단]
@@ -366,7 +428,8 @@ def main():
             log(f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 거래내역 없음 (순번 갱신)")
             success_count += 1
         elif status_or_date == "SBC_OR_UNTRADEABLE":
-            log(f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 건너뜀 (SBC/시즌패스/귀속 카드)")
+            touch_card_updated_at(card_db_id, now_iso)
+            log(f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 건너뜀 (SBC/시즌패스/귀속 카드, 순번 갱신)")
             skip_count += 1
         else:
             log(f"[{idx}/{total}] [{ovr} {ver}] ID {card_db_id} -> 수집 실패 ({status_or_date})")

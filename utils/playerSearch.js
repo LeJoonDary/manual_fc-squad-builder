@@ -37,17 +37,23 @@ export function getValueScoreGrade(value) {
 }
 
 export const normalizeText = value => String(value ?? '')
+  .replace(/[ıİ]/g, 'i')
+  .replace(/[ßẞ]/g, 'ss')
+  .replace(/[øØ]/g, 'o')
+  .replace(/[łŁ]/g, 'l')
+  .replace(/[đĐðÐ]/g, 'd')
+  .replace(/[æÆ]/g, 'ae')
+  .replace(/[œŒ]/g, 'oe')
+  .replace(/[þÞ]/g, 'th')
   .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  .replace(/ø/g, 'o').replace(/Ø/g, 'O')
-  .replace(/æ/g, 'ae').replace(/Æ/g, 'AE')
-  .replace(/[ßẞ]/g, 'ss').toLowerCase();
+  .toLowerCase().trim();
 
 // A broad PostgREST regex narrows candidates without schema/RPC changes.
 // The existing JS matcher remains the final authority (including ligatures).
 const nameVariants = new Map();
 for (const [start, end] of [[0x61, 0x7a], [0xc0, 0x24f], [0x1e00, 0x1eff]]) {
   for (let code = start; code <= end; code++) {
-    const glyph = String.fromCodePoint(code).toLowerCase();
+    const glyph = String.fromCodePoint(code);
     const normalized = normalizeText(glyph);
     if (!/^[a-z]{1,2}$/.test(normalized)) continue;
     for (const key of new Set([normalized, ...normalized])) {
@@ -62,7 +68,7 @@ export function playerNamePattern(query) {
   const marks = '[\u0300-\u036f]*';
   const letter = char => nameVariants.has(char)
     ? `[${[...nameVariants.get(char)].join('')}]` : escapeRegex(char);
-  return (term.match(/ss|ae|[\s\S]/gu) ?? []).map(token => {
+  return (term.match(/ss|ae|oe|th|[\s\S]/gu) ?? []).map(token => {
     if (token.length === 2 && nameVariants.has(token)) {
       return `(${letter(token[0])}${marks}${letter(token[1])}|[${[...nameVariants.get(token)].join('')}])${marks}`;
     }

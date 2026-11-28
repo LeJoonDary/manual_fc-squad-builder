@@ -111,6 +111,11 @@ test('precomputes names once and reuses them across searches and refreshed objec
 test.each([
   ['gross', 'Groß'], ['GROSS', 'GROẞ'], ['mbappe', 'Mbappé'],
   ['mbappe', 'Mbappe\u0301'], ['odegaard', 'Ødegaard'], ['aegir', 'Ægir'],
+  ['yildiz', 'K. Yıldız'], ['YILDIZ', 'K. YILDIZ'], [' Yıldız ', 'K. Yildiz'],
+  ['irfan', 'İrfan'], ['İRFAN', 'Irfan'], ['hojlund', 'Højlund'],
+  ['lukasz', 'Łukasz'], ['LŁ', 'lł'], ['dordevic', 'Đorđević'],
+  ['DÐ', 'dð'], ['aegir', 'ægir'], ['oedipus', 'Œdipus'], ['OE', 'œ'],
+  ['thor', 'Þor'], ['TH', 'þ'], ['cgunos', 'ÇĞÜÑÖŞ'],
   ['s', 'ß'], ['e', 'Æ'], ['A,%_(B)"', 'A,%_(B)"'], ['홍', '홍길동'],
 ])('name prefilter preserves normalized match %s → %s', (query, name) => {
   expect(matchesPlayerName({ name }, query)).toBe(true);
