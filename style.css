@@ -1416,7 +1416,8 @@ body.is-squad-active .app-header-inner { height: 80px; }
 .app-shell.is-squad-active .squad-workspace { justify-content: start; align-items: start; gap: 24px; }
 .app-shell.is-squad-active .pitch-scroll { max-height: 880px; align-self: start; }
 .app-shell.is-squad-active .pitch { top: 0; left: 0; transform: scale(var(--pitch-scale, 0)); transform-origin: top left; border: 2px solid #10b98166; border-radius: 16px; background: radial-gradient(ellipse at 50% 50%, #10b98138 0%, #062016a6 55%, #020805f2 100%), #05110c; box-shadow: 0 0 50px #10b98133; isolation: isolate; }
-.pitch::before { inset: 0; width: auto; height: auto; transform: none; border: 0; border-radius: inherit; background: url('/metaxi-background.png') center / cover no-repeat; opacity: .9; mix-blend-mode: screen; z-index: -2; }
+.pitch::before { display: none; }
+.pitch > .pitch-background { position: absolute; inset: 0; border: 0; pointer-events: none; user-select: none; object-fit: fill; opacity: .95; z-index: 0; }
 .pitch::after { inset: 0; width: auto; height: auto; transform: none; border: 0; border-radius: inherit; background: transparent; box-shadow: inset 0 0 0 1px #34d39933; z-index: -1; }
 .app-shell.is-squad-active .chemistry-panel { align-self: start; border-color: #33415580; background: #0f172ab3; border-radius: 16px; }
 .pitch .slot:not(.occupied) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 115px; min-width: 0; height: 155px; border: 1px solid #64748bb3; border-radius: 12px; background: #1e293bbf; backdrop-filter: blur(12px); box-shadow: 0 12px 28px #0006; color: #f1f5f9; transition: border-color .2s, box-shadow .2s, transform .2s; }
@@ -1463,7 +1464,7 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
 .brand:hover .metaxi-brand-asset { transform: scale(1.05); }
 .metaxi-brand-asset { transition: transform .2s ease; }
 .app-shell.is-squad-active .pitch { border-width: 1px; box-shadow: 0 0 50px #10b98140; }
-.pitch::before { inset: auto; left: 50%; top: 50%; width: var(--formation-height, 1125px); height: var(--pitch-width, 900px); transform: translate(-50%, -50%) scale(1.85, 1.28) rotate(90deg); transform-origin: center; background-image: url('/metaxi-background3.png'); background-position: center; background-size: 100% 100%; opacity: .95; }
+.pitch > .pitch-background { inset: auto; left: 50%; top: 50%; width: var(--formation-height, 1125px); height: var(--pitch-width, 900px); max-width: none; transform: translate(-50%, -50%) scale(1.85, 1.28) rotate(90deg); transform-origin: center; }
 .pitch::after { background: radial-gradient(ellipse at center, transparent 45%, #02061740); box-shadow: inset 0 0 0 1px #34d3994d; }
 @media (min-width: 1280px) { .app-shell.is-squad-active .squad-workspace { grid-template-columns: minmax(0, 1fr) 420px; } }
 @media (max-width: 1023px) {
@@ -1528,8 +1529,8 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   .app-header-inner, body.is-squad-active .app-header-inner { height: auto; min-height: 80px; flex-wrap: wrap; gap: 8px 16px; padding-block: 8px; }
 }
 
-/* Viewport fit for laptop windows, including display scaling. */
-@media (min-width: 768px) {
+/* Viewport fit applies only to the two-column desktop layout. */
+@media (min-width: 1024px) {
   body.is-squad-active { height: 100dvh; min-height: 0; overflow: hidden; }
   body.is-squad-active .app-header { position: relative; flex: 0 0 80px; height: 80px; }
   body.is-squad-active .app-header-inner { height: 100%; min-height: 0; max-width: 1600px; width: 100%; }
@@ -2560,7 +2561,7 @@ body.is-squad-active .app-header { position: sticky; top: 0; flex: none; width: 
   .explore-list { overscroll-behavior: auto; }
 }
 /* Only real dialogs lock background scrolling, never the preset drawer. */
-body:has(.modal:not([hidden])), body:has(dialog:modal) { overflow: hidden; }
+
 
 .slot-custom-panel .slot-custom-appearance-toggle { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; text-align: left; }
 .slot-custom-appearance-toggle[aria-expanded="true"] > span { transform: rotate(180deg); }
@@ -2575,8 +2576,20 @@ body:has(.modal:not([hidden])), body:has(dialog:modal) { overflow: hidden; }
   .slot-custom-stats input { font-size: 16px; min-height: 40px; }
 }
 @media (max-width: 1023px) {
-  .app-shell.is-squad-active .pitch-scroll { min-height: 0; }
-  .app-shell.is-squad-active .squad-workspace { gap: 14px; }
+  /* Stacked content must grow from the document top, not a zero-basis flex box. */
+  html:has(body.is-squad-active) { height: auto; overflow: visible; }
+  body.is-squad-active { display: block; height: auto; min-height: 100dvh; overflow-x: hidden; overflow-y: auto; overscroll-behavior: auto; }
+  body.is-squad-active .app-header { position: relative; top: auto; }
+  .app-shell.is-squad-active { flex: none; justify-content: flex-start; }
+  .app-shell.is-squad-active #squad-builder-page,
+  .app-shell.is-squad-active .squad-content,
+  .app-shell.is-squad-active .pitch-column,
+  .app-shell.is-squad-active .squad-workspace,
+  .app-shell.is-squad-active .chemistry-panel,
+  .app-shell.is-squad-active .chemistry-panel-scroll,
+  .app-shell.is-squad-active { flex: none; height: auto; max-height: none; min-height: 0; overflow: visible; overscroll-behavior: auto; }
+  .app-shell.is-squad-active .pitch-scroll { min-height: 0; overscroll-behavior: auto; }
+  .app-shell.is-squad-active .squad-workspace { gap: 14px; justify-content: flex-start; align-items: flex-start; }
   .app-shell.is-squad-active .pitch-column { margin: 0; padding-bottom: 0; }
 }
 
@@ -2693,3 +2706,39 @@ body:has(.modal:not([hidden])), body:has(dialog:modal) { overflow: hidden; }
 
 .browser-player-card.is-in-squad, .saved-evo-select.is-in-squad { opacity: .45; cursor: not-allowed; }
 .in-squad-badge { display: inline-block; padding: 3px 7px; border: 1px solid #64748b; border-radius: 6px; background: #0f172a; color: #cbd5e1; font-size: 11px; }
+/* Pitch branding stays behind cards and never receives pointer input. */
+.pitch-watermarks { position: absolute; inset: 0; z-index: 0; pointer-events: none; user-select: none; }
+.pitch-watermark { position: absolute; display: inline-flex; align-items: center; gap: 5px; opacity: .6; color: #fff; font-size: 18px; font-weight: 700; letter-spacing: .05em; text-shadow: 0 2px 8px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.9); }
+.pitch-watermark svg { width: 24px; height: 24px; color: #6ee7b7; filter: drop-shadow(0 2px 4px rgba(0,0,0,.9)); }
+.pitch-watermark.top-left { top: 30%; left: 4%; }
+.pitch-watermark.top-right { top: 30%; right: 4%; }
+.pitch-watermark.bottom-left { bottom: 8.5%; left: 4%; }
+.pitch-watermark.bottom-right { bottom: 8.5%; right: 4%; }
+@media (max-width: 767px) {
+  .pitch-watermark { font-size: 11px; }
+  .pitch-watermark svg { width: 14px; height: 14px; }
+  .pitch-watermark.top-left, .pitch-watermark.bottom-left { left: 3%; }
+  .pitch-watermark.top-right, .pitch-watermark.bottom-right { right: 3%; }
+  .pitch-watermark.bottom-left, .pitch-watermark.bottom-right { bottom: 7.5%; }
+}
+.share-save-png { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin: 12px 0 8px; padding: 12px; border: 1px solid #34d399; border-radius: 10px; background: #0b2430; color: #a7f3d0; font: inherit; font-weight: 600; cursor: pointer; }
+.share-save-png[hidden] { display: none; }
+.share-save-png svg { width: 18px; height: 18px; }
+.share-save-png:disabled { opacity: .55; cursor: wait; }
+@media (hover: hover) { .share-save-png:not(:disabled):hover { background: #134e4a; } }
+.squad-png-export { position: relative; opacity: 1; visibility: visible; pointer-events: none; background: #0b1324; }
+.squad-png-export .pitch { position: relative !important; top: 0 !important; left: 0 !important; transform: none !important; margin: 0 !important; }
+.squad-png-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 16px 20px; background: #0b1324; color: #e2e8f0; font-size: 13px; }
+.squad-png-header strong { display: inline-flex; align-items: center; gap: 8px; color: #a7f3d0; }
+.squad-png-header svg { width: 20px; height: 20px; }
+.squad-png-export .slot.occupied .slot-card-body { box-shadow: none !important; }
+.squad-png-export .formation-picker summary { list-style: none; }
+.squad-png-export .formation-picker summary::marker, .squad-png-export .formation-picker summary::-webkit-details-marker { display: none; }
+
+.squad-png-export .slot-card-actions, .squad-png-export .formation-menu, .squad-png-export .formation-picker summary > span, .squad-png-export .manager-slot:not(.is-configured) { display: none !important; }
+.squad-png-export .pitch .slot { outline: none !important; }
+.squad-png-export .pitch .slot.occupied { opacity: 1 !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+.squad-png-export .pitch .slot.is-drop-target { transform: translate(-50%, -50%) !important; }
+
+body:has(.modal:not([hidden])), body:has(dialog:modal),
+html:has(.modal:not([hidden])), html:has(dialog:modal) { overflow: hidden; }

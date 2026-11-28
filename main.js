@@ -2824,6 +2824,10 @@ window.addEventListener('auto-build-context-change', () => squadSlots.sync());
 
 const shareModal = createSquadShareModal({
   mount: document.querySelector('.pitch-heading'),
+  savePng: async snapshot => {
+    const { downloadSquadPng } = await import('./utils/squadImage.js');
+    await downloadSquadPng(document.querySelector('.pitch'), snapshot.formation, snapshot);
+  },
   getCurrent: () => {
     const formation = FORMATIONS.find(f => f.name === currentFormation);
     const entries = formation.slots.map(slot => squad[slot.position] ?? null);

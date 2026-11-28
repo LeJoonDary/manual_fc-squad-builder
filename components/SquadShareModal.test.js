@@ -29,3 +29,22 @@ test('empty pitch disables sharing',()=>{
   createSquadShareModal({mount:document.body,getCurrent:()=>({count:0})});
   expect(document.querySelector('.squad-share-trigger').disabled).toBe(true);
 });
+
+test('PNG saving disables repeat clicks, reports success and recovers after failure', async () => {
+  setLanguage('en', false);
+  let finish;
+  const savePng = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  createSquadShareModal({ mount: document.body, getCurrent: () => ({ count: 1, formation: '4-3-1-2', chemistry: 3, cost: 100, averageOvr: 90, url: 'test' }), savePng });
+  document.querySelector('.squad-share-trigger').click();
+  const png = document.querySelector('.share-save-png');
+  expect(png.nextElementSibling.className).toBe('share-copy');
+  png.click(); png.click();
+  expect(savePng).toHaveBeenCalledTimes(1);
+  expect(png.disabled).toBe(true);
+  expect(png.textContent).toBe('Saving PNG...');
+  finish(); await vi.waitFor(() => expect(png.disabled).toBe(false));
+  expect(document.querySelector('.share-feedback').textContent).toBe('Squad PNG saved.');
+  savePng.mockRejectedValueOnce(new Error('CORS'));
+  png.click(); await vi.waitFor(() => expect(png.disabled).toBe(false));
+  expect(document.querySelector('.share-feedback').textContent).toContain('Could not save PNG');
+});
