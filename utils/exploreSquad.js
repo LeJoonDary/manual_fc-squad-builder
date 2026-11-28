@@ -41,13 +41,14 @@ export function placeExplorePlayer(squad, position, card) {
   next[position] = { card, isLocked: true, isOwned: false };
   return next;
 }
-export async function fetchExploreCards(db, tab) {
+export async function fetchExploreCards(db, tab, offset = 0) {
+  if (!Number.isInteger(offset) || offset < 0 || offset >= 120) return [];
   if (!db) throw new Error('Database unavailable');
   let query = db.from('card_versions').select(EXPLORE_CARD_SELECT);
   query = tab === 'sbc' ? query.or('card_type.ilike.*SBC*,card_type.ilike.*POTM*,card_type.ilike.*TOKEN*,card_type.ilike.*SEASON*,card_type.ilike.*OBJ*')
     : query.not('card_type', 'in', '(NORMAL,GOLD,SILVER,BRONZE,RARE_GOLD,RARE_SILVER,RARE_BRONZE)');
   const { data, error } = await query.order('released_at', { ascending: false, nullsFirst: false })
-    .order('id', { ascending: false }).limit(30);
+    .order('id', { ascending: false }).range(offset, Math.min(offset + 29, 119)).limit(30);
   if (error) throw error;
   return data ?? [];
 }

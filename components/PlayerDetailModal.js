@@ -4,7 +4,7 @@ import { getCardBackground } from '../utils/cardBackground.js';
 import { loadPlayerDetail } from '../utils/playerCatalog.js';
 import { formatCardVersion } from '../utils/pitchCardLabels.js';
 import { createPlaystyleIcons } from './PlaystyleIcons.js';
-import { resetMobileZoom } from '../utils/mobileZoom.js';
+import { resetMobileZoom, releaseMobileZoom } from '../utils/mobileZoom.js';
 
 // Existing detail panel shared by the Players and Squad Builder tabs.
 export function createPlayerDetailModal({
@@ -116,11 +116,16 @@ export function createPlayerDetailModal({
     closeReview();
     review = null;
     playerDetailModal.hidden = true;
+    releaseMobileZoom(playerDetailModal);
     customMount.firstElementChild?.dispose?.();
     selectedPlayer = null; pitchCard = null; customMount.replaceChildren();
     addToPitch = null; addButton.hidden = true;
     playerDetailRequest += 1;
-    if (returnFocus?.isConnected) returnFocus.focus();
+    if (window.innerWidth < 768 || navigator.maxTouchPoints > 0) {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      // Flush :has() scroll-lock invalidation before the next touch gesture.
+      void document.documentElement.offsetHeight;
+    } else if (returnFocus?.isConnected) returnFocus.focus();
     returnFocus = null;
   }
 

@@ -35,7 +35,7 @@ describe('explorer placement', () => {
   });
 });
 it('queries the newest 30 cards with live prices and tab filters', async () => {
-  const query = {}; for (const method of ['select', 'not', 'or', 'order']) query[method] = vi.fn(() => query);
+  const query = {}; for (const method of ['select', 'not', 'or', 'order', 'range']) query[method] = vi.fn(() => query);
   query.limit = vi.fn(async () => ({ data: [{ id: 1, price: 68000 }] })); const db = { from: vi.fn(() => query) };
   expect(await fetchExploreCards(db, 'new')).toEqual([{ id: 1, price: 68000 }]);
   expect(query.select).toHaveBeenCalledWith(EXPLORE_CARD_SELECT);
@@ -44,7 +44,10 @@ it('queries the newest 30 cards with live prices and tab filters', async () => {
   expect(query.order).toHaveBeenNthCalledWith(1, 'released_at', { ascending: false, nullsFirst: false });
   expect(query.order).toHaveBeenNthCalledWith(2, 'id', { ascending: false });
   expect(query.order).toHaveBeenCalledWith('id', { ascending: false }); expect(query.limit).toHaveBeenCalledWith(30);
-  await fetchExploreCards(db, 'sbc');
+  expect(query.range).toHaveBeenCalledWith(0, 29);
+  await fetchExploreCards(db, 'sbc', 30);
+  expect(query.range).toHaveBeenCalledWith(30, 59);
+  expect(await fetchExploreCards(db, 'new', 120)).toEqual([]);
   expect(query.or).toHaveBeenCalledWith('card_type.ilike.*SBC*,card_type.ilike.*POTM*,card_type.ilike.*TOKEN*,card_type.ilike.*SEASON*,card_type.ilike.*OBJ*');
   expect(query.limit).toHaveBeenNthCalledWith(2, 30);
 });
@@ -59,6 +62,7 @@ it('all three preset codes hydrate through the existing share decoder and card l
   }
 });
 it('renders tiles and uses a distinct drag payload while suppressing post-drag clicks', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: true }));
   const mount = document.createElement('aside'), openDetail = vi.fn(), drag = vi.fn(), endDrag = vi.fn();
   createExplorePanel({ mount, load: async () => [card], openDetail, drag, endDrag, preset: vi.fn(), close: vi.fn(), name: () => 'Player', image: () => '/card.png', rating: () => 90 });
   await vi.waitFor(() => expect(mount.querySelector('.explore-tile')).not.toBeNull());
@@ -78,6 +82,26 @@ it('renders tiles and uses a distinct drag payload while suppressing post-drag c
   expect(drag).toHaveBeenCalledWith(card); tile.click(); expect(openDetail).not.toHaveBeenCalled();
   tile.dispatchEvent(new Event('dragend')); expect(endDrag).toHaveBeenCalledOnce();
   tile.click(); expect(openDetail).not.toHaveBeenCalled();
+  vi.unstubAllGlobals();
+});
+
+it('loads 30 at a time up to 120 and restores cached tabs without requests', async () => {
+  const mount = document.createElement('aside'); document.body.append(mount);
+  const load = vi.fn(async (_tab, offset) => Array.from({ length: 30 }, (_, i) => ({ ...card, id: offset + i })));
+  createExplorePanel({ mount, load, preset: vi.fn(), openDetail: vi.fn(), drag: vi.fn(), endDrag: vi.fn(), close: vi.fn(), name: () => 'Player', image: () => 'face.png', rating: () => 90 });
+  await vi.waitFor(() => expect(mount.querySelectorAll('.explore-tile')).toHaveLength(30));
+  for (const count of [60, 90, 120]) {
+    mount.querySelector('.explore-list > button').click();
+    await vi.waitFor(() => expect(mount.querySelectorAll('.explore-tile')).toHaveLength(count));
+  }
+  expect(load.mock.calls.map(call => call[1])).toEqual([0, 30, 60, 90]);
+  expect(mount.querySelector('.explore-list > button').hidden).toBe(true);
+  mount.querySelectorAll('.explore-tabs button')[1].click();
+  await vi.waitFor(() => expect(mount.querySelectorAll('.explore-tile')).toHaveLength(30));
+  mount.querySelectorAll('.explore-tabs button')[0].click();
+  expect(mount.querySelectorAll('.explore-tile')).toHaveLength(120);
+  expect(load).toHaveBeenCalledTimes(5);
+  expect(mount.querySelector('img').decoding).toBe('async');
 });
 
 it('reads only the DB primary meta score and safely hides absent or invalid values', () => {

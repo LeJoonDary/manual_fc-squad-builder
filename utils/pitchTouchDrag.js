@@ -107,4 +107,5 @@ export function bindPitchTouchDrag(root, { getEntry, isLocked, canMove, move, on
     event.stopImmediatePropagation();
   }, true);
   root.addEventListener('contextmenu', event => { if (ghost) event.preventDefault(); });
+  return { cancel };
 }

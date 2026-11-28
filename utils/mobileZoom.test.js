@@ -17,17 +17,17 @@ it('clamps on opening and restores exactly after the last overlapping modal clos
   picker.hidden = true; await Promise.resolve();
   expect(meta.content).toContain('maximum-scale=1.0');
   replacement.open = false; await Promise.resolve();
-  expect(meta.content).toBe(original);
+  expect(meta.content).toBe(original + ', user-scalable=yes');
   resetMobileZoom(picker); picker.hidden = false;
   picker.remove(); await Promise.resolve();
-  expect(meta.content).toBe(original);
+  expect(meta.content).toBe(original + ', user-scalable=yes');
 });
 it('restores on cleanup and page exit', () => {
   const [meta, picker] = setup();
   resetMobileZoom(picker); picker.hidden = false;
-  restoreMobileZoom(); expect(meta.content).toBe(original);
+  restoreMobileZoom(); expect(meta.content).toBe(original + ', user-scalable=yes');
   resetMobileZoom(picker);
-  window.dispatchEvent(new Event('pagehide')); expect(meta.content).toBe(original);
+  window.dispatchEvent(new Event('pagehide')); expect(meta.content).toBe(original + ', user-scalable=yes');
 });
 it.each([768, 1440])('leaves desktop viewport unchanged at %ipx', width => {
   const [meta, picker] = setup(width);

@@ -9,6 +9,7 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
   const text = (ko, en) => getLanguage() === 'ko' ? ko : en;
   mount.classList.add('explore-panel'); mount.id = 'explore-panel';
   let tab = 'new', request = 0, cards = [], loading = false, failed = false;
+  const cache = new Map();
   const heading = document.createElement('header');
   const title = document.createElement('strong');
   const dismiss = document.createElement('button'); dismiss.type = 'button'; dismiss.textContent = '◀'; dismiss.onclick = close;
@@ -17,13 +18,28 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
   const tabs = document.createElement('div'); tabs.className = 'explore-tabs';
   const list = document.createElement('div'); list.className = 'explore-list';
   const grid = document.createElement('div'); grid.className = 'explore-grid grid-cols-2 gap-2';
-  list.append(grid);
+  const more = document.createElement('button'); more.type = 'button'; more.className = 'explore-message';
+  more.onclick = () => refresh(true);
+  list.append(grid, more);
   grid.setAttribute('aria-live', 'polite');
   mount.append(heading, presets, tabs, list);
-  async function refresh() {
-    const id = ++request; loading = true; failed = false; render();
-    try { const result = await load(tab); if (id === request) cards = result; }
-    catch { if (id === request) { cards = []; failed = true; } }
+  async function refresh(append = false) {
+    const key = tab;
+    if (!cache.has(key)) cache.set(key, { cards: [], loaded: false, hasMore: true, pending: null });
+    const state = cache.get(key);
+    if (append && (loading || !state.hasMore || state.cards.length >= 120)) return;
+    const id = ++request; cards = state.cards; failed = false;
+    if (!append && state.loaded) { loading = false; render(); return; }
+    loading = true; render();
+    try {
+      if (!state.pending) state.pending = Promise.resolve().then(() => load(key, state.cards.length)).then(result => {
+        state.cards = [...state.cards, ...result].slice(0, 120);
+        state.loaded = true; state.hasMore = result.length === 30 && state.cards.length < 120;
+      }).finally(() => { state.pending = null; });
+      await state.pending;
+      if (id === request) cards = state.cards;
+    }
+    catch { if (id === request) failed = true; }
     finally { if (id === request) { loading = false; render(); } }
   }
   function render() {
@@ -47,10 +63,13 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
       button.setAttribute('aria-pressed', String(tab === key)); button.onclick = () => { tab = key; void refresh(); }; tabs.append(button);
     }
     grid.replaceChildren(); grid.setAttribute('aria-busy', String(loading));
-    if (loading || failed || !cards.length) {
+    more.hidden = !cards.length || (!failed && !cache.get(tab)?.hasMore);
+    more.disabled = loading;
+    more.textContent = loading ? text('불러오는 중…', 'Loading…') : failed ? text('조회 실패 · 다시 시도', 'Failed · Retry') : text(`더 보기 (${cards.length} / 120)`, `Load More (${cards.length} / 120)`);
+    if (!cards.length) {
       const message = document.createElement('button'); message.type = 'button'; message.className = 'explore-message';
       message.textContent = loading ? text('불러오는 중…', 'Loading…') : failed ? text('조회 실패 · 다시 시도', 'Failed · Retry') : text('등록된 카드가 없습니다', 'No cards found');
-      message.disabled = !failed; message.onclick = refresh; grid.append(message); return;
+      message.disabled = !failed; message.onclick = () => refresh(); grid.append(message); return;
     }
     for (const card of cards) {
       const tile = document.createElement('button'); tile.type = 'button'; tile.className = 'explore-tile'; tile.draggable = hasDesktopPointer();
@@ -58,7 +77,7 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
       const backgroundUrl = (card.raw?.background_url || card.background_url) ? getCardBackground(card) : '';
       if (backgroundUrl) {
         const background = document.createElement('img'); background.className = 'explore-card-background';
-        background.src = backgroundUrl; background.alt = ''; background.draggable = false; background.loading = 'lazy'; tile.append(background);
+        background.src = backgroundUrl; background.alt = ''; background.draggable = false; background.loading = 'lazy'; background.decoding = 'async'; tile.append(background);
       }
       const overlay = document.createElement('span'); overlay.className = 'explore-card-shade'; tile.append(overlay);
       const score = getPrimaryMetaScore(card);
@@ -67,6 +86,7 @@ export function createExplorePanel({ mount, load, preset, openDetail, drag, endD
         meta.setAttribute('aria-label', `${primaryPosition(card)} Meta Score ${score}`); tile.append(meta);
       }
       const thumbnail = document.createElement('img'); thumbnail.className = `explore-portrait${['SPECIAL_HEADSHOT', 'NORMAL'].includes(String(card.card_type ?? card.raw?.card_type ?? '').toUpperCase()) ? ' is-headshot' : ''}`; thumbnail.src = image(card); thumbnail.alt = ''; thumbnail.draggable = false; thumbnail.loading = 'lazy';
+      thumbnail.decoding = 'async';
       const info = document.createElement('span'); info.className = 'explore-card-info';
       const badge = document.createElement('b'); badge.textContent = `${rating(card)} · ${primaryPosition(card)}`;
       const playerName = document.createElement('span'); playerName.textContent = name(card);

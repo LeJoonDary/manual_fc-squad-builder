@@ -277,7 +277,7 @@ function bindSquadSlot(slot) {
   slot.addEventListener('dragend', handleSlotDragEnd);
 }
 document.querySelectorAll('.slot').forEach(bindSquadSlot);
-bindPitchTouchDrag(document.querySelector('.pitch'), {
+const pitchTouchDrag = bindPitchTouchDrag(document.querySelector('.pitch'), {
   getEntry: slot => squad[slot.dataset.position],
   isLocked: isSquadSlotLocked,
   canMove: (origin, target) => canMovePitchEntry(squad, origin.dataset.position, target.dataset.position),
@@ -2063,6 +2063,7 @@ function resetSlot(slot, shouldUpdate = true) {
 }
 
 function openPitchDetail(slot) {
+  pitchTouchDrag?.cancel();
   const position = slot.dataset.position;
   const entry = squad[position]; if (!entry?.card) return;
   playerDetail.open(entry.card, { getPitchCard: () => squad[position]?.card, customPanel: createSlotCustomPanel({
@@ -2930,6 +2931,9 @@ exploreMount.addEventListener('keydown', event => {
   }
 });
 pitchFrame.addEventListener('click', event => {
+  const detailSlot = event.target.closest('[data-pitch-slot="true"]');
+  if (detailSlot && squad[detailSlot.dataset.position]?.card
+    && (!event.target.closest('.slot-card-actions') || event.target.closest('.detail-player'))) return;
   if (window.innerWidth >= 768
     && (activeSquadPanel === 'explore' || squadWorkspace.classList.contains('explore-drawer-open'))) {
     if (!suppressSlotClick && !exploreDragCard && event.target.closest('[data-pitch-slot="true"]')) {
@@ -2994,7 +2998,7 @@ function endExploreDrag() {
 }
 createExplorePanel({
   mount: exploreMount, name: getCardName, image: getCardImage, rating: getCardRating,
-  load: async tab => (await fetchExploreCards(supabase, tab)).map(row => normalizeBrowserPlayerCard({ ...row, summary_only: Boolean(supabase) })).filter(Boolean),
+  load: async (tab, offset) => (await fetchExploreCards(supabase, tab, offset)).map(row => normalizeBrowserPlayerCard({ ...row, summary_only: Boolean(supabase) })).filter(Boolean),
   close: () => { setSquadPanel('close'); closeExploreDrawer(); },
   preset: async preset => {
     if (await hydrateSquadShare(preset.shareCode)) {
